@@ -4,9 +4,11 @@ Maps report urgency to ReportSeverity enum
 """
 
 import logging
+import torch
 from typing import Dict
 from transformers import pipeline
 from app.services.ai.config import AIConfig
+from app.services.ai.gpu_manager import GPUManager
 
 logger = logging.getLogger(__name__)
 
@@ -22,15 +24,25 @@ class UrgencyScorer:
         self._load_model()
     
     def _load_model(self):
-        """Lazy load the model"""
+        """Lazy load the model with GPU optimization"""
         try:
             logger.info("Loading urgency scoring model...")
+            self.gpu_manager = GPUManager()
+            device_index = self.gpu_manager.get_device_index()
+            device_info = self.gpu_manager.get_device_info()
+            
+            model_kwargs = {}
+            if self.gpu_manager.should_use_fp16():
+                logger.info("Enabling FP16 inference for urgency scoring")
+                model_kwargs["torch_dtype"] = torch.float16
+
             self.model = pipeline(
                 "zero-shot-classification",
                 model=AIConfig.ZERO_SHOT_MODEL,
-                device=-1  # CPU
+                device=device_index,
+                model_kwargs=model_kwargs
             )
-            logger.info("✅ Urgency scoring model loaded successfully")
+            logger.info(f"Urgency scoring model loaded on {device_info.device_name}")
         except Exception as e:
             logger.error(f"Failed to load urgency model: {str(e)}")
             raise

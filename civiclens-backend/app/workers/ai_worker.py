@@ -12,13 +12,20 @@ import os
 from datetime import datetime, timedelta
 from sqlalchemy import select
 from app.core.database import AsyncSessionLocal, get_redis
-from app.services.ai_pipeline_service import AIProcessingPipeline
+
+# Try to import AI pipeline, but handle gracefully if dependencies are missing
+try:
+    from app.services.ai_pipeline_service import AIProcessingPipeline
+    AI_AVAILABLE = True
+except (ImportError, ModuleNotFoundError) as e:
+    AI_AVAILABLE = False
+    AI_ERROR = str(e)
 
 # Professional logging configuration for government application
 # Use UTF-8 encoding for console and file handlers to support emojis on Windows
+# Simplify console handler to ensure it works in all environments
 console_handler = logging.StreamHandler(sys.stdout)
 console_handler.setLevel(logging.INFO)
-console_handler.setStream(open(sys.stdout.fileno(), mode='w', encoding='utf-8', buffering=1))
 
 file_handler = logging.FileHandler('logs/ai_worker.log', mode='a', encoding='utf-8')
 file_handler.setLevel(logging.INFO)
@@ -30,9 +37,11 @@ formatter = logging.Formatter(
 console_handler.setFormatter(formatter)
 file_handler.setFormatter(formatter)
 
+# Force configuration to override any previous settings
 logging.basicConfig(
     level=logging.INFO,
-    handlers=[console_handler, file_handler]
+    handlers=[console_handler, file_handler],
+    force=True
 )
 logger = logging.getLogger(__name__)
 
@@ -62,9 +71,13 @@ async def process_ai_queue():
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
     
-    # Professional startup banner
+    # Professional startup banner using configuration
+    from app.config import settings
     logger.info("=" * 80)
-    logger.info("  AI ENGINE - NAVI MUMBAI MUNICIPAL CORPORATION")
+    city_name = settings.CITY_CODE or "UNDEFINED CITY"
+    app_name = settings.APP_NAME or "CivicLens"
+    
+    logger.info(f"  {app_name.upper()} AI ENGINE - {city_name} ZONE")
     logger.info("  Automated Report Classification & Assignment System")
     logger.info("  Version: 2.0.0 | Environment: Production")
     logger.info("  Process ID: %d", os.getpid())
@@ -91,6 +104,15 @@ async def process_ai_queue():
         logger.error("[SYSTEM]   3. Network connectivity is available")
         return
     
+    # Initialize AI Pipeline ONCE (Global Warmup)
+    logger.info("[SYSTEM] Initializing AI Pipeline (loading models)...")
+    try:
+        pipeline = AIProcessingPipeline()
+        logger.info("[SYSTEM] AI Pipeline initialized successfully")
+    except Exception as e:
+        logger.critical(f"[SYSTEM] Failed to initialize AI Pipeline: {e}")
+        return
+
     logger.info("[SYSTEM] AI Engine initialized and ready")
     logger.info("[SYSTEM] Monitoring queue: ai_processing")
     logger.info("[SYSTEM] Awaiting reports for processing...")
@@ -145,7 +167,6 @@ async def process_ai_queue():
                     
                     # Process in new database session
                     async with AsyncSessionLocal() as db:
-                        pipeline = AIProcessingPipeline(db)
                         
                         try:
                             # Get report number for professional logging
@@ -159,7 +180,8 @@ async def process_ai_queue():
                             logger.info(f"[PROCESSING] Report: {report_number} (ID: {report_id})")
                             logger.info(f"[PROCESSING] Timestamp: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S UTC')}")
                             
-                            result = await pipeline.process_report(report_id)
+                            # Use the pre-initialized pipeline
+                            result = await pipeline.process_report(report_id, db)
                             
                             # Professional completion log
                             status_indicator = {
@@ -254,4 +276,21 @@ async def process_ai_queue():
 
 
 if __name__ == "__main__":
+    # Check if AI dependencies are available
+    if not AI_AVAILABLE:
+        logger.error("=" * 80)
+        logger.error(" AI WORKER CANNOT START - MISSING DEPENDENCIES")
+        logger.error("=" * 80)
+        logger.error(f"Error: {AI_ERROR}")
+        logger.error("")
+        logger.error("The AI worker requires additional dependencies.")
+        logger.error("Install with: uv pip install -r requirements-ai.txt")
+        logger.error("")
+        logger.error("The system will continue to work without AI features:")
+        logger.error(" + Reports can still be created and managed")
+        logger.error(" + All core features work normally")
+        logger.error(" - Automatic report classification will be disabled")
+        logger.error("=" * 80)
+        sys.exit(1)
+    
     asyncio.run(process_ai_queue())

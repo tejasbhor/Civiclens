@@ -742,8 +742,8 @@ async def reprocess_single_report(
         await db.commit()
         
         # Process with AI pipeline
-        pipeline = AIProcessingPipeline(db)
-        result = await pipeline.process_report(report_id, force=force)
+        pipeline = AIProcessingPipeline()
+        result = await pipeline.process_report(report_id, db, force=force)
         
         return {
             "success": True,

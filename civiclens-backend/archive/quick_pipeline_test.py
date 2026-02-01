@@ -42,10 +42,10 @@ async def test_pipeline():
         
         # Process through AI pipeline
         print("\n2️⃣ Processing through AI pipeline...")
-        pipeline = AIProcessingPipeline(db)
+        pipeline = AIProcessingPipeline()
         
         start_time = datetime.utcnow()
-        result = await pipeline.process_report(report.id)
+        result = await pipeline.process_report(report.id, db)
         processing_time = (datetime.utcnow() - start_time).total_seconds()
         
         print(f"   ⏱️  Processing time: {processing_time:.2f}s")

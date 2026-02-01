@@ -108,9 +108,8 @@ export function EditReportModal({ report, onClose, onSuccess }: EditReportModalP
                   <span className="text-green-600">✓ Valid length</span>
                 )}
               </p>
-              <p className={`text-xs ${
-                formData.title.length > TITLE_MAX_LENGTH * 0.9 ? 'text-orange-600 font-medium' : 'text-gray-500'
-              }`}>
+              <p className={`text-xs ${formData.title.length > TITLE_MAX_LENGTH * 0.9 ? 'text-orange-600 font-medium' : 'text-gray-500'
+                }`}>
                 {formData.title.length}/{TITLE_MAX_LENGTH}
               </p>
             </div>
@@ -138,9 +137,8 @@ export function EditReportModal({ report, onClose, onSuccess }: EditReportModalP
                   <span className="text-green-600">✓ Valid length</span>
                 )}
               </p>
-              <p className={`text-xs ${
-                formData.description.length > DESCRIPTION_MAX_LENGTH * 0.9 ? 'text-orange-600 font-medium' : 'text-gray-500'
-              }`}>
+              <p className={`text-xs ${formData.description.length > DESCRIPTION_MAX_LENGTH * 0.9 ? 'text-orange-600 font-medium' : 'text-gray-500'
+                }`}>
                 {formData.description.length}/{DESCRIPTION_MAX_LENGTH}
               </p>
             </div>
@@ -156,13 +154,12 @@ export function EditReportModal({ report, onClose, onSuccess }: EditReportModalP
               >
                 <option value="">Select category</option>
                 <option value="roads">Roads</option>
-                <option value="water_supply">Water Supply</option>
+                <option value="water">Water Supply</option>
                 <option value="electricity">Electricity</option>
-                <option value="sanitation">Sanitation</option>
-                <option value="street_lights">Street Lights</option>
+                <option value="sanitation">Sanitation / Garbage</option>
+                <option value="streetlight">Street Lights</option>
                 <option value="drainage">Drainage</option>
-                <option value="garbage">Garbage</option>
-                <option value="parks">Parks</option>
+                <option value="public_property">Public Property</option>
                 <option value="other">Other</option>
               </select>
             </div>

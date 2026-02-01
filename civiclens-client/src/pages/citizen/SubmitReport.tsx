@@ -66,7 +66,7 @@ const SubmitReport = () => {
       }
       return err.response.data.detail[0]?.msg || 'Validation error occurred';
     }
-    
+
     // Handle single validation error object
     if (err.response?.data?.detail && typeof err.response.data.detail === 'object') {
       if (err.response.data.detail.msg) {
@@ -77,22 +77,22 @@ const SubmitReport = () => {
       }
       return 'An error occurred. Please check your input and try again.';
     }
-    
+
     // Handle string error messages
     if (typeof err.response?.data?.detail === 'string') {
       return err.response.data.detail;
     }
-    
+
     // Handle network errors
     if (!err.response && (err.code === 'ECONNABORTED' || err.code === 'ERR_NETWORK' || err.message === 'Network Error')) {
       return 'Unable to connect to the server. Please check your internet connection and try again.';
     }
-    
+
     // Handle error message
     if (typeof err.message === 'string') {
       return err.message;
     }
-    
+
     // Fallback
     return 'An error occurred. Please try again.';
   }, []);
@@ -108,10 +108,10 @@ const SubmitReport = () => {
   const reverseGeocode = useCallback(async (lat: number, lng: number): Promise<{ address: string; landmark: string }> => {
     const controller = new AbortController();
     let timeoutId: NodeJS.Timeout | null = null;
-    
+
     try {
       timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout for better accuracy
-      
+
       // Use higher zoom level (18-19) for more detailed address
       // Also try with addressdetails=1 for full address components
       const response = await fetch(
@@ -124,18 +124,18 @@ const SubmitReport = () => {
           signal: controller.signal
         }
       );
-      
+
       if (timeoutId) clearTimeout(timeoutId);
-      
+
       if (!response.ok) {
         throw new Error('Geocoding failed');
       }
-      
+
       const data = await response.json();
-      
+
       // Extract address components with priority order for accuracy
       const addr = data.address || {};
-      
+
       // Build comprehensive address with all available components
       const addressComponents = [
         addr.house_number,
@@ -147,14 +147,14 @@ const SubmitReport = () => {
         addr.postcode,
         addr.country
       ].filter(Boolean);
-      
+
       // Use display_name as primary source (most accurate from OSM)
       const fullAddress = data.display_name || addressComponents.join(', ') || `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
-      
+
       // For landmark, use the full address (as requested by user)
       // This provides maximum accuracy and detail
       const landmark = fullAddress;
-      
+
       return { address: fullAddress, landmark };
     } catch (error) {
       if (timeoutId) clearTimeout(timeoutId);
@@ -180,42 +180,42 @@ const SubmitReport = () => {
     }
 
     setLocationLoading(true);
-    
+
     // Use getCurrentPosition with high accuracy settings
     navigator.geolocation.getCurrentPosition(
       async (position) => {
         try {
-        const { latitude, longitude, accuracy } = position.coords;
-        
+          const { latitude, longitude, accuracy } = position.coords;
+
           // Validate coordinates
-        if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
-          toast({
-            title: "Invalid Coordinates",
-            description: "The captured coordinates are invalid. Please try again.",
-            variant: "destructive"
-          });
-          setLocationLoading(false);
-          return;
-        }
-        
+          if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
+            toast({
+              title: "Invalid Coordinates",
+              description: "The captured coordinates are invalid. Please try again.",
+              variant: "destructive"
+            });
+            setLocationLoading(false);
+            return;
+          }
+
           // Show loading message for geocoding
-        toast({
-          title: "Fetching Address...",
+          toast({
+            title: "Fetching Address...",
             description: "Getting detailed address information for your location",
-        });
-        
-        // Reverse geocode to get address and landmark
-        const { address, landmark } = await reverseGeocode(latitude, longitude);
-        
-        setLocation({ latitude, longitude, address, accuracy });
-        
+          });
+
+          // Reverse geocode to get address and landmark
+          const { address, landmark } = await reverseGeocode(latitude, longitude);
+
+          setLocation({ latitude, longitude, address, accuracy });
+
           // Auto-fill landmark with full address (as requested by user)
           setFormData(prev => ({ ...prev, landmark: address }));
-        
-        toast({
+
+          toast({
             title: "Location Captured Successfully",
             description: `Location captured with accuracy of ±${Math.round(accuracy)}m. Full address has been auto-filled in the landmark field.`,
-        });
+          });
         } catch (error) {
           logger.error('Location processing error:', error);
           toast({
@@ -230,7 +230,7 @@ const SubmitReport = () => {
       (error) => {
         setLocationLoading(false);
         let errorMessage = "Unable to get your location";
-        
+
         switch (error.code) {
           case error.PERMISSION_DENIED:
             errorMessage = "Location permission denied. Please enable location access in your browser settings and try again.";
@@ -242,14 +242,14 @@ const SubmitReport = () => {
             errorMessage = "Location request timed out. Please ensure you are in an area with good GPS signal and try again.";
             break;
         }
-        
+
         toast({
           title: "Location Error",
           description: errorMessage,
           variant: "destructive"
         });
       },
-      { 
+      {
         enableHighAccuracy: true, // Request highest accuracy possible
         timeout: 20000, // 20 second timeout to allow GPS to get better accuracy
         maximumAge: 0 // Always get fresh position, don't use cached
@@ -260,9 +260,9 @@ const SubmitReport = () => {
   // Handle photo selection
   const handlePhotoSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
-    
+
     if (files.length === 0) return;
-    
+
     // Validate count
     if (photos.length + files.length > MAX_PHOTOS) {
       toast({
@@ -303,7 +303,7 @@ const SubmitReport = () => {
     const newPreviewUrls = files.map(file => URL.createObjectURL(file));
     setPhotoPreviewUrls(prev => [...prev, ...newPreviewUrls]);
     setPhotos(prev => [...prev, ...files]);
-    
+
     e.target.value = ''; // Reset input for next selection
   }, [photos.length, toast]);
 
@@ -367,7 +367,7 @@ const SubmitReport = () => {
         formData.append('file', photo);
         formData.append('upload_source', 'citizen_submission');
         formData.append('is_proof_of_work', 'false');
-        
+
         const response = await apiClient.post(
           `/media/upload/${reportId}`,
           formData,
@@ -378,7 +378,7 @@ const SubmitReport = () => {
             timeout: 30000, // 30 second timeout per photo
           }
         );
-        
+
         if (response.status === 200 || response.status === 201) {
           successCount++;
         } else {
@@ -450,7 +450,7 @@ const SubmitReport = () => {
       navigate(`/citizen/track/${report.id}`);
     } catch (error: any) {
       logger.error('Failed to submit report:', error);
-      
+
       const errorMessage = extractErrorMessage(error);
       toast({
         title: "Submission Failed",
@@ -496,8 +496,8 @@ const SubmitReport = () => {
 
       <div className="container mx-auto px-4 py-8 max-w-3xl">
         {/* Back Button */}
-        <Button 
-          variant="ghost" 
+        <Button
+          variant="ghost"
           onClick={() => navigate('/citizen/dashboard')}
           className="mb-4"
           aria-label="Back to dashboard"
@@ -519,7 +519,7 @@ const SubmitReport = () => {
             {/* Report Details */}
             <div>
               <h2 className="text-lg font-semibold text-foreground mb-4">Report Details</h2>
-              
+
               <div className="space-y-4">
                 <div>
                   <Label htmlFor="title">Title *</Label>
@@ -527,7 +527,7 @@ const SubmitReport = () => {
                     id="title"
                     placeholder="Brief description of the issue"
                     value={formData.title}
-                    onChange={(e) => setFormData({...formData, title: e.target.value})}
+                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                     className="mt-2"
                     maxLength={255}
                     disabled={loading}
@@ -548,7 +548,7 @@ const SubmitReport = () => {
                     id="description"
                     placeholder="Provide a detailed explanation of the problem..."
                     value={formData.description}
-                    onChange={(e) => setFormData({...formData, description: e.target.value})}
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                     className="mt-2 min-h-[120px]"
                     maxLength={2000}
                     disabled={loading}
@@ -565,9 +565,9 @@ const SubmitReport = () => {
 
                 <div>
                   <Label htmlFor="category">Category (Optional)</Label>
-                  <Select 
-                    value={formData.category} 
-                    onValueChange={(value) => setFormData({...formData, category: value})}
+                  <Select
+                    value={formData.category}
+                    onValueChange={(value) => setFormData({ ...formData, category: value })}
                     disabled={loading}
                   >
                     <SelectTrigger className="mt-2" id="category" aria-label="Select category">
@@ -576,11 +576,11 @@ const SubmitReport = () => {
                     <SelectContent>
                       <SelectItem value="roads">Roads</SelectItem>
                       <SelectItem value="water">Water</SelectItem>
-                      <SelectItem value="sanitation">Sanitation</SelectItem>
+                      <SelectItem value="sanitation">Sanitation / Garbage</SelectItem>
                       <SelectItem value="electricity">Electricity</SelectItem>
-                      <SelectItem value="streetlights">Street Lights</SelectItem>
+                      <SelectItem value="streetlight">Street Lights</SelectItem>
                       <SelectItem value="drainage">Drainage</SelectItem>
-                      <SelectItem value="garbage">Garbage</SelectItem>
+                      <SelectItem value="public_property">Public Property</SelectItem>
                       <SelectItem value="other">Other</SelectItem>
                     </SelectContent>
                   </Select>
@@ -591,9 +591,9 @@ const SubmitReport = () => {
 
                 <div>
                   <Label>Severity *</Label>
-                  <RadioGroup 
-                    value={formData.severity} 
-                    onValueChange={(value: 'low' | 'medium' | 'high' | 'critical') => setFormData({...formData, severity: value})} 
+                  <RadioGroup
+                    value={formData.severity}
+                    onValueChange={(value: 'low' | 'medium' | 'high' | 'critical') => setFormData({ ...formData, severity: value })}
                     className="mt-3"
                     disabled={loading}
                     aria-required="true"
@@ -626,7 +626,7 @@ const SubmitReport = () => {
             {/* Location */}
             <div className="pt-6 border-t">
               <h2 className="text-lg font-semibold text-foreground mb-4">Location *</h2>
-              
+
               <div className="space-y-4">
                 {location ? (
                   <div>
@@ -645,9 +645,9 @@ const SubmitReport = () => {
                         </div>
                       </div>
                     </div>
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
+                    <Button
+                      variant="outline"
+                      size="sm"
                       className="mt-2 w-full"
                       onClick={getCurrentLocation}
                       disabled={locationLoading || loading}
@@ -680,9 +680,9 @@ const SubmitReport = () => {
                         </div>
                       </div>
                     </div>
-                    <Button 
-                      variant="default" 
-                      size="lg" 
+                    <Button
+                      variant="default"
+                      size="lg"
                       className="mt-3 w-full"
                       onClick={getCurrentLocation}
                       disabled={locationLoading || loading}
@@ -709,7 +709,7 @@ const SubmitReport = () => {
                     id="landmark"
                     placeholder="Full address will be auto-filled when location is captured"
                     value={formData.landmark}
-                    onChange={(e) => setFormData({...formData, landmark: e.target.value})}
+                    onChange={(e) => setFormData({ ...formData, landmark: e.target.value })}
                     className="mt-2"
                     disabled={loading}
                     maxLength={500}
@@ -732,7 +732,7 @@ const SubmitReport = () => {
             {/* Photos */}
             <div className="pt-6 border-t">
               <h2 className="text-lg font-semibold text-foreground mb-4">Photos (Optional)</h2>
-              
+
               <div className="space-y-4">
                 <div>
                   <Label htmlFor="photo-upload">Upload Photos (Maximum {MAX_PHOTOS}, {MAX_PHOTO_SIZE / (1024 * 1024)}MB each)</Label>
@@ -747,8 +747,8 @@ const SubmitReport = () => {
                     aria-label="Upload photos"
                   />
                   <label htmlFor="photo-upload">
-                    <Button 
-                      variant="outline" 
+                    <Button
+                      variant="outline"
                       className="w-full h-32 flex flex-col gap-2 mt-2 cursor-pointer"
                       asChild
                       disabled={loading || photos.length >= MAX_PHOTOS}
@@ -765,13 +765,13 @@ const SubmitReport = () => {
                       </div>
                     </Button>
                   </label>
-                  
+
                   {photos.length > 0 && (
                     <div className="mt-3 grid grid-cols-3 gap-2" role="list" aria-label="Photo previews">
                       {photoPreviewUrls.map((url, idx) => (
                         <div key={idx} className="relative aspect-square bg-muted rounded-lg overflow-hidden" role="listitem">
-                          <img 
-                            src={url} 
+                          <img
+                            src={url}
                             alt={`Preview ${idx + 1}`}
                             className="w-full h-full object-cover"
                           />
@@ -795,9 +795,9 @@ const SubmitReport = () => {
 
             {/* Submit */}
             <div className="pt-6 border-t">
-              <Button 
-                onClick={handleSubmit} 
-                size="lg" 
+              <Button
+                onClick={handleSubmit}
+                size="lg"
                 className="w-full"
                 disabled={loading || !isFormValid || isOffline || !isBackendReachable}
                 aria-label="Submit report"
@@ -812,13 +812,13 @@ const SubmitReport = () => {
                 )}
               </Button>
               <p className="text-sm text-muted-foreground text-center mt-4">
-                {!location 
-                  ? "Please capture location to submit" 
+                {!location
+                  ? "Please capture location to submit"
                   : !isFormValid
-                  ? "Please complete all required fields"
-                  : isOffline || !isBackendReachable
-                  ? "Unable to submit - check your connection"
-                  : "Your report will be submitted with GPS location"}
+                    ? "Please complete all required fields"
+                    : isOffline || !isBackendReachable
+                      ? "Unable to submit - check your connection"
+                      : "Your report will be submitted with GPS location"}
               </p>
             </div>
           </div>

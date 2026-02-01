@@ -8,9 +8,11 @@ from typing import Dict, Optional
 from datetime import datetime, timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_, func
-from sentence_transformers import SentenceTransformer
+from sentence_transformers import SentenceTransformer, util
 from geoalchemy2.functions import ST_DWithin, ST_MakePoint
 import numpy as np
+import torch
+from app.services.ai.gpu_manager import GPUManager
 
 from app.models.report import Report, ReportStatus
 from app.services.ai.config import AIConfig
@@ -28,14 +30,27 @@ class DuplicateDetector:
     
     def __init__(self):
         self.model = None
+        self.gpu_manager = None
         self._load_model()
     
     def _load_model(self):
-        """Lazy load the sentence transformer model"""
+        """Lazy load the sentence transformer model with GPU optimization"""
         try:
             logger.info("Loading sentence transformer model...")
-            self.model = SentenceTransformer(AIConfig.SENTENCE_TRANSFORMER_MODEL)
-            logger.info("✅ Sentence transformer loaded successfully")
+            self.gpu_manager = GPUManager()
+            device_info = self.gpu_manager.get_device_info()
+            
+            self.model = SentenceTransformer(
+                AIConfig.SENTENCE_TRANSFORMER_MODEL,
+                device=str(self.gpu_manager.get_device())
+            )
+            
+            # Optimization: Use FP16 if valid on GPU (RTX 4060 supports it)
+            if self.gpu_manager.should_use_fp16():
+                logger.info("Enabling FP16 inference for embeddings")
+                self.model.half()
+                
+            logger.info(f"Sentence transformer loaded on {device_info.device_name}")
         except Exception as e:
             logger.error(f"Failed to load sentence transformer: {str(e)}")
             raise
@@ -98,21 +113,34 @@ class DuplicateDetector:
             
             # Step 2: Semantic similarity check
             query_text = f"{title}. {description}"
-            query_embedding = self.model.encode(query_text, convert_to_numpy=True)
             
-            best_match = None
-            best_similarity = 0.0
+            # Batch encode - much faster on GPU
+            # First encode query
+            query_embedding = self.model.encode(
+                query_text, 
+                convert_to_tensor=True,
+                show_progress_bar=False
+            )
             
-            for report in nearby_reports:
-                report_text = f"{report.title}. {report.description}"
-                report_embedding = self.model.encode(report_text, convert_to_numpy=True)
-                
-                # Cosine similarity
-                similarity = self._cosine_similarity(query_embedding, report_embedding)
-                
-                if similarity > best_similarity:
-                    best_similarity = similarity
-                    best_match = report
+            # Prepare corpus texts from nearby reports
+            corpus_texts = [f"{r.title}. {r.description}" for r in nearby_reports]
+            
+            # Batch encode corpus
+            logger.info(f"Batch encoding {len(corpus_texts)} nearby reports on {self.gpu_manager.get_device_info().device_name}...")
+            corpus_embeddings = self.model.encode(
+                corpus_texts,
+                batch_size=self.gpu_manager.get_batch_size(),
+                convert_to_tensor=True,
+                show_progress_bar=False
+            )
+            
+            # Compute cosine similarities (util.cos_sim returns tensor on same device)
+            cosine_scores = util.cos_sim(query_embedding, corpus_embeddings)[0]
+            
+            # Find best match
+            best_score_idx = torch.argmax(cosine_scores).item()
+            best_similarity = cosine_scores[best_score_idx].item()
+            best_match = nearby_reports[best_score_idx]
             
             # Step 3: Determine if duplicate
             is_duplicate = best_similarity >= AIConfig.DUPLICATE_SIMILARITY_THRESHOLD

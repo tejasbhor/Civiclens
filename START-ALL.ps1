@@ -28,7 +28,7 @@ try {
     # Check if Docker is running
     docker ps | Out-Null
     
-    Push-Location D:\docker
+    Push-Location services
     docker compose up -d
     Pop-Location
     

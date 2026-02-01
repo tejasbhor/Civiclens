@@ -22,6 +22,10 @@ class ReportCreate(ReportBase):
     @classmethod
     def validate_category(cls, v):
         if v is not None:
+            # Normalize common variations
+            if v == "streetlights":
+                v = "streetlight"
+            
             valid_categories = [cat.value for cat in ReportCategory]
             if v not in valid_categories:
                 raise ValueError(f'Category must be one of: {", ".join(valid_categories)}')
@@ -45,6 +49,10 @@ class ReportCreateInternal(ReportBase):
     @classmethod
     def validate_category(cls, v):
         if v is not None:
+            # Normalize common variations
+            if v == "streetlights":
+                v = "streetlight"
+            
             valid_categories = [cat.value for cat in ReportCategory]
             if v not in valid_categories:
                 raise ValueError(f'Category must be one of: {", ".join(valid_categories)}')

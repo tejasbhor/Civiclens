@@ -302,3 +302,163 @@ async def change_password(
 
 # Import datetime for session update
 from datetime import datetime
+
+
+# ============================================================================
+# Two-Factor Authentication (2FA) Endpoints
+# ============================================================================
+
+from pydantic import BaseModel
+from app.core.enhanced_security import (
+    generate_totp_secret,
+    generate_totp_qr_code,
+    verify_totp_code,
+    is_2fa_required
+)
+
+
+class TwoFactorSetupResponse(BaseModel):
+    secret: str
+    qr_code: str  # Base64 encoded PNG
+    issuer: str
+
+
+class TwoFactorEnableRequest(BaseModel):
+    code: str  # 6-digit TOTP code
+
+
+class TwoFactorVerifyRequest(BaseModel):
+    code: str  # 6-digit TOTP code
+
+
+@router.post("/2fa/setup", response_model=TwoFactorSetupResponse)
+async def setup_two_factor(
+    db: AsyncSession = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
+    """
+    Generate 2FA secret and QR code for user
+    User must verify with a code before 2FA is enabled
+    """
+    # Generate new TOTP secret
+    secret = generate_totp_secret()
+    
+    # Generate QR code
+    user_email = current_user.email or f"{current_user.phone}@civiclens.system"
+    qr_code = generate_totp_qr_code(secret, user_email)
+    
+    # Store secret temporarily (not enabled yet)
+    current_user.totp_secret = secret
+    await db.commit()
+    
+    return {
+        "secret": secret,
+        "qr_code": qr_code,
+        "issuer": settings.TWO_FA_ISSUER
+    }
+
+
+@router.post("/2fa/enable")
+async def enable_two_factor(
+    request: TwoFactorEnableRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
+    """
+    Enable 2FA after verifying TOTP code
+    """
+    if not current_user.totp_secret:
+        raise ValidationException("2FA not set up. Call /2fa/setup first.")
+    
+    # Verify the code
+    if not verify_totp_code(current_user.totp_secret, request.code):
+        raise ValidationException("Invalid verification code")
+    
+    # Enable 2FA
+    current_user.two_fa_enabled = True
+    await db.commit()
+    
+    # Log 2FA enabled
+    await audit_logger.log_2fa_enabled(
+        db=db,
+        user=current_user
+    )
+    
+    return {"message": "Two-factor authentication enabled successfully"}
+
+
+@router.post("/2fa/disable")
+async def disable_two_factor(
+    request: TwoFactorVerifyRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
+    """
+    Disable 2FA after verifying TOTP code
+    """
+    if not current_user.two_fa_enabled:
+        raise ValidationException("2FA is not enabled")
+    
+    # Verify the code
+    if not verify_totp_code(current_user.totp_secret, request.code):
+        raise ValidationException("Invalid verification code")
+    
+    # Disable 2FA
+    current_user.two_fa_enabled = False
+    current_user.totp_secret = None
+    await db.commit()
+    
+    # Log 2FA disabled
+    await audit_logger.log_2fa_disabled(
+        db=db,
+        user=current_user
+    )
+    
+    return {"message": "Two-factor authentication disabled successfully"}
+
+
+@router.post("/2fa/verify")
+async def verify_two_factor(
+    request: TwoFactorVerifyRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
+    """
+    Verify 2FA code (used during login flow)
+    """
+    if not current_user.two_fa_enabled:
+        raise ValidationException("2FA is not enabled for this user")
+    
+    # Verify the code
+    if not verify_totp_code(current_user.totp_secret, request.code):
+        # Log failed 2FA attempt
+        await audit_logger.log(
+            db=db,
+            action="2fa_failure",
+            user=current_user,
+            description="Failed 2FA verification attempt"
+        )
+        raise ValidationException("Invalid verification code")
+    
+    # Log successful 2FA
+    await audit_logger.log(
+        db=db,
+        action="2fa_success",
+        user=current_user,
+        description="Successful 2FA verification"
+    )
+    
+    return {"message": "2FA verification successful", "verified": True}
+
+
+@router.get("/2fa/status")
+async def get_two_factor_status(
+    current_user = Depends(get_current_user)
+):
+    """
+    Get 2FA status for current user
+    """
+    return {
+        "enabled": current_user.two_fa_enabled,
+        "required": is_2fa_required(current_user.role.value)
+    }

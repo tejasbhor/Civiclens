@@ -1,0 +1,104 @@
+{
+  "test_complaints": [
+    {
+      "reference_id": 1,
+      "title": "Large pothole on Palm Beach Road",
+      "description": "A very deep pothole has formed near the Vashi signal. It is causing slow traffic and risking accidents for two-wheelers.",
+      "latitude": 19.0658,
+      "longitude": 72.9975,
+      "address": "Palm Beach Road, Vashi, Navi Mumbai",
+      "severity": "high",
+      "expected_category": "roads"
+    },
+    {
+      "reference_id": 2,
+      "title": "Garbage pile lying uncollected",
+      "description": "Garbage has been piling up for 3 days near the market entrance. It smells terrible and is attracting strays.",
+      "latitude": 19.0330,
+      "longitude": 73.0297,
+      "address": "Sector 15, CBD Belapur, Navi Mumbai",
+      "severity": "medium",
+      "expected_category": "sanitation"
+    },
+    {
+      "reference_id": 3,
+      "title": "Broken Streetlight causing darkness",
+      "description": "The streetlight at the corner of Sector 4 is not functional. The area is pitch dark at night, raising safety concerns.",
+      "latitude": 19.0213,
+      "longitude": 73.0169,
+      "address": "Sector 4, Nerul, Navi Mumbai",
+      "severity": "medium",
+      "expected_category": "streetlight"
+    },
+    {
+      "reference_id": 4,
+      "title": "Water leakage in main pipeline",
+      "description": "There is a significant water leak from the main supply pipe. Gallons of clean water are being wasted every hour.",
+      "latitude": 19.1136,
+      "longitude": 73.0114,
+      "address": "Ghansoli, Navi Mumbai",
+      "severity": "high",
+      "expected_category": "water"
+    },
+    {
+      "reference_id": 5,
+      "title": "Illegal debris dumping on footpath",
+      "description": "Construction debris has been dumped on the footpath, blocking the way for pedestrians completely.",
+      "latitude": 19.0896,
+      "longitude": 73.0039,
+      "address": "Kopar Khairane, Navi Mumbai",
+      "severity": "medium",
+      "expected_category": "sanitation"
+    },
+    {
+      "reference_id": 6,
+      "title": "Open Manhole near School",
+      "description": "A manhole cover is missing right in front of the primary school gate. This is extremely dangerous for children.",
+      "latitude": 19.0067,
+      "longitude": 73.0175,
+      "address": "Seawoods, Navi Mumbai",
+      "severity": "critical",
+      "expected_category": "drainage"
+    },
+    {
+      "reference_id": 7,
+      "title": "Fallen Tree blocking road",
+      "description": "A large tree has fallen across the internal road due to last night's winds. Traffic is completely blocked.",
+      "latitude": 19.0596,
+      "longitude": 73.0038,
+      "address": "Sanpada, Navi Mumbai",
+      "severity": "high",
+      "expected_category": "public_property"
+    },
+    {
+      "reference_id": 8,
+      "title": "Traffic Signal Malfunction",
+      "description": "The traffic signal at the main junction is stuck on red for all sides, causing massive confusion and traffic jams.",
+      "latitude": 19.0473,
+      "longitude": 73.0222,
+      "address": "Juinagar, Navi Mumbai",
+      "severity": "high",
+      "expected_category": "traffic"
+    },
+    {
+      "reference_id": 9,
+      "title": "Dead animal not removed",
+      "description": "A dead dog has been lying on the side of the road for two days. Please arrange for removal immediately.",
+      "latitude": 19.0760,
+      "longitude": 72.8777,
+      "address": "Turbhe, Navi Mumbai",
+      "severity": "medium",
+      "expected_category": "sanitation"
+    },
+    {
+      "reference_id": 10,
+      "title": "Park bench broken and rusty",
+      "description": "The benches in the community park are broken and have sharp rusty edges. It is dangerous for senior citizens.",
+      "latitude": 19.1030,
+      "longitude": 73.0028,
+      "address": "Airoli, Navi Mumbai",
+      "severity": "low",
+      "expected_category": "public_property"
+    }
+  ]
+}

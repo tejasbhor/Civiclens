@@ -102,7 +102,24 @@ class ApiClient {
           toast.error('Resource not found.');
           break;
         case 422:
-          toast.error(data.detail || 'Validation error.');
+          // Handle validation errors - detail can be an array or string
+          if (Array.isArray(data.detail)) {
+            const errorMessages = data.detail.map((err: any) => err.msg || JSON.stringify(err)).join(', ');
+            toast.error(`Validation error: ${errorMessages}`);
+          } else {
+            toast.error(data.detail || 'Validation error.');
+          }
+          break;
+        case 429:
+          // Rate limit exceeded - show retry time
+          const retryAfter = error.response.headers['retry-after'];
+          if (retryAfter) {
+            const seconds = parseInt(retryAfter);
+            const minutes = Math.ceil(seconds / 60);
+            toast.error(`Too many attempts. Please try again in ${minutes} minute${minutes > 1 ? 's' : ''}.`);
+          } else {
+            toast.error('Too many attempts. Please try again later.');
+          }
           break;
         case 500:
           toast.error('Server error. Please try again later.');

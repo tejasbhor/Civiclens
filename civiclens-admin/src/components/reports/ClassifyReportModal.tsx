@@ -19,12 +19,12 @@ const toLabel = (str: string): string => {
     .join(' ');
 };
 
-export function ClassifyReportModal({ 
-  reportId, 
-  reportNumber, 
-  title, 
-  onClose, 
-  onSuccess 
+export function ClassifyReportModal({
+  reportId,
+  reportNumber,
+  title,
+  onClose,
+  onSuccess
 }: ClassifyReportModalProps) {
   const [category, setCategory] = useState('');
   const [severity, setSeverity] = useState<'' | 'low' | 'medium' | 'high' | 'critical'>('');
@@ -33,15 +33,12 @@ export function ClassifyReportModal({
 
   const categories = [
     { value: 'roads', label: 'Roads' },
-    { value: 'water_supply', label: 'Water Supply' },
-    { value: 'sanitation', label: 'Sanitation' },
+    { value: 'water', label: 'Water Supply' },
+    { value: 'sanitation', label: 'Sanitation / Garbage' },
     { value: 'electricity', label: 'Electricity' },
-    { value: 'street_lights', label: 'Street Lights' },
+    { value: 'streetlight', label: 'Street Lights' },
     { value: 'drainage', label: 'Drainage' },
-    { value: 'garbage', label: 'Garbage Collection' },
-    { value: 'parks', label: 'Parks & Recreation' },
-    { value: 'public_transport', label: 'Public Transport' },
-    { value: 'pollution', label: 'Pollution' },
+    { value: 'public_property', label: 'Public Property' },
     { value: 'other', label: 'Other' },
   ];
 
@@ -113,8 +110,8 @@ export function ClassifyReportModal({
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Category <span className="text-red-500">*</span>
             </label>
-            <select 
-              value={category} 
+            <select
+              value={category}
               onChange={(e) => setCategory(e.target.value)}
               className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
               disabled={loading}
@@ -138,19 +135,17 @@ export function ClassifyReportModal({
                   key={sev.value}
                   onClick={() => setSeverity(sev.value)}
                   disabled={loading}
-                  className={`px-4 py-3 rounded-lg border-2 text-sm font-medium transition-all ${
-                    severity === sev.value
+                  className={`px-4 py-3 rounded-lg border-2 text-sm font-medium transition-all ${severity === sev.value
                       ? 'border-blue-500 bg-blue-50 text-blue-700 shadow-sm'
                       : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300 hover:bg-gray-50'
-                  }`}
+                    }`}
                 >
                   <div className="flex items-center justify-center gap-2">
-                    <div className={`w-2 h-2 rounded-full ${
-                      sev.value === 'low' ? 'bg-green-500' :
-                      sev.value === 'medium' ? 'bg-yellow-500' :
-                      sev.value === 'high' ? 'bg-orange-500' :
-                      'bg-red-500'
-                    }`} />
+                    <div className={`w-2 h-2 rounded-full ${sev.value === 'low' ? 'bg-green-500' :
+                        sev.value === 'medium' ? 'bg-yellow-500' :
+                          sev.value === 'high' ? 'bg-orange-500' :
+                            'bg-red-500'
+                      }`} />
                     {sev.label}
                   </div>
                 </button>
@@ -164,7 +159,7 @@ export function ClassifyReportModal({
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Processing Notes <span className="text-gray-400">(optional)</span>
             </label>
-            <textarea 
+            <textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all resize-none"
@@ -177,14 +172,14 @@ export function ClassifyReportModal({
 
         {/* Footer */}
         <div className="flex gap-3 p-5 border-t bg-gray-50">
-          <button 
+          <button
             onClick={onClose}
             className="flex-1 px-4 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-white transition-colors text-sm font-medium"
             disabled={loading}
           >
             Cancel
           </button>
-          <button 
+          <button
             onClick={handleSubmit}
             className="flex-1 px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all text-sm font-medium shadow-sm flex items-center justify-center gap-2"
             disabled={loading || !category || !severity}

@@ -50,7 +50,7 @@ if ($pythonProcesses) {
 Write-Host "`n[3/3] Stopping Docker containers (Redis, MinIO)..." -ForegroundColor Yellow
 
 try {
-    Push-Location D:\docker
+    Push-Location services
     docker compose down
     Pop-Location
     Write-Host "      Docker containers stopped" -ForegroundColor Green

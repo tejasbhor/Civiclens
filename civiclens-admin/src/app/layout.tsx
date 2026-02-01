@@ -1,3 +1,5 @@
+'use client';
+
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { AuthProvider } from "@/lib/store/authStore";
@@ -13,11 +15,6 @@ const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
 });
-
-export const metadata: Metadata = {
-  title: "CivicLens Admin Portal",
-  description: "CivicLens Municipal Management System",
-};
 
 export default function RootLayout({
   children,

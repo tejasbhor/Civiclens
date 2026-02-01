@@ -33,7 +33,11 @@ export const authApi = {
   },
 
   login: async (phone: string, password: string) => {
-    const res = await apiClient.post('/auth/login', { phone, password });
+    const res = await apiClient.post('/auth/login', { 
+      phone, 
+      password,
+      portal_type: 'officer'  // Admin users login via officer portal
+    });
     const data = res.data as TokenResponse;
     
     if (!data.access_token) {
@@ -118,5 +122,31 @@ export const authApi = {
   verifyPassword: async (password: string): Promise<{ verified: boolean; message: string }> => {
     const res = await apiClient.post('/auth/verify-password', { password });
     return res.data as { verified: boolean; message: string };
+  },
+
+  // Two-Factor Authentication (2FA)
+  setup2FA: async (): Promise<{ secret: string; qr_code: string; issuer: string }> => {
+    const res = await apiClient.post('/auth/2fa/setup');
+    return res.data;
+  },
+
+  enable2FA: async (code: string): Promise<{ message: string }> => {
+    const res = await apiClient.post('/auth/2fa/enable', { code });
+    return res.data;
+  },
+
+  disable2FA: async (code: string): Promise<{ message: string }> => {
+    const res = await apiClient.post('/auth/2fa/disable', { code });
+    return res.data;
+  },
+
+  verify2FA: async (code: string): Promise<{ message: string; verified: boolean }> => {
+    const res = await apiClient.post('/auth/2fa/verify', { code });
+    return res.data;
+  },
+
+  get2FAStatus: async (): Promise<{ enabled: boolean; required: boolean }> => {
+    const res = await apiClient.get('/auth/2fa/status');
+    return res.data;
   },
 };

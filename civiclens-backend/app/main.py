@@ -143,12 +143,28 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
         print(f"     Type: {error['type']}")
         # Don't print input as it may contain non-serializable objects
     
+    # Sanitize errors to ensure they are JSON serializable
+    # Pydantic v2 validation errors may contain exception objects in 'ctx' or 'input'
+    sanitized_errors = []
+    for error in exc.errors():
+        sanitized_error = error.copy()
+        
+        # Handle 'ctx' field which may contain exception objects
+        if 'ctx' in sanitized_error:
+            # Convert values in ctx to strings
+            sanitized_error['ctx'] = {k: str(v) for k, v in sanitized_error['ctx'].items()}
+            
+        # Handle 'input' field if present just in case
+        if 'input' in sanitized_error and not isinstance(sanitized_error['input'], (str, int, float, bool, type(None))):
+            sanitized_error['input'] = str(sanitized_error['input'])
+            
+        sanitized_errors.append(sanitized_error)
+
     # Return only serializable error details
     return JSONResponse(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
         content={
-            "detail": exc.errors(),
-            # Don't include body as it may contain FormData or other non-serializable objects
+            "detail": sanitized_errors,
         }
     )
 

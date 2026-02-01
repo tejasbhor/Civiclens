@@ -142,7 +142,7 @@ class AIConfig:
     # Processing Settings
     MAX_TEXT_LENGTH = 512
     BATCH_SIZE = 8
-    ENABLE_DUPLICATE_DETECTION = False  # ⚠️ DISABLED - Enable when ready for production
+    ENABLE_DUPLICATE_DETECTION = True  # ✅ ENABLED for Production
     ENABLE_AUTO_ASSIGNMENT = True  # Enabled for automatic department assignment
     ENABLE_AUTO_OFFICER_ASSIGNMENT = True  # Enabled for automatic officer assignment
     OFFICER_ASSIGNMENT_STRATEGY = "balanced"  # Strategy: balanced, least_busy, round_robin

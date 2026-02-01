@@ -194,9 +194,9 @@ async def create_report(
 
     try:
         # Enhanced data validation
+        user_id = current_user.id  # Pre-capture to avoid MissingGreenlet after rollback
         report_dict = report_data.model_dump()
-        report_dict['user_id'] = current_user.id
-        
+        report_dict['user_id'] = user_id
         # Validate coordinates are within valid global bounds
         lat, lng = report_dict['latitude'], report_dict['longitude']
         
@@ -240,9 +240,13 @@ async def create_report(
                 raise ValidationException(f"Invalid category. Must be one of: {', '.join(valid_categories)}")
         
         logger.info(f"Creating report with validated data: {report_dict}")
+
+        # Pre-fetch user details to avoid MissingGreenlet error upon rollback (detached instance access)
+        current_user_id = current_user.id
+        current_user_email = current_user.email
         
         # Retry loop to handle race conditions with report number generation
-        max_retries = 5
+        max_retries = 50
         retry_count = 0
         report = None
         report_number = None
@@ -258,42 +262,48 @@ async def create_report(
                 seq = await redis.incr(f"seq:report_number:{city}:{year}")
                 report_number = f"CL-{year}-{city}-{seq:05d}"
                 
-                # Add report_number to the data before creating
-                report_dict['report_number'] = report_number
+                # Check for explicit duplicate report_number in this session
+                # This prevents hitting DB constraints if we can detect it earlier
+                new_report = Report(
+                    **report_dict,
+                    report_number=report_number,
+                    status=ReportStatus.RECEIVED,
+                    status_updated_at=datetime.utcnow()
+                )
                 
-                logger.info(f"Generated report number: {report_number} (attempt {retry_count + 1})")
-                
-                # Create report using CRUD layer with report_number already set
-                report_create_internal = ReportCreateInternal(**report_dict)
-                report = await report_crud.create(db, report_create_internal, commit=False)
-                
-                # Flush to get the ID but don't commit yet
+                db.add(new_report)
                 await db.flush()
-                logger.info(f"Report created successfully with ID: {report.id}, report_number: {report_number}")
-                
-                # Success - break out of retry loop
+                report = new_report
+                # If we're here, the report_number was accepted
                 break
                 
             except IntegrityError as e:
-                # Check if it's a duplicate report_number error
-                if "ix_reports_report_number" in str(e) or "report_number" in str(e):
+                # Catch duplicate report_number and retry with next sequence
+                error_msg = str(e).lower()
+                if "ix_reports_report_number" in error_msg or "report_number" in error_msg:
                     retry_count += 1
-                    await db.rollback()  # Rollback the failed transaction
+                    await db.rollback()
+                    
+                    # Log the collision and try again with a fresh session/increment
+                    print(f"Duplicate report_number {report_number}, retrying... (attempt {retry_count}/{max_retries})")
+                    
+                    # Optional: If we hit many duplicates, it means Redis is way behind.
+                    # We could try to "skip" forward or just let INCR handle it.
+                    # To speed up recovery, we could do:
+                    # await redis.incrby(f"seq:report_number:{city}:{year}", 1) 
                     
                     if retry_count >= max_retries:
                         logger.error(f"Failed to create report after {max_retries} retries due to duplicate report_number")
                         raise ValidationException(
-                            "Unable to generate unique report number. Please try again."
+                            code=422,
+                            message="Unable to generate unique report number. Please try again."
                         )
-                    else:
-                        # Exponential backoff: 0.1s, 0.2s, 0.4s, 0.8s, 1.6s
-                        import asyncio
-                        await asyncio.sleep(0.1 * (2 ** retry_count))
-                        logger.warning(f"Duplicate report_number {report_number}, retrying... (attempt {retry_count + 1}/{max_retries})")
-                        continue
+                    continue
                 else:
-                    # Different IntegrityError - re-raise
-                    raise
+                    # Re-raise other integrity errors (e.g., foreign key violations)
+                    await db.rollback()
+                    print(f"Non-duplicate IntegrityError: {e}")
+                    raise e
             except Exception as e:
                 # For Redis or other errors, log and continue without report_number
                 logger.warning(f"Error generating report number: {str(e)}")
@@ -318,7 +328,7 @@ async def create_report(
         # Update user reputation in background (non-blocking)
         background_tasks.add_task(
             update_user_reputation_bg,
-            current_user.id,
+            current_user_id,
             5  # 5 points for reporting
         )
 
@@ -327,7 +337,7 @@ async def create_report(
             log_audit_event_bg,
             action=AuditAction.REPORT_CREATED,
             status=AuditStatus.SUCCESS,
-            user_id=current_user.id,
+            user_id=current_user_id,
             description=f"Created report: {report.title}",
             metadata={
                 "report_id": report.id,
@@ -336,8 +346,9 @@ async def create_report(
                 "severity": str(report_dict.get('severity')),
                 "location": f"{report_dict.get('latitude')},{report_dict.get('longitude')}",
                 "address": report_dict.get('address'),
-                "user_id": current_user.id,
-                "user_email": current_user.email,
+                "address": report_dict.get('address'),
+                "user_id": current_user_id,
+                "user_email": current_user_email,
                 "validation_passed": True
             },
             resource_type="report",
@@ -409,7 +420,7 @@ async def create_report(
             metadata={
                 "error": str(e),
                 "error_type": "ValidationException",
-                "user_id": current_user.id,
+                "user_id": user_id,
                 "report_data": report_data.model_dump()
             },
             resource_type="report",
@@ -422,7 +433,7 @@ async def create_report(
         logger.error(f"Error type: {type(e).__name__}")
         
         # Get user_id before rollback to avoid detached instance error
-        user_id = current_user.id
+        user_id = current_user_id
         
         await db.rollback()
         

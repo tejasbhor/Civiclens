@@ -201,9 +201,17 @@ apiClient.interceptors.response.use(
           message: 'The requested resource was not found.',
         });
       } else if (status === 429) {
+        // Rate limit exceeded - show retry time
+        const retryAfter = error.response.headers['retry-after'];
+        let message = 'Too many requests. Please try again later.';
+        if (retryAfter) {
+          const seconds = parseInt(retryAfter);
+          const minutes = Math.ceil(seconds / 60);
+          message = `Too many attempts. Please try again in ${minutes} minute${minutes > 1 ? 's' : ''}.`;
+        }
         return Promise.reject({
           ...error,
-          message: 'Too many requests. Please try again later.',
+          message,
         });
       } else if (status >= 500) {
         return Promise.reject({

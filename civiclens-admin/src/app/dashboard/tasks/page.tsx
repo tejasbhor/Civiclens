@@ -6,10 +6,10 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
 import { SimpleSelect } from '@/components/ui/select';
-import { 
-  Search, 
-  Filter, 
-  RefreshCw, 
+import {
+  Search,
+  Filter,
+  RefreshCw,
   Download,
   Users,
   Clock,
@@ -33,9 +33,9 @@ import { TaskDetailModal } from '@/components/tasks/TaskDetailModal';
 import { TaskEditModal } from '@/components/tasks/TaskEditModal';
 import { TaskReassignModal } from '@/components/tasks/TaskReassignModal';
 import { TaskBulkActions } from '@/components/tasks/TaskBulkActions';
-import { 
-  Task, 
-  TaskStatus, 
+import {
+  Task,
+  TaskStatus,
   TaskFilters,
   tasksApi,
   PaginatedTasks,
@@ -51,40 +51,40 @@ export default function TasksPage() {
   const { user } = useAuth();
   const role = user?.role || '';
   const canManageTasks = ['super_admin', 'admin', 'moderator'].includes(role);
-  
+
   // State management
   const [tasks, setTasks] = useState<Task[]>([]);
   const [stats, setStats] = useState<TaskStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
+
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalTasks, setTotalTasks] = useState(0);
   const [perPage] = useState(20);
-  
+
   // Filters
   const [filters, setFilters] = useState<TaskFilters>({
     sort_by: 'assigned_at',
     sort_order: 'desc'
   });
   const [searchQuery, setSearchQuery] = useState('');
-  
+
   // Modals
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showReassignModal, setShowReassignModal] = useState(false);
-  
+
   // Bulk actions
   const [selectedTaskIds, setSelectedTaskIds] = useState<Set<number>>(new Set());
   const [showBulkActions, setShowBulkActions] = useState(false);
   const [viewMode, setViewMode] = useState<'card' | 'list'>('card');
 
   // Auto-clear error after 10 seconds
-  useEffect(() => {  
+  useEffect(() => {
     if (error) {
       const timer = setTimeout(() => setError(null), 10000);
       return () => clearTimeout(timer);
@@ -101,14 +101,14 @@ export default function TasksPage() {
     try {
       setLoading(true);
       setError(null);
-      
+
       const searchFilters = { ...filters };
       if (searchQuery.trim()) {
         searchFilters.search = searchQuery.trim();
       }
-      
+
       const response = await tasksApi.getTasks(currentPage, perPage, searchFilters);
-      
+
       setTasks(response.data);
       setTotalPages(response.total_pages);
       setTotalTasks(response.total);
@@ -189,7 +189,7 @@ export default function TasksPage() {
 
   const statusStats = useMemo(() => {
     if (!stats) return [];
-    
+
     return [
       {
         label: 'Assigned',
@@ -249,7 +249,7 @@ export default function TasksPage() {
             <p className="text-sm text-gray-600">Monitor and manage officer tasks</p>
           </div>
         </div>
-        
+
         <div className="flex items-center gap-3">
           <button
             onClick={handleRefresh}
@@ -259,14 +259,14 @@ export default function TasksPage() {
             <RefreshCw className={cn("w-4 h-4", refreshing && "animate-spin")} />
             Refresh
           </button>
-          
+
           <button
             className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 active:bg-gray-100 transition-all"
           >
             <Download className="w-4 h-4" />
             Export
           </button>
-          
+
           <div className="flex items-center gap-2 pl-3 border-l border-gray-300">
             <div className="text-2xl font-bold text-primary-600">{totalTasks}</div>
             <div className="text-sm text-gray-500">Total Tasks</div>
@@ -284,7 +284,7 @@ export default function TasksPage() {
             'bg-red-500': { text: 'text-red-600', hover: 'hover:border-red-300 group-hover:text-red-700', bg: 'bg-red-100 group-hover:bg-red-200' },
           };
           const colors = colorMap[stat.color] || { text: 'text-gray-600', hover: 'hover:border-gray-300', bg: 'bg-gray-100' };
-          
+
           // Map stat labels to filter values
           const statusFilterMap: Record<string, TaskStatus | undefined> = {
             'Assigned': TaskStatus.ASSIGNED,
@@ -292,7 +292,7 @@ export default function TasksPage() {
             'Resolved': TaskStatus.RESOLVED,
             'Overdue': undefined, // Special case - would need custom logic
           };
-          
+
           const handleStatClick = () => {
             const statusValue = statusFilterMap[stat.label];
             if (statusValue) {
@@ -302,7 +302,7 @@ export default function TasksPage() {
               setCurrentPage(1);
             }
           };
-          
+
           return (
             <button
               key={index}
@@ -340,33 +340,31 @@ export default function TasksPage() {
                 />
               </div>
             </div>
-            
+
             {/* View Toggle */}
             <div className="flex items-center gap-2 border-l border-gray-200 pl-3">
               <button
                 onClick={() => setViewMode('card')}
-                className={`p-2 rounded-lg transition-colors ${
-                  viewMode === 'card'
+                className={`p-2 rounded-lg transition-colors ${viewMode === 'card'
                     ? 'bg-primary-100 text-primary-600'
                     : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
-                }`}
+                  }`}
                 title="Card View"
               >
                 <LayoutGrid className="w-4 h-4" />
               </button>
               <button
                 onClick={() => setViewMode('list')}
-                className={`p-2 rounded-lg transition-colors ${
-                  viewMode === 'list'
+                className={`p-2 rounded-lg transition-colors ${viewMode === 'list'
                     ? 'bg-primary-100 text-primary-600'
                     : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
-                }`}
+                  }`}
                 title="List View"
               >
                 <List className="w-4 h-4" />
               </button>
             </div>
-            
+
             {/* Filters */}
             <div className="flex flex-wrap gap-3">
               <SimpleSelect
@@ -624,7 +622,7 @@ export default function TasksPage() {
                   <div className="text-sm text-gray-600">
                     Showing {((currentPage - 1) * perPage) + 1} to {Math.min(currentPage * perPage, totalTasks)} of {totalTasks} tasks
                   </div>
-                  
+
                   <div className="flex items-center gap-2">
                     <Button
                       variant="outline"
@@ -634,7 +632,7 @@ export default function TasksPage() {
                     >
                       Previous
                     </Button>
-                    
+
                     <div className="flex items-center gap-1">
                       {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
                         const page = i + 1;
@@ -651,7 +649,7 @@ export default function TasksPage() {
                         );
                       })}
                     </div>
-                    
+
                     <Button
                       variant="outline"
                       size="sm"
