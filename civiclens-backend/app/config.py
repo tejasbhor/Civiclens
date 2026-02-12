@@ -1,5 +1,5 @@
 from pydantic_settings import BaseSettings
-from pydantic import Field
+from pydantic import Field, model_validator
 from typing import List, Optional
 from functools import lru_cache
 
@@ -173,12 +173,28 @@ class Settings(BaseSettings):
     AUDIT_LOG_RETENTION_DAYS: int = 365  # 1 year retention
     
     # HTTPS Enforcement
-    HTTPS_ONLY: bool = False  # Set True in production
-    SECURE_COOKIES: bool = False  # Set True in production (requires HTTPS)
+    HTTPS_ONLY: Optional[bool] = None  # Set True in production (Defaults to True in production)
+    SECURE_COOKIES: Optional[bool] = None  # Set True in production (Defaults to True in production)
     
     # Security Headers
     SECURITY_HEADERS_ENABLED: bool = True
     
+    @model_validator(mode='after')
+    def enforce_secure_defaults(self):
+        """Enforce secure defaults in production environment"""
+        if self.ENVIRONMENT == "production":
+            if self.HTTPS_ONLY is None:
+                self.HTTPS_ONLY = True
+            if self.SECURE_COOKIES is None:
+                self.SECURE_COOKIES = True
+        else:
+            # Default to False in non-production environments if not set
+            if self.HTTPS_ONLY is None:
+                self.HTTPS_ONLY = False
+            if self.SECURE_COOKIES is None:
+                self.SECURE_COOKIES = False
+        return self
+
     class Config:
         env_file = ".env"
         case_sensitive = True

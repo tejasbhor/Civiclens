@@ -1,5 +1,7 @@
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.httpsredirect import HTTPSRedirectMiddleware
+from app.core.middleware import SecurityHeadersMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.exceptions import RequestValidationError
@@ -109,6 +111,14 @@ app = FastAPI(
     # redoc_url="/redoc",  # Default: /redoc (ReDoc)
     # openapi_url="/openapi.json"  # Default: /openapi.json
 )
+
+# HTTPS Enforcement
+if settings.HTTPS_ONLY:
+    app.add_middleware(HTTPSRedirectMiddleware)
+
+# Security Headers
+if settings.SECURITY_HEADERS_ENABLED:
+    app.add_middleware(SecurityHeadersMiddleware)
 
 # CORS middleware
 app.add_middleware(
