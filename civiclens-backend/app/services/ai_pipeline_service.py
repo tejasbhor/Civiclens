@@ -36,14 +36,13 @@ class AIProcessingPipeline:
         self.urgency_scorer = UrgencyScorer()
         self.department_router = DepartmentRouter()
         self._system_user_id = None
-        self._warmup_models()
         
-    def _warmup_models(self):
+    async def _warmup_models(self):
         """Warmup models to ensure they are loaded on GPU"""
         try:
             logger.info("Warming up AI models on GPU...")
             # Simple dummy inference to trigger model loading and CUDA kernel compilation
-            self.category_classifier.classify("Test", "Test description")
+            await self.category_classifier.classify("Test", "Test description")
             self.urgency_scorer.score_urgency("Test", "Test description")
             logger.info("Models warmed up and ready")
         except Exception as e:
@@ -58,7 +57,7 @@ class AIProcessingPipeline:
         result = await db.execute(
             select(User.id).where(
                 User.email == "ai-engine@civiclens.system",
-                User.is_active == True
+                User.is_active.is_(True)
             )
         )
         ai_user_id = result.scalar()
@@ -73,7 +72,7 @@ class AIProcessingPipeline:
         result = await db.execute(
             select(User.id).where(
                 User.role == UserRole.ADMIN,
-                User.is_active == True
+                User.is_active.is_(True)
             ).limit(1)
         )
         user_id = result.scalar()
@@ -215,7 +214,7 @@ class AIProcessingPipeline:
             # ========== STAGE 2: CATEGORY CLASSIFICATION ==========
             logger.info("Stage 2: Category classification...")
             try:
-                category_result = self.category_classifier.classify(
+                category_result = await self.category_classifier.classify(
                     report.title,
                     report.description
                 )
@@ -484,7 +483,7 @@ class AIProcessingPipeline:
             try:
                 await self._mark_for_review(report, "pipeline_failure", db)
                 await db.commit()
-            except:
+            except Exception:
                 logger.critical(f"Failed to mark report {report_id} for review")
             
             return result
