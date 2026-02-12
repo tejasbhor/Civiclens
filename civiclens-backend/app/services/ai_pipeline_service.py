@@ -19,6 +19,7 @@ from app.models.report import ReportStatus, ReportSeverity, ReportCategory
 from app.models.report_status_history import ReportStatusHistory
 from app.models.user import User, UserRole
 from app.schemas.report import ReportUpdate
+from app.services.notification_service import NotificationService
 
 logger = logging.getLogger(__name__)
 
@@ -337,6 +338,10 @@ class AIProcessingPipeline:
             # Apply updates (don't commit yet, we'll commit at the end)
             await report_crud.update(db, report_id, update_data, commit=False)
             
+            # Initialize Notification Service
+            notification_service = NotificationService(db)
+            admin_ids = await notification_service.get_admin_user_ids()
+
             # Record status change in audit trail if status changed
             if "status" in update_data.model_dump(exclude_unset=True):
                 # Get AI Engine user for audit trail
@@ -349,6 +354,10 @@ class AIProcessingPipeline:
                     user_id=ai_user_id,  # AI Engine user
                     notes=f"AI classification: {category_result['category']} (confidence: {overall_confidence:.0%})"
                 )
+
+                # Notify admins if classified or pending
+                if update_data.status in [ReportStatus.CLASSIFIED, ReportStatus.PENDING_CLASSIFICATION]:
+                    await notification_service.notify_report_classified(report, admin_ids)
             
             # ========== STAGE 6: AUTO-ASSIGNMENT TO DEPARTMENT ==========
             if overall_confidence >= AIConfig.AUTO_ASSIGN_CONFIDENCE and AIConfig.ENABLE_AUTO_ASSIGNMENT:
@@ -387,6 +396,13 @@ class AIProcessingPipeline:
                             notes=f"Auto-assigned by AI to {dept_result.get('department_name', 'department')}: {category_result['category']} (confidence: {overall_confidence:.0%})"
                         )
                         
+                        # Notify department assignment
+                        await notification_service.notify_department_assigned(
+                            report,
+                            dept_result.get('department_name', 'Department'),
+                            admin_ids
+                        )
+
                         result["status"] = "assigned_to_department"
                         logger.info(
                             f"✅ Assigned to department {dept_result['department_id']} ({dept_result.get('department_name', 'N/A')}), "

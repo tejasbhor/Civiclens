@@ -290,7 +290,8 @@ async def create_report(
                     **report_dict,
                     report_number=report_number,
                     status=ReportStatus.RECEIVED,
-                    status_updated_at=datetime.utcnow()
+                    status_updated_at=datetime.utcnow(),
+                    location=func.ST_SetSRID(func.ST_MakePoint(report_dict['longitude'], report_dict['latitude']), 4326)
                 )
                 
                 db.add(new_report)
