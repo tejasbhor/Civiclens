@@ -11,6 +11,7 @@ import {
   ActivityIndicator,
   BackHandler,
 } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -36,7 +37,11 @@ import {
 type AuthMode = 'select' | 'quick-otp' | 'full-register' | 'password-login';
 type AuthStep = 'phone' | 'otp' | 'register' | 'password';
 
-export const CitizenLoginScreen = () => {
+interface CitizenLoginScreenProps {
+  onBack?: () => void;
+}
+
+export const CitizenLoginScreen = ({ onBack }: CitizenLoginScreenProps) => {
   const navigation = useNavigation();
   const [authMode, setAuthMode] = useState<AuthMode>('select');
   const [authStep, setAuthStep] = useState<AuthStep>('phone');

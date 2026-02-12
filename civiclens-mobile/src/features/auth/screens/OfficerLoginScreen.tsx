@@ -11,6 +11,7 @@ import {
   ScrollView,
   BackHandler,
 } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -27,7 +28,11 @@ import { colors } from '@shared/theme/colors';
 import { useToast } from '@shared/hooks';
 import { Toast } from '@shared/components';
 
-export const OfficerLoginScreen: React.FC = () => {
+interface OfficerLoginScreenProps {
+  onBack?: () => void;
+}
+
+export const OfficerLoginScreen: React.FC<OfficerLoginScreenProps> = ({ onBack }) => {
   const navigation = useNavigation();
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
@@ -261,17 +266,17 @@ export const OfficerLoginScreen: React.FC = () => {
                   </>
                 )}
               </TouchableOpacity>
+            </View>
 
-              <View style={styles.securityNotice}>
-                <View style={styles.securityIcon}>
-                  <Ionicons name="shield-checkmark" size={18} color={colors.primaryDark} />
-                </View>
-                <View style={styles.securityTextContainer}>
-                  <Text style={styles.securityTitle}>Secure Portal</Text>
-                  <Text style={styles.securityText}>
-                    Restricted to authorized government personnel only. All access attempts are logged and monitored.
-                  </Text>
-                </View>
+            <View style={styles.securityNotice}>
+              <View style={styles.securityIcon}>
+                <Ionicons name="shield-checkmark" size={18} color={colors.primaryDark} />
+              </View>
+              <View style={styles.securityTextContainer}>
+                <Text style={styles.securityTitle}>Secure Portal</Text>
+                <Text style={styles.securityText}>
+                  Restricted to authorized government personnel only. All access attempts are logged and monitored.
+                </Text>
               </View>
             </View>
           </ScrollView>
