@@ -1,134 +1,92 @@
 # 🏛️ CivicLens - Smart Civic Issue Management System
 
-[![Version](https://img.shields.io/badge/version-2.2.0-blue.svg)](https://github.com/tejasbhor/Civiclens.git)
-[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Python](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.109.0-009688.svg)](https://fastapi.tiangolo.com/)
-[![Next.js](https://img.shields.io/badge/Next.js-15.5.6-black.svg)](https://nextjs.org/)
-[![React](https://img.shields.io/badge/React-18.3.1-61DAFB.svg)](https://reactjs.org/)
-[![Production Ready](https://img.shields.io/badge/production-ready-brightgreen.svg)](https://github.com/tejasbhor/Civiclens.git)
-
-**CivicLens** is a comprehensive, AI-powered civic issue management platform designed for smart cities. It enables citizens to report civic issues, government officers to manage and resolve them efficiently, and administrators to gain insights through analytics and predictions.
-
-> **🎉 Version 2.2.0 - UI Consistency & Documentation!** This release includes comprehensive UI/UX planning documents, complete design system documentation, and a roadmap for production-ready interface consistency. See [RELEASE_v2.2.0.md](RELEASE_v2.2.0.md) for details.
-
-## 🌟 Key Features
-
-### 👥 For Citizens
-- **Quick Report Submission** - Report civic issues with photos, audio, and GPS location
-- **Real-time Tracking** - Track report status with detailed timeline
-- **OTP-based Authentication** - Quick login without account creation
-- **Reputation System** - Earn points for helpful reports and validations
-- **Multi-language Support** - Interface available in multiple languages
-
-### 👮 For Officers
-- **Task Management** - View and manage assigned civic issues
-- **Field Updates** - Update status with before/after photos
-- **GPS Tracking** - Location-based task assignment
-- **Workload Dashboard** - Monitor personal and team performance
-- **Mobile-first Design** - Optimized for field work
-
-### 🏛️ For Administrators
-- **Comprehensive Dashboard** - Real-time statistics and insights
-- **AI-powered Classification** - Automatic issue categorization with 7-stage pipeline
-- **AI Insights** - Duplicate detection, confidence scoring, category analysis
-- **Analytics & Predictions** - Trend analysis and forecasting
-- **User Management** - Role-based access control (7 tiers)
-- **Audit Logging** - Complete activity tracking
-- **Settings Management** - System-wide configuration
-- **Production Setup** - Professional deployment script with CLI options
+CivicLens is a comprehensive, AI-powered platform designed for smart cities to manage civic issues efficiently. It connects citizens, government officers, and administrators through a unified ecosystem, enabling real-time reporting, tracking, and resolution of civic problems.
 
 ## 🏗️ Architecture
 
-```
-CivicLens/
-├── civiclens-backend/      # FastAPI backend server
-│   ├── app/                # Application code
-│   ├── alembic/            # Database migrations
-│   └── docs/               # Backend-specific documentation
-├── civiclens-admin/        # Next.js admin dashboard
-├── civiclens-client/       # React citizen portal
-├── .agent/                 # UI/UX planning & design system
-├── docs/                   # Project documentation
-├── scripts/                # Utility scripts
-└── services/               # Service configurations
-```
+The project is a monorepo consisting of four main components:
 
-### Technology Stack
+- **Backend** (`civiclens-backend`): A high-performance FastAPI server handling business logic, AI classification, and data management.
+- **Admin Dashboard** (`civiclens-admin`): A Next.js-based web application for administrators to oversee operations, view analytics, and manage users.
+- **Citizen Portal** (`civiclens-client`): A React/Vite web application for citizens to report issues and track their status.
+- **Mobile App** (`civiclens-mobile`): A React Native (Expo) mobile application for citizens and field officers, featuring offline capabilities and GPS tracking.
 
-**Backend:**
-- FastAPI 0.109.0 - High-performance async API framework
-- PostgreSQL with PostGIS - Geospatial database
-- Redis - Caching and session management
-- SQLAlchemy 2.0 - ORM with async support
-- MinIO - Object storage for media files
-- Scikit-learn - AI/ML for classification
+## 🌟 Key Features
 
-**Admin Dashboard:**
-- Next.js 15.5.6 - React framework with SSR
-- TypeScript - Type-safe development
-- Tailwind CSS - Utility-first styling
-- Lucide Icons - Modern icon library
+- **Multi-Channel Reporting**: Submit issues via Web or Mobile App with photos, location, and description.
+- **AI-Powered Classification**: Automatically categorizes reports using a trained ML model to route them to the correct department.
+- **Role-Based Access Control**: 7-tier user hierarchy (Citizen, Contributor, Moderator, Nodal Officer, Auditor, Admin, Super Admin) ensuring secure and appropriate access.
+- **Geospatial Intelligence**: Location-based task assignment and visualization using PostGIS.
+- **Offline-First Mobile App**: Field officers can update tasks without internet connectivity; data syncs when back online.
+- **Real-time Analytics**: Comprehensive dashboards for monitoring resolution times, department performance, and issue trends.
+- **Automated Workflow**: From report submission to assignment and resolution, the lifecycle is streamlined with automated notifications.
 
-**Citizen Portal:**
-- React 18.3.1 - UI library
-- Vite - Fast build tool
-- TypeScript - Type safety
-- Tailwind CSS - Responsive design
+## 🛠️ Technology Stack
 
-## 🚀 Quick Start
+### Backend
+- **Framework**: FastAPI 0.109 (Python 3.11)
+- **Database**: PostgreSQL with PostGIS (via SQLAlchemy 2.0 & AsyncPG)
+- **Caching**: Redis 5.0+
+- **Storage**: MinIO (S3-compatible object storage)
+- **AI/ML**: Scikit-learn, Pandas (for classification)
+- **Testing**: Pytest
+
+### Frontend (Admin & Client)
+- **Admin**: Next.js (App Router), Tailwind CSS, Recharts
+- **Client**: React (Vite), Tailwind CSS, Radix UI
+- **State Management**: React Query, Context API
+
+### Mobile
+- **Framework**: React Native (Expo SDK 54)
+- **Database**: SQLite (local caching), Async Storage
+- **Maps**: React Native Maps
+
+## 🚀 Getting Started
 
 ### Prerequisites
-
 - Python 3.11+
 - Node.js 18+
-- PostgreSQL 14+ with PostGIS extension
-- Redis 6+
-- MinIO (optional, for production)
+- PostgreSQL 14+ with PostGIS extension enabled
+- Docker & Docker Compose (optional, for running Redis/MinIO)
 
-### 1. Clone the Repository
+### 1. Infrastructure Setup
+
+We provide a Docker Compose file to run the required infrastructure services (Redis and MinIO).
 
 ```bash
-https://github.com/tejasbhor/Civiclens_.git
+cd services
+docker-compose up -d
 ```
+
+Ensure your local PostgreSQL service is running and create a database named `civiclens`.
 
 ### 2. Backend Setup
 
 ```bash
 cd civiclens-backend
 
-# Create virtual environment
+# Create and activate virtual environment
 python -m venv .venv
 source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 
 # Install dependencies
 pip install -r requirements.txt
 
-# Copy environment file
+# Configure environment
 cp .env.example .env
+# Edit .env to match your local PostgreSQL credentials
 
-# Edit .env with your configuration
-# DATABASE_URL, REDIS_URL, SECRET_KEY, etc.
-
-# Run database migrations
+# Run migrations
 alembic upgrade head
 
-# Run production setup (creates admin, seeds data, verifies setup)
-python setup_production.py
-
-# Or for non-interactive mode (CI/CD):
-# export ADMIN_PHONE="+919876543210"
-# export ADMIN_EMAIL="admin@example.com"
-# export ADMIN_NAME="Admin Name"
-# export ADMIN_PASSWORD="SecurePassword123!"
-# python setup_production.py --non-interactive
+# Seed initial data (Departments, Admin User, etc.)
+python scripts/seed_all.py
 
 # Start the server
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+uvicorn app.main:app --reload
 ```
-
-Backend will be available at: `http://localhost:8000`
-API Documentation: `http://localhost:8000/docs`
+The API will be available at `http://localhost:8000/api/v1`.
+Documentation: `http://localhost:8000/docs`.
 
 ### 3. Admin Dashboard Setup
 
@@ -138,17 +96,14 @@ cd civiclens-admin
 # Install dependencies
 npm install
 
-# Copy environment file
+# Configure environment
 cp .env.example .env.local
-
-# Edit .env.local
-# NEXT_PUBLIC_API_URL=http://localhost:8000/api/v2
+# Update NEXT_PUBLIC_API_URL if needed
 
 # Start development server
 npm run dev
 ```
-
-Admin Dashboard: `http://localhost:3000`
+Access at `http://localhost:3000`.
 
 ### 4. Citizen Portal Setup
 
@@ -158,242 +113,44 @@ cd civiclens-client
 # Install dependencies
 npm install
 
-# Copy environment file
+# Configure environment
 cp .env.example .env
-
-# Edit .env
-# VITE_API_URL=http://localhost:8000/api/v2
 
 # Start development server
 npm run dev
 ```
+Access at `http://localhost:5173`.
 
-Citizen Portal: `http://localhost:5173`
+### 5. Mobile App Setup
+
+```bash
+cd civiclens-mobile
+
+# Install dependencies
+npm install
+
+# Start Expo server
+npx expo start
+```
+Use the Expo Go app on your phone to scan the QR code.
 
 ## 📚 Documentation
 
-Comprehensive documentation is available in multiple locations:
+Detailed documentation is available in the `docs/` directory:
 
-### UI/UX Planning (`.agent/` folder)
-- **[UI Project Summary](.agent/UI_PROJECT_SUMMARY.md)** - Master project overview and roadmap
-- **[UI Consistency Analysis](.agent/UI_CONSISTENCY_ANALYSIS.md)** - Current state and design system
-- **[UI Implementation Plan](.agent/UI_IMPLEMENTATION_PLAN.md)** - Step-by-step implementation guide
-- **[UI Standards Quick Reference](.agent/UI_STANDARDS_QUICK_REFERENCE.md)** - Developer quick reference
-
-### Project Documentation (`docs/` folder)
-
-**Database:**
-- [Database Schema Summary](docs/DATABASE_SCHEMA_SUMMARY.md) - Complete schema overview
-- [Database Models](docs/DATABASE_SCHEMA_MODELS.md) - Core models documentation
-- [Database Relationships](docs/DATABASE_RELATIONSHIPS.md) - Entity relationships
-- [Database CRUD Operations](docs/DATABASE_CRUD_OPERATIONS.md) - API operations
-- [Database Quick Reference](docs/DATABASE_QUICK_REFERENCE.md) - Quick lookup guide
-- [Database Setup](docs/DATABASE_SETUP_SUMMARY.md) - Setup instructions
-- [Docker Database Setup](docs/DOCKER_DATABASE_SETUP.md) - Docker setup guide
-
-**Security & Authentication:**
-- [Security Testing Guide](docs/SECURITY_TESTING_GUIDE.md) - Security best practices
-- [Admin Login Audit](docs/ADMIN_LOGIN_AUDIT.md) - Login security features
-- [Admin Login Enhanced](docs/ADMIN_LOGIN_ENHANCED.md) - Enhanced authentication
-
-**Deployment & Operations:**
-- [Deployment Guide](docs/DEPLOYMENT_GUIDE.md) - Production deployment
-- [Settings Implementation](docs/SETTINGS_IMPLEMENTATION_COMPLETE.md) - System settings
-
-**Backend Documentation (`civiclens-backend/docs/`):**
-- AI Engine Quick Start
-- API Documentation
-- Testing Guide
-
-## 🔐 Security Features
-
-- **JWT Authentication** - Secure token-based auth
-- **Role-Based Access Control** - 7-tier user hierarchy
-- **Two-Factor Authentication** - TOTP-based 2FA for admins
-- **Rate Limiting** - Prevent brute force attacks
-- **Session Fingerprinting** - Detect session hijacking
-- **Audit Logging** - Complete activity tracking
-- **Password Policies** - Configurable complexity requirements
-- **IP Whitelisting** - Restrict admin access by IP
-
-## 👥 User Roles
-
-1. **Citizen** - Report issues, track status
-2. **Contributor** - Auto-promoted based on reputation
-3. **Moderator** - Area-specific moderation
-4. **Nodal Officer** - Field workers, task management
-5. **Auditor** - Read-only government access
-6. **Admin** - Full operational access
-7. **Super Admin** - System owner, ultimate authority
-
-## 🗺️ Key Features in Detail
-
-### AI-Powered Classification
-- Automatic categorization of reports
-- Confidence scoring
-- Manual override capability
-- Continuous learning from validated data
-
-### Geospatial Features
-- GPS-based report submission
-- Location-based task assignment
-- Reverse geocoding for addresses
-- Area-based moderation
-
-### Analytics Dashboard
-- Real-time statistics
-- Trend analysis
-- Predictive insights
-- Department performance metrics
-- Response time tracking
-
-### Offline Support
-- Progressive Web App (PWA)
-- Offline report submission
-- Background sync when online
-- Conflict resolution
-
-## 🧪 Testing
-
-```bash
-# Backend tests
-cd civiclens-backend
-pytest
-
-# Frontend tests
-cd civiclens-admin
-npm test
-
-cd civiclens-client
-npm test
-```
-
-## 📦 Production Deployment
-
-### Docker Deployment (Recommended)
-
-**Quick Start:**
-```bash
-# Copy environment template
-cp .env.docker.example .env
-
-# Edit with your values (required: passwords, secret key)
-nano .env
-
-# Build and start all services
-docker-compose up -d
-
-# Initialize database
-docker-compose exec backend alembic upgrade head
-docker-compose exec backend python setup_production.py
-
-# Access services
-# - Backend API: http://localhost:8000
-# - Admin Dashboard: http://localhost:3000
-# - Citizen Portal: http://localhost:5173
-```
-
-**Services Included:**
-- PostgreSQL 14 with PostGIS
-- Redis 7 (caching, rate limiting, OTP)
-- MinIO (object storage)
-- FastAPI Backend
-- **AI Worker** (background processing)
-- Next.js Admin Dashboard
-- React Citizen Portal
-
-See [DOCKER_DEPLOYMENT.md](DOCKER_DEPLOYMENT.md) for complete Docker guide.
-
-### Manual Deployment
-
-See [DEPLOYMENT_GUIDE.md](docs/DEPLOYMENT_GUIDE.md) for detailed instructions on:
-- Server setup
-- Database configuration
-- Environment variables
-- SSL/TLS setup
-- Nginx configuration
-- Process management with PM2/Systemd
+- [Database Schema Summary](docs/DATABASE_SCHEMA_SUMMARY.md)
+- [API Documentation](civiclens-backend/docs/)
+- [Deployment Guide](docs/DEPLOYMENT_GUIDE.md)
+- [Security Guide](docs/SECURITY_TESTING_GUIDE.md)
 
 ## 🤝 Contributing
 
-We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
+1. Fork the repository.
+2. Create a feature branch (`git checkout -b feature/amazing-feature`).
+3. Commit your changes (`git commit -m 'Add some amazing feature'`).
+4. Push to the branch (`git push origin feature/amazing-feature`).
+5. Open a Pull Request.
 
 ## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🙏 Acknowledgments
-
-- FastAPI for the excellent async framework
-- Next.js team for the powerful React framework
-- PostgreSQL and PostGIS for robust geospatial support
-- The open-source community for amazing tools and libraries
-
-## 📞 Support
-
-- **Documentation**: [docs/](docs/)
-- **Issues**: [GitHub Issues](https://github.com/tejasbhor/Civiclens_/issues)
-- **Email**: support@civiclens.example.com
-
-## 🗺️ Roadmap
-
-### v2.2.0 - UI Consistency & Documentation ✅ (Current Release)
-- ✅ Comprehensive UI/UX planning documents
-- ✅ Complete design system documentation  
-- ✅ Database documentation (7 guides)
-- ✅ Security testing guide
-- ✅ Deployment documentation updates
-- ✅ Utility scripts and configurations
-
-### v2.3.0 (In Planning)
-- [ ] Reusable UI component library
-- [ ] Admin dashboard UI consistency
-- [ ] Performance optimizations (React Query, code splitting)
-- [ ] Accessibility improvements
-- [ ] Component testing suite
-
-### v2.4.0 (Planned)
-- [ ] Mobile apps (iOS & Android)
-- [ ] WhatsApp integration for notifications
-- [ ] Advanced AI models for priority prediction
-- [ ] Multi-city support
-- [ ] Public dashboard for transparency
-
-### v3.0.0 (Future)
-- [ ] Integration with government systems (DigiLocker, Aadhaar)
-- [ ] Chatbot for citizen queries
-- [ ] Video report support
-- [ ] Gamification for citizens
-- [ ] Advanced analytics with ML insights
-
-## 📊 Project Status
-
-### v2.2.0 - UI Consistency & Documentation ✅
-
-- ✅ Core API - Complete & Production Ready
-- ✅ Admin Dashboard - Complete with AI Insights
-- ✅ Citizen Portal - Complete
-- ✅ Authentication & Security - Enhanced with 2FA
-- ✅ AI Classification - 7-stage pipeline with 80-90% accuracy
-- ✅ AI Worker - Background processing with graceful degradation
-- ✅ Analytics - Complete with caching
-- ✅ Settings Management - Complete
-- ✅ Production Setup - Professional deployment script
-- ✅ Documentation - Comprehensive (30+ guides)
-- ✅ UI/UX Planning - Complete design system and roadmap
-- 🔄 UI Component Library - In planning (v2.3.0)
-- 🔄 UI Consistency - Implementation planned (v2.3.0)
-- 🚧 Mobile Apps - Planned for v2.4.0
-- 📋 Government Integration - Planned for v3.0.0
-
----
-
-**Built with ❤️ for Smart Cities**
-
-*Making civic governance more efficient, transparent, and citizen-friendly.*
