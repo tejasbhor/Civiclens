@@ -2,7 +2,8 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Report, ReportStatus, Department, ReportSeverity, User } from '@/types';
+import { Report, ReportStatus, Department, ReportSeverity, User, UserRole } from '@/types';
+import { useAuth } from '@/lib/hooks/useAuth';
 import { reportsApi } from '@/lib/api/reports';
 import ReportDetail from '@/components/reports/ReportDetail';
 import { departmentsApi } from '@/lib/api/departments';
@@ -78,7 +79,8 @@ export default function ReportsPage() {
     return idParam ? parseInt(idParam, 10) : null;
   });
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
-  const [isAdmin, setIsAdmin] = useState(true); // TODO: wire from auth context/role
+  const { user } = useAuth();
+  const isAdmin = user?.role === UserRole.ADMIN || user?.role === UserRole.SUPER_ADMIN;
 
   // Map preview state
   const [mapPreview, setMapPreview] = useState<{ lat: number; lng: number; address?: string | null } | null>(null);
