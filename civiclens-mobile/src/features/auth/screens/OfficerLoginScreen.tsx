@@ -9,11 +9,13 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  BackHandler,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
 import { authApi } from '@shared/services/api/authApi';
 import { useAuthStore } from '@/store/authStore';
 import {
@@ -21,6 +23,7 @@ import {
   getRoleName,
   type UserRole,
 } from '@shared/utils/roleValidation';
+import { validatePhone, normalizePhone } from '@shared/utils/validation';
 import { colors } from '@shared/theme/colors';
 import { useToast } from '@shared/hooks';
 import { Toast } from '@shared/components';
@@ -42,44 +45,19 @@ export const OfficerLoginScreen: React.FC<OfficerLoginScreenProps> = ({ onBack }
   const { setTokens } = useAuthStore();
   const { toast, showSuccess, showError } = useToast();
 
-  const normalizePhoneNumber = (phone: string): string => {
-    let cleaned = phone.replace(/[\s-]/g, '');
-    
-    if (cleaned.startsWith('+91')) {
-      return cleaned;
-    }
-    
-    if (cleaned.startsWith('91') && cleaned.length === 12) {
-      return '+' + cleaned;
-    }
-    
-    if (/^\d{10}$/.test(cleaned)) {
-      return '+91' + cleaned;
-    }
-    
-    return cleaned;
-  };
+  // Handle hardware back button
+  useEffect(() => {
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (navigation.canGoBack()) {
+        navigation.goBack();
+        return true;
+      }
+      return false;
+    });
+    return () => backHandler.remove();
+  }, [navigation]);
 
-  const validatePhoneNumber = (phone: string): { valid: boolean; error?: string } => {
-    const pattern = /^\+?[1-9]\d{1,14}$/;
-    
-    if (!phone || phone.trim().length === 0) {
-      return { valid: false, error: 'Phone number is required' };
-    }
-    
-    const normalized = normalizePhoneNumber(phone);
-    
-    if (!pattern.test(normalized)) {
-      return { 
-        valid: false, 
-        error: 'Please enter a valid phone number (10 digits or with +91 country code)' 
-      };
-    }
-    
-    return { valid: true };
-  };
-
-  const validatePassword = (password: string): { valid: boolean; error?: string } => {
+  const validatePasswordInternal = (password: string): { valid: boolean; error?: string } => {
     if (!password || password.trim().length === 0) {
       return { valid: false, error: 'Password is required' };
     }
@@ -94,8 +72,8 @@ export const OfficerLoginScreen: React.FC<OfficerLoginScreenProps> = ({ onBack }
   // Real-time validation
   useEffect(() => {
     if (phone.length > 0) {
-      const validation = validatePhoneNumber(phone);
-      setPhoneError(validation.valid ? null : validation.error || null);
+      const validation = validatePhone(phone);
+      setPhoneError(validation.isValid ? null : validation.error || null);
     } else {
       setPhoneError(null);
     }
@@ -103,7 +81,7 @@ export const OfficerLoginScreen: React.FC<OfficerLoginScreenProps> = ({ onBack }
 
   useEffect(() => {
     if (password.length > 0) {
-      const validation = validatePassword(password);
+      const validation = validatePasswordInternal(password);
       setPasswordError(validation.valid ? null : validation.error || null);
     } else {
       setPasswordError(null);
@@ -114,11 +92,11 @@ export const OfficerLoginScreen: React.FC<OfficerLoginScreenProps> = ({ onBack }
     setPhoneError(null);
     setPasswordError(null);
 
-    const phoneValidation = validatePhoneNumber(phone);
-    const passwordValidation = validatePassword(password);
+    const phoneValidation = validatePhone(phone);
+    const passwordValidation = validatePasswordInternal(password);
 
-    if (!phoneValidation.valid || !passwordValidation.valid) {
-      if (!phoneValidation.valid) {
+    if (!phoneValidation.isValid || !passwordValidation.valid) {
+      if (!phoneValidation.isValid) {
         setPhoneError(phoneValidation.error || null);
         showError(phoneValidation.error || 'Invalid phone number');
       }
@@ -129,7 +107,7 @@ export const OfficerLoginScreen: React.FC<OfficerLoginScreenProps> = ({ onBack }
       return;
     }
 
-    const normalizedPhone = normalizePhoneNumber(phone);
+    const normalizedPhone = normalizePhone(phone);
 
     try {
       setIsLoading(true);
