@@ -197,6 +197,13 @@ async def create_report(
         from app.core.exceptions import UnauthorizedException
         raise UnauthorizedException("Authentication required to create reports")
 
+    # Rate limiting: 5 reports per 5 minutes per user
+    await rate_limiter.check_rate_limit(
+        key=f"create_report:{current_user.id}",
+        max_requests=5,
+        window_seconds=300
+    )
+
     # Authorization validation
     if not current_user.can_report():
         logger.warning(f"User {current_user.id} attempted to create report without permission")
