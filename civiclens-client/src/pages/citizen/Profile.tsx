@@ -5,7 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, User, Mail, MapPin, Phone, LogOut, Edit, Loader2, AlertCircle, Shield, Bell, CheckCircle2, XCircle, RefreshCw, Award, Star, TrendingUp, Activity, FileText } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import { showToast } from "@/lib/utils/toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { authService } from "@/services/authService";
 import { userService } from "@/services/userService";
@@ -27,9 +27,8 @@ import {
 
 const CitizenProfile = () => {
   const navigate = useNavigate();
-  const { toast } = useToast();
   const { user, logout: authLogout, refreshUser, loading: authLoading } = useAuth();
-  
+
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -65,18 +64,18 @@ const CitizenProfile = () => {
 
   const loadProfileData = useCallback(async () => {
     if (!user) return;
-    
+
     try {
-    // Set form data from user
-    setFormData({
-      full_name: user.full_name || "",
-      email: user.email || "",
-      primary_address: "",
-      bio: "",
-      push_notifications: true,
-      sms_notifications: true,
-      email_notifications: true
-    });
+      // Set form data from user
+      setFormData({
+        full_name: user.full_name || "",
+        email: user.email || "",
+        primary_address: "",
+        bio: "",
+        push_notifications: true,
+        sms_notifications: true,
+        email_notifications: true
+      });
 
       // Load user stats, preferences, and verification status in parallel
       const [statsData, prefsData, verificationData] = await Promise.allSettled([
@@ -112,7 +111,7 @@ const CitizenProfile = () => {
   const handleSave = async () => {
     try {
       setSaving(true);
-      
+
       // Prepare update data (only send non-empty fields)
       const updateData: any = {};
       if (formData.full_name && formData.full_name !== user?.full_name) {
@@ -127,27 +126,24 @@ const CitizenProfile = () => {
       if (formData.bio) {
         updateData.bio = formData.bio;
       }
-      
+
       // Update profile and preferences in parallel
       await Promise.all([
         userService.updateProfile(updateData),
         userService.updatePreferences(preferences)
       ]);
-      
+
       await refreshUser();
       await loadProfileData();
-      
-      toast({
-        title: "Profile Updated",
-        description: "Your profile has been updated successfully.",
+
+      showToast.success("Profile Updated", {
+        description: "Your profile has been updated successfully."
       });
       setIsEditing(false);
     } catch (error: any) {
       logger.error('Failed to update profile:', error);
-      toast({
-        title: "Update Failed",
-        description: error.response?.data?.detail || "Failed to update profile. Please try again.",
-        variant: "destructive"
+      showToast.error("Update Failed", {
+        description: error.response?.data?.detail || "Failed to update profile. Please try again."
       });
     } finally {
       setSaving(false);
@@ -158,9 +154,8 @@ const CitizenProfile = () => {
     try {
       setVerifyingEmail(true);
       const result = await userService.sendEmailVerification();
-      toast({
-        title: "Verification Email Sent",
-        description: "Please check your email for the verification link.",
+      showToast.success("Verification Email Sent", {
+        description: "Please check your email for the verification link."
       });
       if (result.debug_token) {
         setEmailToken(result.debug_token);
@@ -168,10 +163,8 @@ const CitizenProfile = () => {
       await loadProfileData();
     } catch (error: any) {
       logger.error('Failed to send email verification:', error);
-      toast({
-        title: "Failed to Send Email",
-        description: error.response?.data?.detail || "Failed to send verification email. Please try again.",
-        variant: "destructive"
+      showToast.error("Failed to Send Email", {
+        description: error.response?.data?.detail || "Failed to send verification email. Please try again."
       });
     } finally {
       setVerifyingEmail(false);
@@ -180,28 +173,23 @@ const CitizenProfile = () => {
 
   const handleVerifyEmail = async () => {
     if (!emailToken) {
-      toast({
-        title: "Token Required",
-        description: "Please enter the verification token from your email.",
-        variant: "destructive"
+      showToast.warning("Token Required", {
+        description: "Please enter the verification token from your email."
       });
       return;
     }
     try {
       setVerifyingEmail(true);
       await userService.verifyEmail(emailToken);
-      toast({
-        title: "Email Verified",
-        description: "Your email has been verified successfully.",
+      showToast.success("Email Verified", {
+        description: "Your email has been verified successfully."
       });
       setEmailToken("");
       await loadProfileData();
     } catch (error: any) {
       logger.error('Failed to verify email:', error);
-      toast({
-        title: "Verification Failed",
-        description: error.response?.data?.detail || "Invalid or expired token. Please try again.",
-        variant: "destructive"
+      showToast.error("Verification Failed", {
+        description: error.response?.data?.detail || "Invalid or expired token. Please try again."
       });
     } finally {
       setVerifyingEmail(false);
@@ -212,9 +200,8 @@ const CitizenProfile = () => {
     try {
       setVerifyingPhone(true);
       const result = await userService.sendPhoneVerification();
-      toast({
-        title: "Verification OTP Sent",
-        description: "Please check your phone for the OTP.",
+      showToast.success("Verification OTP Sent", {
+        description: "Please check your phone for the OTP."
       });
       if (result.debug_otp) {
         setPhoneOTP(result.debug_otp);
@@ -222,10 +209,8 @@ const CitizenProfile = () => {
       await loadProfileData();
     } catch (error: any) {
       logger.error('Failed to send phone verification:', error);
-      toast({
-        title: "Failed to Send OTP",
-        description: error.response?.data?.detail || "Failed to send verification OTP. Please try again.",
-        variant: "destructive"
+      showToast.error("Failed to Send OTP", {
+        description: error.response?.data?.detail || "Failed to send verification OTP. Please try again."
       });
     } finally {
       setVerifyingPhone(false);
@@ -234,28 +219,23 @@ const CitizenProfile = () => {
 
   const handleVerifyPhone = async () => {
     if (!phoneOTP) {
-      toast({
-        title: "OTP Required",
-        description: "Please enter the OTP sent to your phone.",
-        variant: "destructive"
+      showToast.warning("OTP Required", {
+        description: "Please enter the OTP sent to your phone."
       });
       return;
     }
     try {
       setVerifyingPhone(true);
       await userService.verifyPhone(phoneOTP);
-      toast({
-        title: "Phone Verified",
-        description: "Your phone number has been verified successfully.",
+      showToast.success("Phone Verified", {
+        description: "Your phone number has been verified successfully."
       });
       setPhoneOTP("");
       await loadProfileData();
     } catch (error: any) {
       logger.error('Failed to verify phone:', error);
-      toast({
-        title: "Verification Failed",
-        description: error.response?.data?.detail || "Invalid or expired OTP. Please try again.",
-        variant: "destructive"
+      showToast.error("Verification Failed", {
+        description: error.response?.data?.detail || "Invalid or expired OTP. Please try again."
       });
     } finally {
       setVerifyingPhone(false);
@@ -291,8 +271,8 @@ const CitizenProfile = () => {
       <div className="container mx-auto px-4 py-8 max-w-4xl">
         {/* Header Section */}
         <div className="mb-6">
-          <Button 
-            variant="ghost" 
+          <Button
+            variant="ghost"
             onClick={() => navigate('/citizen/dashboard')}
             className="mb-4"
             aria-label="Back to dashboard"
@@ -309,311 +289,311 @@ const CitizenProfile = () => {
           <div className="lg:col-span-2 space-y-6">
             {/* Profile Header Card */}
             <Card className="p-6 bg-gradient-to-br from-primary/5 via-background to-accent/5">
-          <div className="flex items-center gap-4 mb-6">
+              <div className="flex items-center gap-4 mb-6">
                 <div className="w-20 h-20 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center shadow-lg">
-              <User className="w-10 h-10 text-white" />
-            </div>
-            <div className="flex-1">
-              <h2 className="text-2xl font-bold text-foreground">{user.full_name || 'Citizen'}</h2>
+                  <User className="w-10 h-10 text-white" />
+                </div>
+                <div className="flex-1">
+                  <h2 className="text-2xl font-bold text-foreground">{user.full_name || 'Citizen'}</h2>
                   <p className="text-muted-foreground flex items-center gap-2">
                     <Phone className="w-4 h-4" />
                     {user.phone}
                   </p>
-              {user.email && (
+                  {user.email && (
                     <p className="text-sm text-muted-foreground flex items-center gap-2 mt-1">
                       <Mail className="w-4 h-4" />
                       {user.email}
                     </p>
-              )}
-            </div>
-            {!isEditing && (
-              <Button onClick={() => setIsEditing(true)} variant="outline" disabled={loading}>
-                <Edit className="w-4 h-4 mr-2" />
-                Edit Profile
-              </Button>
-            )}
-          </div>
+                  )}
+                </div>
+                {!isEditing && (
+                  <Button onClick={() => setIsEditing(true)} variant="outline" disabled={loading}>
+                    <Edit className="w-4 h-4 mr-2" />
+                    Edit Profile
+                  </Button>
+                )}
+              </div>
 
-          {/* Account Type Badge */}
-          <div className="mb-4">
+              {/* Account Type Badge */}
+              <div className="mb-4">
                 <Badge className="bg-primary/10 text-primary border-primary/20 px-3 py-1">
                   <Shield className="w-3 h-3 mr-1" />
-              {user.profile_completion === 'complete' ? 'Complete Account' : 
-               user.profile_completion === 'basic' ? 'Basic Account' : 'Minimal Account'}
+                  {user.profile_completion === 'complete' ? 'Complete Account' :
+                    user.profile_completion === 'basic' ? 'Basic Account' : 'Minimal Account'}
                 </Badge>
-          </div>
+              </div>
 
               {/* Stats Grid */}
               {userStats && (
-            <div className="grid grid-cols-3 gap-4 pt-6 border-t">
+                <div className="grid grid-cols-3 gap-4 pt-6 border-t">
                   <div className="text-center p-3 bg-muted/50 rounded-lg">
                     <div className="text-2xl font-bold text-primary flex items-center justify-center gap-1">
                       <FileText className="w-5 h-5" />
                       {userStats.total_reports || 0}
                     </div>
                     <div className="text-sm text-muted-foreground mt-1">Total Reports</div>
-              </div>
+                  </div>
                   <div className="text-center p-3 bg-muted/50 rounded-lg">
                     <div className="text-2xl font-bold text-green-600 dark:text-green-400 flex items-center justify-center gap-1">
                       <CheckCircle2 className="w-5 h-5" />
                       {userStats.resolved_reports || 0}
-              </div>
+                    </div>
                     <div className="text-sm text-muted-foreground mt-1">Resolved</div>
-              </div>
+                  </div>
                   <div className="text-center p-3 bg-muted/50 rounded-lg">
                     <div className="text-2xl font-bold text-amber-600 dark:text-amber-400 flex items-center justify-center gap-1">
                       <Award className="w-5 h-5" />
                       {userStats.reputation_score || user?.reputation_score || 0}
-            </div>
+                    </div>
                     <div className="text-sm text-muted-foreground mt-1">Reputation</div>
-              </div>
-            </div>
-          )}
-        </Card>
-
-        {/* Profile Details */}
-        <Card className="p-6 mb-6">
-          <h3 className="text-lg font-semibold text-foreground mb-6">Profile Information</h3>
-          
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="name">Full Name</Label>
-              <div className="flex items-center gap-2 mt-2">
-                <User className="w-5 h-5 text-muted-foreground" />
-                <Input
-                  id="name"
-                  value={formData.full_name}
-                  onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
-                  disabled={!isEditing}
-                  placeholder="Enter your full name"
-                  className="flex-1"
-                />
-              </div>
-            </div>
-
-            <div>
-              <Label htmlFor="phone">Phone Number</Label>
-              <div className="flex items-center gap-2 mt-2">
-                <Phone className="w-5 h-5 text-muted-foreground" />
-                <Input
-                  id="phone"
-                  value={user.phone}
-                  disabled
-                  className="flex-1 bg-muted"
-                />
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">Phone number cannot be changed</p>
-            </div>
-
-            <div>
-              <Label htmlFor="email">Email (Optional)</Label>
-              <div className="flex items-center gap-2 mt-2">
-                <Mail className="w-5 h-5 text-muted-foreground" />
-                <Input
-                  id="email"
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  disabled={!isEditing}
-                  placeholder="your.email@example.com"
-                  className="flex-1"
-                />
-              </div>
-              {!user.email && (
-                <p className="text-xs text-blue-600 mt-1">Add email to unlock more features</p>
-              )}
-            </div>
-
-            <div>
-              <Label htmlFor="address">Primary Address (Optional)</Label>
-              <div className="flex items-center gap-2 mt-2">
-                <MapPin className="w-5 h-5 text-muted-foreground" />
-                <Input
-                  id="address"
-                  value={formData.primary_address}
-                  onChange={(e) => setFormData({ ...formData, primary_address: e.target.value })}
-                  disabled={!isEditing}
-                  placeholder="Your primary address"
-                  className="flex-1"
-                />
-              </div>
-            </div>
-
-            <div>
-              <Label htmlFor="bio">Bio (Optional)</Label>
-              <textarea
-                id="bio"
-                value={formData.bio}
-                onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
-                disabled={!isEditing}
-                placeholder="Tell us about yourself..."
-                className="w-full min-h-[80px] px-3 py-2 rounded-md border border-input bg-background disabled:opacity-50"
-                maxLength={500}
-              />
-              <p className="text-xs text-muted-foreground mt-1">
-                {formData.bio.length}/500 characters
-              </p>
-            </div>
-
-            {isEditing && (
-              <div className="flex gap-3 pt-4">
-                <Button onClick={handleSave} className="flex-1" disabled={saving}>
-                  {saving ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Saving...
-                    </>
-                  ) : (
-                    'Save Changes'
-                  )}
-                </Button>
-                <Button onClick={() => {
-                  setIsEditing(false);
-                  loadProfileData();
-                }} variant="outline" className="flex-1" disabled={saving}>
-                  Cancel
-                </Button>
-              </div>
-            )}
-          </div>
-        </Card>
-
-        {/* Verification Status */}
-        <Card className="p-6">
-          <h3 className="text-lg font-semibold text-foreground mb-6 flex items-center gap-2">
-            <Shield className="w-5 h-5" />
-            Account Verification
-          </h3>
-          
-          <div className="space-y-4">
-            {/* Phone Verification */}
-            <div className="p-4 border rounded-lg">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <Phone className="w-5 h-5 text-muted-foreground" />
-                  <div>
-                    <Label className="text-base font-medium">Phone Number</Label>
-                    <p className="text-sm text-muted-foreground">{user.phone}</p>
                   </div>
                 </div>
-                {verificationStatus?.phone.verified ? (
-                  <Badge className="bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20">
-                    <CheckCircle2 className="w-3 h-3 mr-1" />
-                    Verified
-                  </Badge>
-                ) : (
-                  <Badge variant="outline" className="text-amber-600 dark:text-amber-400">
-                    <XCircle className="w-3 h-3 mr-1" />
-                    Not Verified
-                  </Badge>
-                )}
-              </div>
-              {!verificationStatus?.phone.verified && (
-                <div className="space-y-2 mt-3">
-                  <div className="flex gap-2">
+              )}
+            </Card>
+
+            {/* Profile Details */}
+            <Card className="p-6 mb-6">
+              <h3 className="text-lg font-semibold text-foreground mb-6">Profile Information</h3>
+
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="name">Full Name</Label>
+                  <div className="flex items-center gap-2 mt-2">
+                    <User className="w-5 h-5 text-muted-foreground" />
                     <Input
-                      placeholder="Enter OTP"
-                      value={phoneOTP}
-                      onChange={(e) => setPhoneOTP(e.target.value)}
+                      id="name"
+                      value={formData.full_name}
+                      onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
+                      disabled={!isEditing}
+                      placeholder="Enter your full name"
                       className="flex-1"
-                      maxLength={6}
                     />
-                    <Button 
-                      onClick={handleVerifyPhone} 
-                      disabled={verifyingPhone || !phoneOTP}
-                      size="sm"
-                    >
-                      {verifyingPhone ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Verify'}
-                    </Button>
                   </div>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={handleSendPhoneVerification}
-                    disabled={verifyingPhone}
-                    className="w-full"
-                  >
-                    {verifyingPhone ? (
-                      <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Sending...
-                      </>
-                    ) : (
-                      <>
-                        <RefreshCw className="w-4 h-4 mr-2" />
-                        Send Verification OTP
-                      </>
-                    )}
-                  </Button>
                 </div>
-              )}
-            </div>
 
-            {/* Email Verification */}
-            {formData.email && (
-              <div className="p-4 border rounded-lg">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-2">
-                    <Mail className="w-5 h-5 text-muted-foreground" />
-                    <div>
-                      <Label className="text-base font-medium">Email Address</Label>
-                      <p className="text-sm text-muted-foreground">{formData.email}</p>
-                    </div>
+                <div>
+                  <Label htmlFor="phone">Phone Number</Label>
+                  <div className="flex items-center gap-2 mt-2">
+                    <Phone className="w-5 h-5 text-muted-foreground" />
+                    <Input
+                      id="phone"
+                      value={user.phone}
+                      disabled
+                      className="flex-1 bg-muted"
+                    />
                   </div>
-                  {verificationStatus?.email.verified ? (
-                    <Badge className="bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20">
-                      <CheckCircle2 className="w-3 h-3 mr-1" />
-                      Verified
-                    </Badge>
-                  ) : (
-                    <Badge variant="outline" className="text-amber-600 dark:text-amber-400">
-                      <XCircle className="w-3 h-3 mr-1" />
-                      Not Verified
-                    </Badge>
+                  <p className="text-xs text-muted-foreground mt-1">Phone number cannot be changed</p>
+                </div>
+
+                <div>
+                  <Label htmlFor="email">Email (Optional)</Label>
+                  <div className="flex items-center gap-2 mt-2">
+                    <Mail className="w-5 h-5 text-muted-foreground" />
+                    <Input
+                      id="email"
+                      type="email"
+                      value={formData.email}
+                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                      disabled={!isEditing}
+                      placeholder="your.email@example.com"
+                      className="flex-1"
+                    />
+                  </div>
+                  {!user.email && (
+                    <p className="text-xs text-blue-600 mt-1">Add email to unlock more features</p>
                   )}
                 </div>
-                {!verificationStatus?.email.verified && (
-                  <div className="space-y-2 mt-3">
-                    <div className="flex gap-2">
-                      <Input
-                        placeholder="Enter verification token"
-                        value={emailToken}
-                        onChange={(e) => setEmailToken(e.target.value)}
-                        className="flex-1"
-                      />
-                      <Button 
-                        onClick={handleVerifyEmail} 
-                        disabled={verifyingEmail || !emailToken}
-                        size="sm"
-                      >
-                        {verifyingEmail ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Verify'}
-                      </Button>
-                    </div>
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      onClick={handleSendEmailVerification}
-                      disabled={verifyingEmail}
-                      className="w-full"
-                    >
-                      {verifyingEmail ? (
+
+                <div>
+                  <Label htmlFor="address">Primary Address (Optional)</Label>
+                  <div className="flex items-center gap-2 mt-2">
+                    <MapPin className="w-5 h-5 text-muted-foreground" />
+                    <Input
+                      id="address"
+                      value={formData.primary_address}
+                      onChange={(e) => setFormData({ ...formData, primary_address: e.target.value })}
+                      disabled={!isEditing}
+                      placeholder="Your primary address"
+                      className="flex-1"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <Label htmlFor="bio">Bio (Optional)</Label>
+                  <textarea
+                    id="bio"
+                    value={formData.bio}
+                    onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
+                    disabled={!isEditing}
+                    placeholder="Tell us about yourself..."
+                    className="w-full min-h-[80px] px-3 py-2 rounded-md border border-input bg-background disabled:opacity-50"
+                    maxLength={500}
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {formData.bio.length}/500 characters
+                  </p>
+                </div>
+
+                {isEditing && (
+                  <div className="flex gap-3 pt-4">
+                    <Button onClick={handleSave} className="flex-1" disabled={saving}>
+                      {saving ? (
                         <>
                           <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          Sending...
+                          Saving...
                         </>
                       ) : (
-                        <>
-                          <Mail className="w-4 h-4 mr-2" />
-                          Send Verification Email
-                        </>
+                        'Save Changes'
                       )}
+                    </Button>
+                    <Button onClick={() => {
+                      setIsEditing(false);
+                      loadProfileData();
+                    }} variant="outline" className="flex-1" disabled={saving}>
+                      Cancel
                     </Button>
                   </div>
                 )}
               </div>
-            )}
-          </div>
-        </Card>
+            </Card>
+
+            {/* Verification Status */}
+            <Card className="p-6">
+              <h3 className="text-lg font-semibold text-foreground mb-6 flex items-center gap-2">
+                <Shield className="w-5 h-5" />
+                Account Verification
+              </h3>
+
+              <div className="space-y-4">
+                {/* Phone Verification */}
+                <div className="p-4 border rounded-lg">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <Phone className="w-5 h-5 text-muted-foreground" />
+                      <div>
+                        <Label className="text-base font-medium">Phone Number</Label>
+                        <p className="text-sm text-muted-foreground">{user.phone}</p>
+                      </div>
+                    </div>
+                    {verificationStatus?.phone.verified ? (
+                      <Badge className="bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20">
+                        <CheckCircle2 className="w-3 h-3 mr-1" />
+                        Verified
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="text-amber-600 dark:text-amber-400">
+                        <XCircle className="w-3 h-3 mr-1" />
+                        Not Verified
+                      </Badge>
+                    )}
+                  </div>
+                  {!verificationStatus?.phone.verified && (
+                    <div className="space-y-2 mt-3">
+                      <div className="flex gap-2">
+                        <Input
+                          placeholder="Enter OTP"
+                          value={phoneOTP}
+                          onChange={(e) => setPhoneOTP(e.target.value)}
+                          className="flex-1"
+                          maxLength={6}
+                        />
+                        <Button
+                          onClick={handleVerifyPhone}
+                          disabled={verifyingPhone || !phoneOTP}
+                          size="sm"
+                        >
+                          {verifyingPhone ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Verify'}
+                        </Button>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleSendPhoneVerification}
+                        disabled={verifyingPhone}
+                        className="w-full"
+                      >
+                        {verifyingPhone ? (
+                          <>
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            Sending...
+                          </>
+                        ) : (
+                          <>
+                            <RefreshCw className="w-4 h-4 mr-2" />
+                            Send Verification OTP
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Email Verification */}
+                {formData.email && (
+                  <div className="p-4 border rounded-lg">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2">
+                        <Mail className="w-5 h-5 text-muted-foreground" />
+                        <div>
+                          <Label className="text-base font-medium">Email Address</Label>
+                          <p className="text-sm text-muted-foreground">{formData.email}</p>
+                        </div>
+                      </div>
+                      {verificationStatus?.email.verified ? (
+                        <Badge className="bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20">
+                          <CheckCircle2 className="w-3 h-3 mr-1" />
+                          Verified
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="text-amber-600 dark:text-amber-400">
+                          <XCircle className="w-3 h-3 mr-1" />
+                          Not Verified
+                        </Badge>
+                      )}
+                    </div>
+                    {!verificationStatus?.email.verified && (
+                      <div className="space-y-2 mt-3">
+                        <div className="flex gap-2">
+                          <Input
+                            placeholder="Enter verification token"
+                            value={emailToken}
+                            onChange={(e) => setEmailToken(e.target.value)}
+                            className="flex-1"
+                          />
+                          <Button
+                            onClick={handleVerifyEmail}
+                            disabled={verifyingEmail || !emailToken}
+                            size="sm"
+                          >
+                            {verifyingEmail ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Verify'}
+                          </Button>
+                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handleSendEmailVerification}
+                          disabled={verifyingEmail}
+                          className="w-full"
+                        >
+                          {verifyingEmail ? (
+                            <>
+                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                              Sending...
+                            </>
+                          ) : (
+                            <>
+                              <Mail className="w-4 h-4 mr-2" />
+                              Send Verification Email
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </Card>
           </div>
 
           {/* Sidebar */}
@@ -624,7 +604,7 @@ const CitizenProfile = () => {
                 <Bell className="w-5 h-5" />
                 Preferences
               </h3>
-              
+
               <div className="space-y-4">
                 <div>
                   <Label htmlFor="theme">Theme</Label>
@@ -662,51 +642,51 @@ const CitizenProfile = () => {
               <h3 className="text-lg font-semibold text-foreground mb-6 flex items-center gap-2">
                 <Bell className="w-5 h-5" />
                 Notifications
-          </h3>
-          
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <Label htmlFor="push">Push Notifications</Label>
+              </h3>
+
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label htmlFor="push">Push Notifications</Label>
                     <p className="text-sm text-muted-foreground">Receive push notifications</p>
-              </div>
-              <Switch
-                id="push"
-                checked={formData.push_notifications}
-                onCheckedChange={(checked) => setFormData({ ...formData, push_notifications: checked })}
-                disabled={!isEditing}
-              />
-            </div>
+                  </div>
+                  <Switch
+                    id="push"
+                    checked={formData.push_notifications}
+                    onCheckedChange={(checked) => setFormData({ ...formData, push_notifications: checked })}
+                    disabled={!isEditing}
+                  />
+                </div>
 
-            <div className="flex items-center justify-between">
-              <div>
-                <Label htmlFor="sms">SMS Notifications</Label>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label htmlFor="sms">SMS Notifications</Label>
                     <p className="text-sm text-muted-foreground">Receive SMS updates</p>
-              </div>
-              <Switch
-                id="sms"
-                checked={formData.sms_notifications}
-                onCheckedChange={(checked) => setFormData({ ...formData, sms_notifications: checked })}
-                disabled={!isEditing}
-              />
-            </div>
+                  </div>
+                  <Switch
+                    id="sms"
+                    checked={formData.sms_notifications}
+                    onCheckedChange={(checked) => setFormData({ ...formData, sms_notifications: checked })}
+                    disabled={!isEditing}
+                  />
+                </div>
 
-            <div className="flex items-center justify-between">
-              <div>
-                <Label htmlFor="email-notif">Email Notifications</Label>
-                <p className="text-sm text-muted-foreground">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label htmlFor="email-notif">Email Notifications</Label>
+                    <p className="text-sm text-muted-foreground">
                       {user.email ? 'Receive email updates' : 'Add email to enable'}
-                </p>
+                    </p>
+                  </div>
+                  <Switch
+                    id="email-notif"
+                    checked={formData.email_notifications}
+                    onCheckedChange={(checked) => setFormData({ ...formData, email_notifications: checked })}
+                    disabled={!isEditing || !user.email}
+                  />
+                </div>
               </div>
-              <Switch
-                id="email-notif"
-                checked={formData.email_notifications}
-                onCheckedChange={(checked) => setFormData({ ...formData, email_notifications: checked })}
-                disabled={!isEditing || !user.email}
-              />
-            </div>
-          </div>
-        </Card>
+            </Card>
 
             {/* Additional Stats */}
             {userStats && userStats.avg_resolution_time_days !== undefined && (
@@ -762,6 +742,13 @@ const CitizenProfile = () => {
             </AlertDialogContent>
           </AlertDialog>
         </Card>
+            {/* Logout */}
+            <Card className="p-6">
+              <Button onClick={handleLogout} variant="destructive" className="w-full">
+                <LogOut className="w-4 h-4 mr-2" />
+                Logout
+              </Button>
+            </Card>
           </div>
         </div>
       </div>

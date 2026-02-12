@@ -4,9 +4,9 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useNavigate, useParams } from "react-router-dom";
-import { 
-  ArrowLeft, MapPin, Clock, CheckCircle2, AlertCircle, User, FileText, 
-  Loader2, XCircle, Phone, Mail, Building, Image as ImageIcon, 
+import {
+  ArrowLeft, MapPin, Clock, CheckCircle2, AlertCircle, User, FileText,
+  Loader2, XCircle, Phone, Mail, Building, Image as ImageIcon,
   Calendar, Tag, Activity, TrendingUp, Info, ExternalLink, ChevronRight
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -31,6 +31,7 @@ interface ReportDetails {
   address?: string;
   created_at: string;
   updated_at: string;
+  rejection_reason?: string | null;
   user?: any;
   department?: any;
   task?: any;
@@ -141,9 +142,9 @@ const TrackReport = () => {
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleString('en-US', { 
-      month: 'short', 
-      day: 'numeric', 
+    return date.toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
       year: 'numeric',
       hour: 'numeric',
       minute: '2-digit',
@@ -180,13 +181,13 @@ const TrackReport = () => {
       };
     }
 
-    const citizen = report.media.filter((m: any) => 
+    const citizen = report.media.filter((m: any) =>
       !m.upload_source || m.upload_source === 'citizen_submission'
     );
-    const officerBefore = report.media.filter((m: any) => 
+    const officerBefore = report.media.filter((m: any) =>
       m.upload_source === 'officer_before_photo'
     );
-    const officerAfter = report.media.filter((m: any) => 
+    const officerAfter = report.media.filter((m: any) =>
       m.upload_source === 'officer_after_photo'
     );
 
@@ -240,18 +241,18 @@ const TrackReport = () => {
             <AlertCircle className="w-16 h-16 mx-auto mb-4 text-destructive" />
             <h3 className="text-xl font-semibold mb-2">Report Not Found</h3>
             <p className="text-muted-foreground mb-6">
-            {error || 'The report you are looking for does not exist or you do not have permission to view it.'}
-          </p>
+              {error || 'The report you are looking for does not exist or you do not have permission to view it.'}
+            </p>
             <div className="flex gap-3 justify-center">
-          <Button onClick={() => navigate('/citizen/reports')}>
+              <Button onClick={() => navigate('/citizen/reports')}>
                 <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Reports
-          </Button>
+                Back to Reports
+              </Button>
               <Button variant="outline" onClick={loadReportData}>
                 Try Again
               </Button>
             </div>
-        </Card>
+          </Card>
         </div>
       </div>
     );
@@ -279,9 +280,9 @@ const TrackReport = () => {
         {/* Header Section */}
         <div className="mb-6">
           <div className="flex items-center gap-4">
-            <Button 
-              variant="ghost" 
-              size="icon" 
+            <Button
+              variant="ghost"
+              size="icon"
               onClick={() => navigate('/citizen/reports')}
               aria-label="Back to Reports"
               className="shrink-0"
@@ -326,7 +327,7 @@ const TrackReport = () => {
               <div className="w-10 h-10 rounded-lg bg-purple-100 dark:bg-purple-900 flex items-center justify-center">
                 <Clock className="w-5 h-5 text-purple-600 dark:text-purple-400" />
               </div>
-            <div>
+              <div>
                 <p className="text-xs text-muted-foreground">Last Updated</p>
                 <p className="font-semibold text-foreground">{formatRelativeTime(report.updated_at)}</p>
               </div>
@@ -340,10 +341,48 @@ const TrackReport = () => {
               <div>
                 <p className="text-xs text-muted-foreground">Media</p>
                 <p className="font-semibold text-foreground">{totalMediaCount} file{totalMediaCount !== 1 ? 's' : ''}</p>
+              </div>
             </div>
-          </div>
           </Card>
         </div>
+
+        {/* Rejection/Rework Banner */}
+        {report.status === 'in_progress' && report.rejection_reason && (
+          <div className="bg-gradient-to-r from-orange-50 to-amber-50 border-2 border-orange-300 rounded-xl p-6 mb-6 shadow-sm">
+            <div className="flex items-start gap-4">
+              <div className="p-3 bg-orange-100 rounded-lg flex-shrink-0">
+                <AlertCircle className="w-7 h-7 text-orange-600" />
+              </div>
+              <div className="flex-1 space-y-3">
+                <div>
+                  <h3 className="text-lg font-bold text-orange-900 mb-1 flex items-center gap-2">
+                    <span>Work Needs Improvement</span>
+                    <Badge className="bg-orange-500 text-white">Rework Requested</Badge>
+                  </h3>
+                  <p className="text-sm text-orange-800 leading-relaxed">
+                    The assigned officer has been asked to improve their work based on the feedback provided.
+                    They will address the concerns and resubmit for review.
+                  </p>
+                </div>
+
+                <div className="bg-white border-2 border-orange-200 rounded-lg p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <FileText className="w-4 h-4 text-orange-700" />
+                    <p className="text-xs font-bold text-orange-900 uppercase tracking-wide">Admin Feedback:</p>
+                  </div>
+                  <p className="text-sm text-gray-900 leading-relaxed whitespace-pre-wrap">
+                    {report.rejection_reason}
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2 text-xs text-orange-700">
+                  <Clock className="w-4 h-4" />
+                  <span className="font-medium">The officer will work on improvements and update you soon.</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Main Content with Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
@@ -386,8 +425,8 @@ const TrackReport = () => {
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <span>Coordinates: {report.latitude.toFixed(6)}, {report.longitude.toFixed(6)}</span>
                     </div>
-                    <Button 
-                      variant="outline" 
+                    <Button
+                      variant="outline"
                       size="sm"
                       onClick={() => window.open(`https://www.google.com/maps?q=${report.latitude},${report.longitude}`, '_blank')}
                     >
@@ -405,8 +444,8 @@ const TrackReport = () => {
                         <ImageIcon className="w-5 h-5 text-primary" />
                         <h3 className="text-lg font-semibold text-foreground">Media Preview</h3>
                       </div>
-                      <Button 
-                        variant="ghost" 
+                      <Button
+                        variant="ghost"
                         size="sm"
                         onClick={() => setActiveTab('media')}
                       >
@@ -444,8 +483,8 @@ const TrackReport = () => {
                       })}
                     </div>
                     {totalMediaCount > 4 && (
-                      <Button 
-                        variant="outline" 
+                      <Button
+                        variant="outline"
                         className="w-full mt-3"
                         onClick={() => setActiveTab('media')}
                       >
@@ -458,12 +497,12 @@ const TrackReport = () => {
 
               {/* Sidebar */}
               <div className="space-y-6">
-        {/* Status Card */}
+                {/* Status Card */}
                 <Card className="p-6 bg-gradient-to-br from-primary/5 via-accent/5 to-primary/5 border-primary/20">
                   <div className="flex items-center gap-3 mb-4">
-            <div className={`w-12 h-12 rounded-full ${statusColor} flex items-center justify-center`}>
-              <StatusIcon className="w-6 h-6 text-white" />
-            </div>
+                    <div className={`w-12 h-12 rounded-full ${statusColor} flex items-center justify-center`}>
+                      <StatusIcon className="w-6 h-6 text-white" />
+                    </div>
                     <div>
                       <p className="text-sm text-muted-foreground">Current Status</p>
                       <p className="text-lg font-semibold text-foreground">{toLabel(report.status)}</p>
@@ -471,7 +510,7 @@ const TrackReport = () => {
                   </div>
                   <p className="text-xs text-muted-foreground">
                     Updated {formatRelativeTime(report.updated_at)}
-              </p>
+                  </p>
                 </Card>
 
                 {/* Report Info */}
@@ -502,9 +541,9 @@ const TrackReport = () => {
                         Created
                       </span>
                       <span className="font-medium text-foreground text-sm text-right">{formatDate(report.created_at)}</span>
-            </div>
-          </div>
-        </Card>
+                    </div>
+                  </div>
+                </Card>
 
                 {/* Assigned Officer/Department */}
                 {(report.department || report.task) && (
@@ -564,65 +603,65 @@ const TrackReport = () => {
                 <Activity className="w-5 h-5 text-primary" />
                 <h3 className="text-lg font-semibold text-foreground">Status History</h3>
               </div>
-          
-          {statusHistory.length === 0 ? (
+
+              {statusHistory.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-12 text-center">
                   <Clock className="w-16 h-16 mb-4 text-muted-foreground opacity-50" />
                   <p className="text-muted-foreground text-base mb-2">No status history available yet</p>
                   <p className="text-sm text-muted-foreground max-w-md">Status updates will appear here as your report progresses through the resolution process.</p>
-            </div>
-          ) : (
-            <div className="space-y-6">
-              {statusHistory.map((item, idx) => {
-                const ItemIcon = getStatusIcon(item.new_status);
-                const itemColor = getStatusColor(item.new_status);
-                const isCurrent = idx === statusHistory.length - 1;
-                
-                return (
-                  <div key={idx} className="flex gap-4 relative">
-                    {/* Connecting Line */}
-                    {idx < statusHistory.length - 1 && (
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {statusHistory.map((item, idx) => {
+                    const ItemIcon = getStatusIcon(item.new_status);
+                    const itemColor = getStatusColor(item.new_status);
+                    const isCurrent = idx === statusHistory.length - 1;
+
+                    return (
+                      <div key={idx} className="flex gap-4 relative">
+                        {/* Connecting Line */}
+                        {idx < statusHistory.length - 1 && (
                           <div className="absolute left-5 top-12 w-0.5 h-full bg-border" />
-                    )}
-                    
-                    {/* Icon */}
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 z-10
+                        )}
+
+                        {/* Icon */}
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 z-10
                       ${itemColor} text-white
                           ${isCurrent ? 'ring-4 ring-primary/20 shadow-lg' : ''}`}
-                    >
-                      <ItemIcon className="w-5 h-5" />
-                    </div>
+                        >
+                          <ItemIcon className="w-5 h-5" />
+                        </div>
 
-                    {/* Content */}
+                        {/* Content */}
                         <div className="flex-1 pb-6">
                           <div className="flex items-center gap-3 mb-2">
                             <h4 className={`font-semibold ${isCurrent ? 'text-primary text-lg' : 'text-foreground'}`}>
-                          {toLabel(item.new_status)}
-                        </h4>
-                        {isCurrent && (
-                          <Badge variant="outline" className="border-primary text-primary">Current</Badge>
-                        )}
-                      </div>
-                      <p className="text-sm text-muted-foreground mb-2">
-                        {formatDate(item.changed_at)}
-                      </p>
-                      {item.changed_by_user && (
+                              {toLabel(item.new_status)}
+                            </h4>
+                            {isCurrent && (
+                              <Badge variant="outline" className="border-primary text-primary">Current</Badge>
+                            )}
+                          </div>
+                          <p className="text-sm text-muted-foreground mb-2">
+                            {formatDate(item.changed_at)}
+                          </p>
+                          {item.changed_by_user && (
                             <p className="text-sm text-muted-foreground mb-2">
                               Updated by: <span className="font-medium text-foreground">{item.changed_by_user.full_name || item.changed_by_user.email || 'System'}</span>
-                        </p>
-                      )}
-                      {item.notes && (
+                            </p>
+                          )}
+                          {item.notes && (
                             <div className="mt-3 p-3 bg-muted rounded-lg border-l-4 border-primary">
                               <p className="text-sm text-foreground">{item.notes}</p>
+                            </div>
+                          )}
                         </div>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </Card>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </Card>
           </TabsContent>
 
           {/* Media Tab */}
@@ -643,17 +682,17 @@ const TrackReport = () => {
                       <div className="w-10 h-10 rounded-lg bg-blue-100 dark:bg-blue-900 flex items-center justify-center">
                         <ImageIcon className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                       </div>
-            <div>
+                      <div>
                         <h3 className="text-lg font-semibold text-foreground">From Your Report</h3>
                         <p className="text-sm text-muted-foreground">{mediaGroups.citizen.length} photo{mediaGroups.citizen.length !== 1 ? 's' : ''} submitted with this report</p>
                       </div>
-            </div>
+                    </div>
                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                       {mediaGroups.citizen.map((media: any, i: number) => {
                         const mediaIndex = getMediaIndex(media.id);
                         const fullUrl = getMediaUrl(media.file_url || media.url);
                         const isFeatured = i === 0 && mediaGroups.citizen.length > 1;
-                        
+
                         return (
                           <div
                             key={media.id || i}
@@ -685,22 +724,22 @@ const TrackReport = () => {
                               <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                               <div className="absolute top-2 left-2">
                                 <Badge className="bg-blue-500/90 backdrop-blur-sm text-xs">From Your Report</Badge>
-            </div>
+                              </div>
                               {isFeatured && (
                                 <div className="absolute bottom-2 left-2 right-2">
                                   <Badge variant="outline" className="bg-white/90 backdrop-blur-sm text-blue-700 border-blue-300">
                                     Featured
                                   </Badge>
-              </div>
-            )}
+                                </div>
+                              )}
                             </div>
                           </div>
                         );
                       })}
-              </div>
+                    </div>
                   </Card>
-            )}
-            
+                )}
+
                 {/* Officer Before Photos */}
                 {mediaGroups.officerBefore.length > 0 && (
                   <Card className="p-6">
@@ -708,7 +747,7 @@ const TrackReport = () => {
                       <div className="w-10 h-10 rounded-lg bg-amber-100 dark:bg-amber-900 flex items-center justify-center">
                         <ImageIcon className="w-5 h-5 text-amber-600 dark:text-amber-400" />
                       </div>
-            <div>
+                      <div>
                         <h3 className="text-lg font-semibold text-foreground">Before Work Started</h3>
                         <p className="text-sm text-muted-foreground">{mediaGroups.officerBefore.length} photo{mediaGroups.officerBefore.length !== 1 ? 's' : ''} taken by officer before starting work</p>
                       </div>
@@ -718,7 +757,7 @@ const TrackReport = () => {
                         const mediaIndex = getMediaIndex(media.id);
                         const fullUrl = getMediaUrl(media.file_url || media.url);
                         const isFeatured = i === 0 && mediaGroups.officerBefore.length > 1;
-                        
+
                         return (
                           <div
                             key={media.id || i}
@@ -758,11 +797,11 @@ const TrackReport = () => {
                                   </Badge>
                                 </div>
                               )}
-                </div>
-              </div>
+                            </div>
+                          </div>
                         );
                       })}
-            </div>
+                    </div>
                   </Card>
                 )}
 
@@ -773,19 +812,19 @@ const TrackReport = () => {
                       <div className="w-10 h-10 rounded-lg bg-green-100 dark:bg-green-900 flex items-center justify-center">
                         <ImageIcon className="w-5 h-5 text-green-600 dark:text-green-400" />
                       </div>
-            <div>
+                      <div>
                         <h3 className="text-lg font-semibold text-foreground">After Work Completed</h3>
                         <p className="text-sm text-muted-foreground">{mediaGroups.officerAfter.length} photo{mediaGroups.officerAfter.length !== 1 ? 's' : ''} showing completed work</p>
                       </div>
-            </div>
+                    </div>
                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                       {mediaGroups.officerAfter.map((media: any, i: number) => {
                         const mediaIndex = getMediaIndex(media.id);
                         const fullUrl = getMediaUrl(media.file_url || media.url);
                         const isFeatured = i === 0 && mediaGroups.officerAfter.length > 1;
-                    
-                    return (
-                      <div 
+
+                        return (
+                          <div
                             key={media.id || i}
                             className={cn(
                               "bg-muted rounded-xl overflow-hidden cursor-pointer hover:opacity-90 transition-all hover:scale-[1.02] border-2 border-green-200 relative group shadow-sm hover:shadow-md",
@@ -804,14 +843,14 @@ const TrackReport = () => {
                               "w-full h-full bg-muted relative",
                               isFeatured ? "aspect-[4/3]" : "aspect-square"
                             )}>
-                        <img 
-                          src={fullUrl}
+                              <img
+                                src={fullUrl}
                                 alt={`After photo ${i + 1}`}
                                 className="w-full h-full object-cover"
-                          onError={(e) => {
+                                onError={(e) => {
                                   (e.target as HTMLImageElement).src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100" height="100"%3E%3Crect fill="%23ddd" width="100" height="100"/%3E%3C/svg%3E';
-                          }}
-                        />
+                                }}
+                              />
                               <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                               <div className="absolute top-2 left-2 flex flex-col gap-1">
                                 <Badge className="bg-green-500/90 backdrop-blur-sm text-xs">After Work</Badge>
@@ -826,11 +865,11 @@ const TrackReport = () => {
                                   </Badge>
                                 </div>
                               )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </Card>
                 )}
               </>
@@ -866,9 +905,9 @@ const TrackReport = () => {
                       <p className="text-sm font-medium text-muted-foreground mb-1">Severity</p>
                       <Badge className={getStatusColor(report.severity)}>{toLabel(report.severity)}</Badge>
                     </div>
-            )}
-          </div>
-        </Card>
+                  )}
+                </div>
+              </Card>
 
               <Card className="p-6">
                 <h3 className="text-lg font-semibold text-foreground mb-4">Location Details</h3>
@@ -883,8 +922,8 @@ const TrackReport = () => {
                       {report.latitude.toFixed(6)}, {report.longitude.toFixed(6)}
                     </p>
                   </div>
-                  <Button 
-                    variant="outline" 
+                  <Button
+                    variant="outline"
                     className="w-full"
                     onClick={() => window.open(`https://www.google.com/maps?q=${report.latitude},${report.longitude}`, '_blank')}
                   >
@@ -908,7 +947,7 @@ const TrackReport = () => {
                   <div>
                     <p className="text-sm font-medium text-muted-foreground mb-1">Status</p>
                     <Badge className={statusColor}>{toLabel(report.status)}</Badge>
-              </div>
+                  </div>
                 </div>
               </Card>
 
@@ -926,18 +965,18 @@ const TrackReport = () => {
                       </div>
                     )}
                     {report.task?.officer && (
-                <div>
+                      <div>
                         <p className="text-sm font-medium text-muted-foreground mb-1">Assigned Officer</p>
                         <div className="flex items-center gap-2">
                           <User className="w-4 h-4 text-muted-foreground" />
                           <p className="text-foreground">
                             {report.task.officer.full_name || report.task.officer.email || 'Officer'}
                           </p>
-                </div>
-              </div>
+                        </div>
+                      </div>
                     )}
                   </div>
-          </Card>
+                </Card>
               )}
             </div>
           </TabsContent>

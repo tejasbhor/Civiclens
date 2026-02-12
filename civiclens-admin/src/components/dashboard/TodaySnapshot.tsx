@@ -139,7 +139,7 @@ export const TodaySnapshot: React.FC<TodaySnapshotProps> = ({
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <p className="text-sm font-medium text-gray-600 mb-2">{metric.label}</p>
-                    <p className={cn('text-4xl font-bold mb-2', colors.text)}>{metric.value}</p>
+                    <p className={cn('text-xl font-bold mb-2', colors.text)}>{metric.value}</p>
                     {metric.trend && (
                       <div className="flex items-center gap-1.5">
                         {metric.trend.isPositive ? (

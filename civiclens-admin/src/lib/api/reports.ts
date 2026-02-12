@@ -219,6 +219,11 @@ export const reportsApi = {
     return response.data;
   },
 
+  getReportAuditLogs: async (id: number): Promise<any[]> => {
+    const response = await apiClient.get(`/audit/resource/report/${id}`);
+    return response.data;
+  },
+
   // Auto-transitions (Officer workflow)
   acknowledgeReport: async (id: number): Promise<Report> => {
     const response = await apiClient.post(`/reports/${id}/acknowledge`);

@@ -1,8 +1,14 @@
 "use client";
 
-import React, { useState } from 'react';
-import { Report, ReportSeverity } from '@/types';
+import React, { useState, useEffect } from 'react';
+import { Report, ReportSeverity, Media } from '@/types';
 import { reportsApi } from '@/lib/api/reports';
+import { mediaApi } from '@/lib/api/media';
+import { MediaGallery } from '@/components/reports/manage/MediaGallery';
+import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
+import { Textarea } from '@/components/ui/Textarea';
+import { SimpleSelect } from '@/components/ui/select';
 import { X, AlertCircle } from 'lucide-react';
 
 interface EditReportModalProps {
@@ -20,6 +26,26 @@ export function EditReportModal({ report, onClose, onSuccess }: EditReportModalP
     category: report.category || '',
     sub_category: report.sub_category || '',
   });
+  const [media, setMedia] = useState<Media[]>([]);
+
+  useEffect(() => {
+    const loadMedia = async () => {
+      try {
+        const files = await mediaApi.getReportMedia(report.id);
+        // Map API response to Media type expected by gallery
+        const mappedMedia = files.map((f: any) => ({
+          ...f,
+          file_type: f.file_type?.toUpperCase(),
+          uploaded_at: f.created_at || f.uploaded_at || new Date().toISOString(),
+          caption: f.description || f.caption
+        })) as Media[];
+        setMedia(mappedMedia);
+      } catch (e) {
+        console.error('Failed to load media', e);
+      }
+    };
+    loadMedia();
+  }, [report.id]);
 
   // Validation constants
   const TITLE_MIN_LENGTH = 5;
@@ -68,14 +94,23 @@ export function EditReportModal({ report, onClose, onSuccess }: EditReportModalP
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
+        <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-gradient-to-r from-blue-50 via-indigo-50 to-white">
           <div>
-            <h2 className="text-2xl font-bold text-gray-900">Edit Report Details</h2>
-            <p className="text-sm text-gray-600 mt-1">{report.report_number || `CL-${report.id}`}</p>
+            <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+              <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+              </svg>
+              Edit Report Details
+            </h2>
+            <p className="text-sm text-gray-500 mt-1 ml-7">{report.report_number || `CL-${report.id}`}</p>
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 p-2 hover:bg-white/50 rounded-lg transition-colors">
             <X className="w-6 h-6" />
           </button>
+        </div>
+
+        <div className="p-6 pb-0">
+          <MediaGallery report={report} media={media} />
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
@@ -86,73 +121,39 @@ export function EditReportModal({ report, onClose, onSuccess }: EditReportModalP
             </div>
           )}
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Title <span className="text-red-600">*</span>
-            </label>
-            <input
-              type="text"
-              value={formData.title}
-              onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
-              placeholder={`Brief title (${TITLE_MIN_LENGTH}-${TITLE_MAX_LENGTH} characters)`}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-              required
-              minLength={TITLE_MIN_LENGTH}
-              maxLength={TITLE_MAX_LENGTH}
-            />
-            <div className="mt-1 flex items-center justify-between">
-              <p className="text-xs text-gray-500">
-                {formData.title.length < TITLE_MIN_LENGTH ? (
-                  <span className="text-orange-600">Minimum {TITLE_MIN_LENGTH} characters required</span>
-                ) : (
-                  <span className="text-green-600">✓ Valid length</span>
-                )}
-              </p>
-              <p className={`text-xs ${formData.title.length > TITLE_MAX_LENGTH * 0.9 ? 'text-orange-600 font-medium' : 'text-gray-500'
-                }`}>
-                {formData.title.length}/{TITLE_MAX_LENGTH}
-              </p>
-            </div>
-          </div>
+          <Input
+            label="Title"
+            value={formData.title}
+            onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
+            placeholder={`Brief title (${TITLE_MIN_LENGTH}-${TITLE_MAX_LENGTH} characters)`}
+            required
+            minLength={TITLE_MIN_LENGTH}
+            maxLength={TITLE_MAX_LENGTH}
+            helperText={`${formData.title.length}/${TITLE_MAX_LENGTH} characters`}
+            className={formData.title.length >= TITLE_MAX_LENGTH ? 'border-orange-500' : ''}
+          />
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Description <span className="text-red-600">*</span>
-            </label>
-            <textarea
-              value={formData.description}
-              onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-              placeholder={`Detailed description (${DESCRIPTION_MIN_LENGTH}-${DESCRIPTION_MAX_LENGTH} characters)`}
-              rows={5}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 resize-none"
-              required
-              minLength={DESCRIPTION_MIN_LENGTH}
-              maxLength={DESCRIPTION_MAX_LENGTH}
-            />
-            <div className="mt-1 flex items-center justify-between">
-              <p className="text-xs text-gray-500">
-                {formData.description.length < DESCRIPTION_MIN_LENGTH ? (
-                  <span className="text-orange-600">Minimum {DESCRIPTION_MIN_LENGTH} characters required</span>
-                ) : (
-                  <span className="text-green-600">✓ Valid length</span>
-                )}
-              </p>
-              <p className={`text-xs ${formData.description.length > DESCRIPTION_MAX_LENGTH * 0.9 ? 'text-orange-600 font-medium' : 'text-gray-500'
-                }`}>
-                {formData.description.length}/{DESCRIPTION_MAX_LENGTH}
-              </p>
-            </div>
-          </div>
+          <Textarea
+            label="Description"
+            value={formData.description}
+            onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+            placeholder={`Detailed description (${DESCRIPTION_MIN_LENGTH}-${DESCRIPTION_MAX_LENGTH} characters)`}
+            required
+            minLength={DESCRIPTION_MIN_LENGTH}
+            maxLength={DESCRIPTION_MAX_LENGTH}
+            rows={5}
+            helperText={`${formData.description.length}/${DESCRIPTION_MAX_LENGTH} characters`}
+            className={formData.description.length >= DESCRIPTION_MAX_LENGTH ? 'border-orange-500' : ''}
+          />
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Category</label>
-              <select
+              <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+              <SimpleSelect
                 value={formData.category}
                 onChange={(e) => setFormData(prev => ({ ...prev, category: e.target.value }))}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                placeholder="Select category"
               >
-                <option value="">Select category</option>
                 <option value="roads">Roads</option>
                 <option value="water">Water Supply</option>
                 <option value="electricity">Electricity</option>
@@ -161,36 +162,34 @@ export function EditReportModal({ report, onClose, onSuccess }: EditReportModalP
                 <option value="drainage">Drainage</option>
                 <option value="public_property">Public Property</option>
                 <option value="other">Other</option>
-              </select>
+              </SimpleSelect>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Sub-Category</label>
-              <input
-                type="text"
-                value={formData.sub_category}
-                onChange={(e) => setFormData(prev => ({ ...prev, sub_category: e.target.value }))}
-                placeholder="Optional"
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
+            <Input
+              label="Sub-Category"
+              value={formData.sub_category}
+              onChange={(e) => setFormData(prev => ({ ...prev, sub_category: e.target.value }))}
+              placeholder="Optional"
+            />
           </div>
 
-          <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-200">
-            <button
+          <div className="flex items-center justify-end gap-3 pt-6 border-t border-gray-200">
+            <Button
               type="button"
+              variant="secondary"
               onClick={onClose}
-              className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+              disabled={loading}
             >
               Cancel
-            </button>
-            <button
+            </Button>
+            <Button
               type="submit"
+              variant="primary"
+              loading={loading}
               disabled={loading}
-              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
             >
-              {loading ? 'Saving...' : 'Save Changes'}
-            </button>
+              Save Changes
+            </Button>
           </div>
         </form>
       </div>

@@ -8,7 +8,7 @@ import { ArrowLeft, Clock, CheckCircle2, XCircle, AlertCircle, Loader2, Search, 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/contexts/AuthContext";
 import { reportsService, Report } from "@/services/reportsService";
-import { useToast } from "@/hooks/use-toast";
+import { showToast } from "@/lib/utils/toast";
 import { CitizenHeader } from "@/components/layout/CitizenHeader";
 import { useConnectionStatus } from "@/hooks/useConnectionStatus";
 import { logger } from "@/lib/logger";
@@ -17,7 +17,6 @@ const Reports = () => {
   const navigate = useNavigate();
   const { user, loading: authLoading, isOffline } = useAuth();
   const { isBackendReachable } = useConnectionStatus();
-  const { toast } = useToast();
 
   const [reports, setReports] = useState<Report[]>([]);
   const [filteredReports, setFilteredReports] = useState<Report[]>([]);
@@ -55,50 +54,47 @@ const Reports = () => {
       }
       return err.response.data.detail[0]?.msg || 'Validation error occurred';
     }
-    
+
     if (err.response?.data?.detail && typeof err.response.data.detail === 'object') {
       if (err.response.data.detail.msg) return err.response.data.detail.msg;
       if (err.response.data.detail.message) return err.response.data.detail.message;
       return 'An error occurred while loading reports. Please try again.';
     }
-    
+
     if (typeof err.response?.data?.detail === 'string') {
       return err.response.data.detail;
     }
-    
+
     if (!err.response && (err.code === 'ECONNABORTED' || err.code === 'ERR_NETWORK' || err.message === 'Network Error')) {
       return 'Unable to connect to the server. Please check your internet connection and try again.';
     }
-    
+
     return err.message || 'Unable to load reports. Please try again.';
   }, []);
 
-  const loadReports = useCallback(async (showToast = false) => {
+  const loadReports = useCallback(async (showSuccessToast = false) => {
     try {
       setError(null);
       setLoading(true);
       const data = await reportsService.getMyReports({ limit: 100 });
       setReports(data.reports);
-      if (showToast) {
-        toast({
-          title: "Reports Updated",
-          description: "Your reports have been refreshed successfully.",
+      if (showSuccessToast) {
+        showToast.success("Reports Updated", {
+          description: "Your reports have been refreshed successfully."
         });
       }
     } catch (error: any) {
       logger.error('Failed to load reports:', error);
       const errorMessage = extractErrorMessage(error);
       setError(errorMessage);
-      toast({
-        title: "Error",
-        description: errorMessage,
-        variant: "destructive"
+      showToast.error("Error", {
+        description: errorMessage
       });
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [toast, extractErrorMessage]);
+  }, [extractErrorMessage]);
 
   const handleRefresh = useCallback(() => {
     setRefreshing(true);
@@ -110,9 +106,9 @@ const Reports = () => {
 
     // Filter by tab
     if (activeTab === "active") {
-      filtered = filtered.filter(r => 
+      filtered = filtered.filter(r =>
         ['received', 'pending_classification', 'classified', 'assigned_to_department',
-         'assigned_to_officer', 'acknowledged', 'in_progress'].includes(r.status.toLowerCase())
+          'assigned_to_officer', 'acknowledged', 'in_progress'].includes(r.status.toLowerCase())
       );
     } else if (activeTab === "resolved") {
       filtered = filtered.filter(r => r.status.toLowerCase() === 'resolved');
@@ -123,7 +119,7 @@ const Reports = () => {
     // Filter by search query
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(r => 
+      filtered = filtered.filter(r =>
         r.title.toLowerCase().includes(query) ||
         r.description.toLowerCase().includes(query) ||
         r.report_number.toLowerCase().includes(query) ||
@@ -155,20 +151,20 @@ const Reports = () => {
 
   const formatDate = useCallback((dateString: string): string => {
     try {
-    const date = new Date(dateString);
+      const date = new Date(dateString);
       if (isNaN(date.getTime())) {
         return 'Invalid date';
       }
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-    const diffDays = Math.floor(diffMs / 86400000);
+      const now = new Date();
+      const diffMs = now.getTime() - date.getTime();
+      const diffMins = Math.floor(diffMs / 60000);
+      const diffHours = Math.floor(diffMs / 3600000);
+      const diffDays = Math.floor(diffMs / 86400000);
 
-    if (diffMins < 60) return `${diffMins} min${diffMins !== 1 ? 's' : ''} ago`;
-    if (diffHours < 24) return `${diffHours} hour${diffHours !== 1 ? 's' : ''} ago`;
-    if (diffDays < 7) return `${diffDays} day${diffDays !== 1 ? 's' : ''} ago`;
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+      if (diffMins < 60) return `${diffMins} min${diffMins !== 1 ? 's' : ''} ago`;
+      if (diffHours < 24) return `${diffHours} hour${diffHours !== 1 ? 's' : ''} ago`;
+      if (diffDays < 7) return `${diffDays} day${diffDays !== 1 ? 's' : ''} ago`;
+      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
     } catch {
       return 'Invalid date';
     }
@@ -179,9 +175,9 @@ const Reports = () => {
   }, []);
 
   const getTabCounts = useMemo(() => {
-    const active = reports.filter(r => 
+    const active = reports.filter(r =>
       ['received', 'pending_classification', 'classified', 'assigned_to_department',
-       'assigned_to_officer', 'acknowledged', 'in_progress'].includes(r.status.toLowerCase())
+        'assigned_to_officer', 'acknowledged', 'in_progress'].includes(r.status.toLowerCase())
     ).length;
     const resolved = reports.filter(r => r.status.toLowerCase() === 'resolved').length;
     const closed = reports.filter(r => r.status.toLowerCase() === 'closed').length;
@@ -195,7 +191,7 @@ const Reports = () => {
     const statusColor = getStatusColor(report.status);
 
     return (
-      <Card 
+      <Card
         className="p-6 hover:shadow-lg hover:border-primary/30 transition-all cursor-pointer group"
         onClick={() => navigate(`/citizen/track/${report.id}`)}
         role="button"
@@ -210,7 +206,7 @@ const Reports = () => {
       >
         <div className="flex items-start justify-between mb-4">
           <div className="flex items-start gap-4 flex-1 min-w-0">
-            <div 
+            <div
               className={`w-12 h-12 rounded-xl ${statusColor} flex items-center justify-center flex-shrink-0 shadow-sm group-hover:scale-110 transition-transform`}
               aria-hidden="true"
             >
@@ -237,7 +233,7 @@ const Reports = () => {
                     <Users className="w-3 h-3 shrink-0" />
                     <span className="truncate">{report.task.officer.full_name || 'Officer Assigned'}</span>
                   </div>
-              )}
+                )}
                 {report.department && (
                   <div className="flex items-center gap-1">
                     <Target className="w-3 h-3 shrink-0" />
@@ -257,17 +253,17 @@ const Reports = () => {
               </div>
             </div>
           </div>
-          <Badge 
-            className={`${statusColor} ml-2 shrink-0`} 
+          <Badge
+            className={`${statusColor} ml-2 shrink-0`}
             aria-label={`Status: ${toLabel(report.status)}`}
           >
             {toLabel(report.status)}
           </Badge>
         </div>
         <div className="flex gap-2 pt-4 border-t">
-          <Button 
-            size="sm" 
-            variant="outline" 
+          <Button
+            size="sm"
+            variant="outline"
             className="flex-1 group-hover:bg-primary group-hover:text-primary-foreground transition-colors"
             onClick={(e) => {
               e.stopPropagation();
@@ -310,7 +306,7 @@ const Reports = () => {
           <div className="flex items-center justify-between mb-4">
             <div>
               <h1 className="text-3xl font-bold text-foreground mb-2">All Reports</h1>
-          <p className="text-muted-foreground">View and manage all your submitted reports</p>
+              <p className="text-muted-foreground">View and manage all your submitted reports</p>
             </div>
             <Button
               variant="outline"
@@ -323,7 +319,7 @@ const Reports = () => {
               <RefreshCw className={`w-5 h-5 ${refreshing ? 'animate-spin' : ''}`} />
             </Button>
           </div>
-          
+
           {/* Offline indicator */}
           {isOffline && (
             <div className="mb-4 p-3 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-lg flex items-center gap-2 text-sm text-amber-800 dark:text-amber-200">
@@ -345,7 +341,7 @@ const Reports = () => {
               aria-label="Search reports"
             />
           </div>
-          <Button 
+          <Button
             onClick={() => navigate('/citizen/submit-report')}
             aria-label="Submit a new report"
           >
@@ -408,7 +404,7 @@ const Reports = () => {
               ) : (
                 <div role="list" aria-label="All reports">
                   {filteredReports.map((report) => (
-                  <ReportCard key={report.id} report={report} />
+                    <ReportCard key={report.id} report={report} />
                   ))}
                 </div>
               )}
@@ -424,7 +420,7 @@ const Reports = () => {
               ) : (
                 <div role="list" aria-label="Active reports">
                   {filteredReports.map((report) => (
-                  <ReportCard key={report.id} report={report} />
+                    <ReportCard key={report.id} report={report} />
                   ))}
                 </div>
               )}
@@ -440,7 +436,7 @@ const Reports = () => {
               ) : (
                 <div role="list" aria-label="Resolved reports">
                   {filteredReports.map((report) => (
-                  <ReportCard key={report.id} report={report} />
+                    <ReportCard key={report.id} report={report} />
                   ))}
                 </div>
               )}
@@ -456,7 +452,7 @@ const Reports = () => {
               ) : (
                 <div role="list" aria-label="Closed reports">
                   {filteredReports.map((report) => (
-                  <ReportCard key={report.id} report={report} />
+                    <ReportCard key={report.id} report={report} />
                   ))}
                 </div>
               )}

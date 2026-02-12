@@ -7,7 +7,7 @@ import { Plus, FileText, Clock, CheckCircle2, XCircle, Star, ArrowRight, Loader2
 import { useAuth } from "@/contexts/AuthContext";
 import { reportsService, Report } from "@/services/reportsService";
 import { userService } from "@/services/userService";
-import { useToast } from "@/hooks/use-toast";
+import { showToast } from "@/lib/utils/toast";
 import { CitizenHeader } from "@/components/layout/CitizenHeader";
 import { useConnectionStatus } from "@/hooks/useConnectionStatus";
 import { logger } from "@/lib/logger";
@@ -33,8 +33,7 @@ const CitizenDashboard = () => {
   const navigate = useNavigate();
   const { user, loading: authLoading, isOffline } = useAuth();
   const { isBackendReachable } = useConnectionStatus();
-  const { toast } = useToast();
-  
+
   const [reports, setReports] = useState<Report[]>([]);
   const [allReports, setAllReports] = useState<Report[]>([]);
   const [stats, setStats] = useState<DashboardStats>({
@@ -74,20 +73,20 @@ const CitizenDashboard = () => {
 
   const formatDate = useCallback((dateString: string): string => {
     try {
-    const date = new Date(dateString);
+      const date = new Date(dateString);
       if (isNaN(date.getTime())) {
         return 'Invalid date';
       }
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-    const diffDays = Math.floor(diffMs / 86400000);
+      const now = new Date();
+      const diffMs = now.getTime() - date.getTime();
+      const diffMins = Math.floor(diffMs / 60000);
+      const diffHours = Math.floor(diffMs / 3600000);
+      const diffDays = Math.floor(diffMs / 86400000);
 
-    if (diffMins < 60) return `${diffMins} min${diffMins !== 1 ? 's' : ''} ago`;
-    if (diffHours < 24) return `${diffHours} hour${diffHours !== 1 ? 's' : ''} ago`;
-    if (diffDays < 7) return `${diffDays} day${diffDays !== 1 ? 's' : ''} ago`;
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+      if (diffMins < 60) return `${diffMins} min${diffMins !== 1 ? 's' : ''} ago`;
+      if (diffHours < 24) return `${diffHours} hour${diffHours !== 1 ? 's' : ''} ago`;
+      if (diffDays < 7) return `${diffDays} day${diffDays !== 1 ? 's' : ''} ago`;
+      return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
     } catch {
       return 'Invalid date';
     }
@@ -100,7 +99,7 @@ const CitizenDashboard = () => {
   // Calculate stats from all reports
   const calculateStats = useCallback((reportsList: Report[]): DashboardStats => {
     const total = reportsList.length;
-    const active = reportsList.filter(r => 
+    const active = reportsList.filter(r =>
       ACTIVE_STATUSES.includes(r.status.toLowerCase())
     ).length;
     const resolved = reportsList.filter(r => r.status.toLowerCase() === 'resolved').length;
@@ -119,7 +118,7 @@ const CitizenDashboard = () => {
       }
       return err.response.data.detail[0]?.msg || 'Validation error occurred';
     }
-    
+
     // Handle single validation error object
     if (err.response?.data?.detail && typeof err.response.data.detail === 'object') {
       if (err.response.data.detail.msg) {
@@ -131,81 +130,78 @@ const CitizenDashboard = () => {
       // If it's an object, stringify it for debugging but show a user-friendly message
       return 'An error occurred while loading data. Please try again.';
     }
-    
+
     // Handle string error messages
     if (typeof err.response?.data?.detail === 'string') {
       return err.response.data.detail;
     }
-    
+
     // Handle network errors
     if (!err.response && (err.code === 'ECONNABORTED' || err.code === 'ERR_NETWORK' || err.message === 'Network Error')) {
       return 'Unable to connect to the server. Please check your internet connection and try again.';
     }
-    
+
     // Handle error message
     if (typeof err.message === 'string') {
       return err.message;
     }
-    
+
     // Fallback
     return 'Unable to load dashboard data. Please try again.';
   }, []);
 
   // Load dashboard data with pagination support
-  const loadDashboardData = useCallback(async (showToast = false) => {
+  const loadDashboardData = useCallback(async (showSuccessToast = false) => {
     try {
       setError(null);
-      
+
       // Fetch reports and user stats in parallel
       const [allReportsData, userStatsData] = await Promise.allSettled([
         reportsService.getMyReports({ limit: 100 }),
         userService.getMyStats().catch(() => null) // Don't fail if stats fail
       ]);
-      
+
       // Handle reports
       if (allReportsData.status === 'fulfilled') {
         const fetchedReports = allReportsData.value.reports || [];
         setAllReports(fetchedReports);
-        
+
         // Calculate stats from fetched reports
         const calculatedStats = calculateStats(fetchedReports);
         setStats(calculatedStats);
-        
+
         // Show only recent 5 reports for dashboard
         setReports(fetchedReports.slice(0, 5));
       } else {
         throw allReportsData.reason;
       }
-      
+
       // Handle user stats (optional - don't fail if unavailable)
       if (userStatsData.status === 'fulfilled' && userStatsData.value) {
         setUserStats(userStatsData.value);
       }
-      
-      if (showToast) {
-        toast({
-          title: "Dashboard Updated",
-          description: "Your dashboard has been refreshed successfully.",
+
+      if (showSuccessToast) {
+        showToast.success("Dashboard Updated", {
+          description: "Your dashboard has been refreshed successfully."
         });
       }
     } catch (err: any) {
       logger.error('Failed to load dashboard data:', err);
-      
+
       const errorMessage = extractErrorMessage(err);
       setError(errorMessage);
-      
-      if (showToast || !loading) {
-        toast({
-          title: "Unable to Load Dashboard",
-          description: errorMessage,
-          variant: "destructive"
+
+      if (showSuccessToast || !loading) {
+        showToast.error("Unable to Load Dashboard", {
+          description: errorMessage
         });
       }
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [calculateStats, toast, loading, extractErrorMessage]);
+  }, [calculateStats, loading, extractErrorMessage]);
 
   // Handle refresh
   const handleRefresh = useCallback(() => {
@@ -237,9 +233,9 @@ const CitizenDashboard = () => {
         <CitizenHeader />
         <div className="container mx-auto px-4 py-8 max-w-6xl">
           <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="text-center">
-          <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-primary" />
-          <p className="text-muted-foreground">Loading dashboard...</p>
+            <div className="text-center">
+              <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-primary" />
+              <p className="text-muted-foreground">Loading dashboard...</p>
             </div>
           </div>
         </div>
@@ -255,8 +251,8 @@ const CitizenDashboard = () => {
         <div className="container mx-auto px-4 py-8 max-w-6xl">
           <div className="flex items-center justify-center min-h-[60vh]">
             <Card className="p-8 max-w-md w-full">
-          <div className="text-center">
-            <AlertCircle className="w-12 h-12 text-destructive mx-auto mb-4" />
+              <div className="text-center">
+                <AlertCircle className="w-12 h-12 text-destructive mx-auto mb-4" />
                 <h3 className="text-lg font-semibold mb-2">Unable to Load Dashboard</h3>
                 <p className="text-muted-foreground mb-6">
                   {typeof error === 'string' ? error : 'An unexpected error occurred. Please try again.'}
@@ -321,7 +317,7 @@ const CitizenDashboard = () => {
                 </Button>
               </div>
             </div>
-            
+
             {/* Offline indicator */}
             {isOffline && (
               <div className="mt-4 p-3 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-lg flex items-center gap-2 text-sm text-amber-800 dark:text-amber-200">
@@ -400,9 +396,9 @@ const CitizenDashboard = () => {
             </div>
             <div className="space-y-1">
               <p className="text-3xl font-bold text-foreground">
-                {userStats?.avg_resolution_time_days 
+                {userStats?.avg_resolution_time_days
                   ? `${userStats.avg_resolution_time_days.toFixed(1)}d`
-                  : stats.resolved > 0 
+                  : stats.resolved > 0
                     ? 'N/A'
                     : '—'}
               </p>
@@ -422,7 +418,7 @@ const CitizenDashboard = () => {
                   <h3 className="text-lg font-semibold text-foreground mb-1">Submit New Report</h3>
                   <p className="text-sm text-muted-foreground">Report a civic issue in your area</p>
                 </div>
-                <Button 
+                <Button
                   onClick={() => navigate('/citizen/submit-report')}
                   size="lg"
                   className="shrink-0"
@@ -430,8 +426,8 @@ const CitizenDashboard = () => {
                 >
                   <Plus className="w-5 h-5 mr-2" />
                   Submit Report
-              </Button>
-            </div>
+                </Button>
+              </div>
             </Card>
 
             {/* Recent Reports Section */}
@@ -452,8 +448,8 @@ const CitizenDashboard = () => {
                   >
                     <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
                   </Button>
-                  <Button 
-                    variant="outline" 
+                  <Button
+                    variant="outline"
                     onClick={() => navigate('/citizen/reports')}
                     className="text-sm"
                     aria-label="View all reports"
@@ -471,32 +467,32 @@ const CitizenDashboard = () => {
                     <h3 className="text-lg font-semibold mb-2 text-foreground">No Reports Yet</h3>
                     <p className="text-muted-foreground mb-6 text-base">
                       You have not submitted any reports yet. Start by submitting your first civic issue report.
-                </p>
-                    <Button 
+                    </p>
+                    <Button
                       onClick={() => navigate('/citizen/submit-report')}
                       aria-label="Submit your first report"
                     >
-                  <Plus className="w-4 h-4 mr-2" />
+                      <Plus className="w-4 h-4 mr-2" />
                       Submit Your First Report
-                </Button>
+                    </Button>
                   </div>
-              </Card>
-            ) : (
+                </Card>
+              ) : (
                 <div className="space-y-4" role="list" aria-label="Recent reports">
                   {recentReports.map((report) => {
-                  const StatusIcon = getStatusIcon(report.status);
-                  const statusColor = getStatusColor(report.status);
-                  
-                  return (
-                      <Card 
-                        key={report.id} 
+                    const StatusIcon = getStatusIcon(report.status);
+                    const statusColor = getStatusColor(report.status);
+
+                    return (
+                      <Card
+                        key={report.id}
                         className="p-6 hover:shadow-lg hover:border-primary/30 transition-all cursor-pointer group"
                         role="listitem"
                         onClick={() => navigate(`/citizen/track/${report.id}`)}
                       >
                         <div className="flex items-start justify-between mb-4">
                           <div className="flex items-start gap-4 flex-1 min-w-0">
-                            <div 
+                            <div
                               className={`w-12 h-12 rounded-xl ${statusColor} flex items-center justify-center flex-shrink-0 shadow-sm group-hover:scale-110 transition-transform`}
                               aria-hidden="true"
                             >
@@ -525,7 +521,7 @@ const CitizenDashboard = () => {
                                   <div className="flex items-center gap-1">
                                     <Target className="w-3 h-3" />
                                     <span>{report.department.name}</span>
-                          </div>
+                                  </div>
                                 )}
                                 <div className="flex items-center gap-1">
                                   <Clock className="w-3 h-3" />
@@ -534,17 +530,17 @@ const CitizenDashboard = () => {
                               </div>
                             </div>
                           </div>
-                          <Badge 
-                            className={`${statusColor} ml-2 shrink-0`} 
+                          <Badge
+                            className={`${statusColor} ml-2 shrink-0`}
                             aria-label={`Status: ${toLabel(report.status)}`}
                           >
                             {toLabel(report.status)}
                           </Badge>
                         </div>
                         <div className="flex gap-2 pt-4 border-t">
-                          <Button 
-                            size="sm" 
-                            variant="outline" 
+                          <Button
+                            size="sm"
+                            variant="outline"
                             className="flex-1 group-hover:bg-primary group-hover:text-primary-foreground transition-colors"
                             onClick={(e) => {
                               e.stopPropagation();
@@ -552,23 +548,23 @@ const CitizenDashboard = () => {
                             }}
                             aria-label={`${report.status.toLowerCase() === "resolved" ? 'View details' : 'Track'} report ${report.report_number}`}
                           >
-                        {report.status.toLowerCase() === "resolved" ? (
-                          <>
+                            {report.status.toLowerCase() === "resolved" ? (
+                              <>
                                 <CheckCircle2 className="w-4 h-4 mr-2" />
                                 View Details
-                          </>
-                        ) : (
+                              </>
+                            ) : (
                               <>
                                 Track Report <ArrowRight className="w-4 h-4 ml-2" />
                               </>
                             )}
                           </Button>
-                      </div>
-                    </Card>
-                  );
-                })}
-              </div>
-            )}
+                        </div>
+                      </Card>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
 
@@ -591,11 +587,11 @@ const CitizenDashboard = () => {
                     {[1, 2, 3, 4, 5].map((i) => {
                       const reputationScore = userStats?.reputation_score ?? user?.reputation_score ?? 0;
                       return (
-                      <Star 
-                        key={i} 
+                        <Star
+                          key={i}
                           className={`w-5 h-5 transition-all ${i <= Math.floor(reputationScore / 100) ? 'fill-amber-400 text-amber-400 scale-110' : 'text-gray-300'}`}
                           aria-hidden="true"
-                      />
+                        />
                       );
                     })}
                   </div>
@@ -645,8 +641,8 @@ const CitizenDashboard = () => {
                 <p className="text-sm text-muted-foreground mb-4">
                   Complete your profile to unlock reputation points and track your community impact.
                 </p>
-                <Button 
-                  onClick={() => navigate('/citizen/profile')} 
+                <Button
+                  onClick={() => navigate('/citizen/profile')}
                   className="w-full"
                   aria-label="Go to profile to complete your account"
                 >
@@ -664,7 +660,7 @@ const CitizenDashboard = () => {
                 <h4 className="font-semibold text-foreground">Community Impact</h4>
               </div>
               <p className="text-sm text-muted-foreground mb-4">
-                {stats.resolved > 0 
+                {stats.resolved > 0
                   ? `Your reports have helped resolve ${stats.resolved} issue${stats.resolved !== 1 ? 's' : ''} in your community.`
                   : 'Start reporting issues to make a positive impact in your community.'}
               </p>

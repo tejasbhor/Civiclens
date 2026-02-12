@@ -2,7 +2,6 @@
 
 import React, { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import RequireAuth from "@/components/auth/RequireAuth";
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -12,8 +11,11 @@ export default function ProfilePage() {
   }, [router]);
 
   return (
-    <RequireAuth>
-      <div className="p-6">Redirecting to Profile Settings…</div>
-    </RequireAuth>
+    <div className="flex items-center justify-center py-12">
+      <div className="text-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto mb-4"></div>
+        <p className="text-gray-600">Redirecting to Profile Settings…</p>
+      </div>
+    </div>
   );
 }

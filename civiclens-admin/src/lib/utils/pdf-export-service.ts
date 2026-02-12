@@ -11,21 +11,13 @@ import { Report } from '@/types';
 
 export enum PDFExportLevel {
   SUMMARY = 'summary',
-  STANDARD = 'standard', 
+  STANDARD = 'standard',
   COMPREHENSIVE = 'comprehensive'
 }
 
 export enum PDFExportFormat {
   COMPREHENSIVE = 'comprehensive',
   BULK = 'bulk'
-}
-
-interface PDFExportOptions {
-  reportId?: number;
-  reportIds?: number[];
-  format: PDFExportFormat;
-  includeMedia?: boolean;
-  includeSensitiveData?: boolean;
 }
 
 interface BulkExportRequest {
@@ -578,9 +570,9 @@ function generateComprehensivePDF(options: PDFExportOptions): string {
  */
 export function exportReportPDF(options: PDFExportOptions): void {
   const { level } = options;
-  
+
   let htmlContent: string;
-  
+
   switch (level) {
     case PDFExportLevel.SUMMARY:
       htmlContent = generateSummaryPDF(options);
@@ -594,18 +586,18 @@ export function exportReportPDF(options: PDFExportOptions): void {
     default:
       htmlContent = generateStandardPDF(options);
   }
-  
+
   // Open in new window for printing
   const printWindow = window.open('', '_blank');
   if (printWindow) {
     printWindow.document.write(htmlContent);
     printWindow.document.close();
-    
+
     // Set title based on level
     const reportNum = options.report.report_number || `CL-${options.report.id}`;
     const timestamp = new Date().toISOString().split('T')[0];
-    const levelPrefix = level === PDFExportLevel.SUMMARY ? 'Summary' : 
-                       level === PDFExportLevel.COMPREHENSIVE ? 'Comprehensive' : 'Report';
+    const levelPrefix = level === PDFExportLevel.SUMMARY ? 'Summary' :
+      level === PDFExportLevel.COMPREHENSIVE ? 'Comprehensive' : 'Report';
     printWindow.document.title = `CivicLens_${levelPrefix}_${reportNum}_${timestamp}`;
   }
 }

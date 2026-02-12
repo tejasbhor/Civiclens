@@ -36,7 +36,7 @@ from app.core.background_tasks import (
 logger = logging.getLogger(__name__)
 
 
-def serialize_report_with_details(report) -> dict:
+def serialize_report_with_details(report, current_user: Optional[User] = None) -> dict:
     """Helper function to serialize a report with its relationships"""
     payload = {
         "id": report.id,
@@ -75,12 +75,22 @@ def serialize_report_with_details(report) -> dict:
     try:
         u = getattr(report, "user", None)
         if u:
-            payload["user"] = {
+            # Check for PII access authorization
+            # Only owner or privileged users (Officers/Admins) can see phone number
+            is_owner = current_user and current_user.id == u.id
+            is_privileged = current_user and current_user.can_access_admin_portal()
+
+            user_data = {
                 "id": u.id,
                 "full_name": getattr(u, "full_name", None),
-                "phone": getattr(u, "phone", None),
                 "role": getattr(u, "role", None).value if getattr(u, "role", None) and hasattr(u.role, "value") else str(getattr(u, "role", None)) if getattr(u, "role", None) else None,
             }
+
+            # Only add sensitive PII if authorized
+            if is_owner or is_privileged:
+                user_data["phone"] = getattr(u, "phone", None)
+
+            payload["user"] = user_data
     except Exception:
         pass
 
@@ -186,6 +196,13 @@ async def create_report(
         logger.warning("Unauthenticated report creation attempt")
         from app.core.exceptions import UnauthorizedException
         raise UnauthorizedException("Authentication required to create reports")
+
+    # Rate limiting: 5 reports per 5 minutes per user
+    await rate_limiter.check_rate_limit(
+        key=f"create_report:{current_user.id}",
+        max_requests=5,
+        window_seconds=300
+    )
 
     # Authorization validation
     if not current_user.can_report():
@@ -519,7 +536,7 @@ async def get_reports(
             await db.refresh(report.task, ['officer'])
     
     # Serialize reports with department data
-    serialized_reports = [serialize_report_with_details(report) for report in reports]
+    serialized_reports = [serialize_report_with_details(report, current_user) for report in reports]
     
     return PaginatedResponse(
         data=serialized_reports,
@@ -683,7 +700,7 @@ async def get_report(
     if report.task:
         await db.refresh(report.task, ['officer'])
     
-    return serialize_report_with_details(report)
+    return serialize_report_with_details(report, current_user)
 
 
 # =============================
@@ -852,7 +869,7 @@ async def assign_officer(
     )
 
     # Return detailed report with task
-    return await get_report(report_id, db)  # type: ignore
+    return await get_report(report_id, db, current_user)  # type: ignore
 
 
 # =============================

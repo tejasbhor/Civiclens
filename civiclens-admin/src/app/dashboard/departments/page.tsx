@@ -4,21 +4,26 @@ import React, { useEffect, useState } from 'react';
 import { departmentsApi, DepartmentStats } from '@/lib/api/departments';
 import { usersApi } from '@/lib/api/users';
 import { Department, User } from '@/types';
-import { 
-  Building2, 
-  Users, 
-  Phone, 
-  Mail, 
-  Clock, 
-  AlertTriangle, 
-  BarChart3, 
-  RefreshCw, 
+import {
+  Building2,
+  Users,
+  Phone,
+  Mail,
+  Clock,
+  AlertTriangle,
+  BarChart3,
+  RefreshCw,
   Search,
   Zap,
   Droplets,
   Trash2,
-  TreePine
+  TreePine,
+  Filter
 } from 'lucide-react';
+import { Badge } from '@/components/ui/Badge';
+import { Button } from '@/components/ui/Button';
+import { Card } from '@/components/ui/Card';
+import { Input } from '@/components/ui/Input';
 
 export default function DepartmentsPage() {
   const [departments, setDepartments] = useState<Department[]>([]);
@@ -37,19 +42,19 @@ export default function DepartmentsPage() {
     try {
       setLoading(true);
       setError(null);
-      
+
       console.log('🚀 Loading departments data...');
-      
+
       const [departmentsResponse, statsResponse, officersResponse] = await Promise.all([
         departmentsApi.list(),
         departmentsApi.getStats(),
         usersApi.getOfficers() // Use getOfficers to get only officers
       ]);
-      
+
       console.log('📡 Departments:', departmentsResponse);
       console.log('📊 Stats:', statsResponse);
       console.log('👮 Officers:', officersResponse);
-      
+
       setDepartments(departmentsResponse || []);
       setDepartmentStats(statsResponse || []);
       setOfficers(officersResponse || []);
@@ -125,7 +130,7 @@ export default function DepartmentsPage() {
         email: 'horticulture@Navi Mumbai.gov.in'
       }
     };
-    
+
     return configs[name as keyof typeof configs] || {
       short: name.split(' ').map(w => w[0]).join(''),
       icon: Building2,
@@ -152,7 +157,7 @@ export default function DepartmentsPage() {
         resolutionRate: stats.resolution_rate
       };
     }
-    
+
     // Fallback to empty stats if no data available
     return {
       totalOfficers: 0,
@@ -188,8 +193,8 @@ export default function DepartmentsPage() {
   };
 
   // Filter departments based on search
-  const filteredDepartments = departments.filter(dept => 
-    !searchTerm || 
+  const filteredDepartments = departments.filter(dept =>
+    !searchTerm ||
     dept.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     dept.description?.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -211,41 +216,42 @@ export default function DepartmentsPage() {
         <div className="text-center">
           <AlertTriangle className="w-12 h-12 text-status-rejected mx-auto mb-4" />
           <p className="text-status-rejected font-medium mb-4">{error}</p>
-          <button 
+          <Button
             onClick={loadData}
-            className="btn btn-primary"
+            variant="primary"
           >
             Retry
-          </button>
+          </Button>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="p-6 space-y-6 bg-gray-50 min-h-screen">
+    <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <div className="p-3 bg-primary-600 rounded-lg shadow-sm">
-            <Building2 className="w-7 h-7 text-white" />
+            <Building2 className="w-6 h-6 text-white" />
           </div>
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Departments</h1>
-            <p className="text-sm text-gray-600">Government Department Management</p>
+            <p className="text-sm text-gray-500 mt-1">Government Department Management</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <button
+          <Button
             onClick={handleRefresh}
             disabled={refreshing}
-            className="btn btn-ghost"
+            variant="ghost"
+            className="gap-2"
           >
             <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
             Refresh
-          </button>
+          </Button>
           <div className="flex items-center gap-2">
-            <div className="text-2xl font-bold text-primary-600">{departments.length}</div>
+            <div className="text-xl font-bold text-primary-600">{departments.length}</div>
             <div className="text-sm text-gray-500">Total Departments</div>
           </div>
         </div>
@@ -253,18 +259,18 @@ export default function DepartmentsPage() {
 
       <div className="space-y-6">
         {/* Search */}
-        <div className="card">
+        <Card>
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-            <input
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 z-10" />
+            <Input
               type="text"
               placeholder="Search departments..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="input pl-10"
+              className="pl-10 border-0 focus-visible:ring-0"
             />
           </div>
-        </div>
+        </Card>
 
         {/* Departments Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
@@ -273,9 +279,9 @@ export default function DepartmentsPage() {
             const stats = getDepartmentStats(department.id);
             const colorClasses = getColorClasses(config.color);
             const IconComponent = config.icon;
-            
+
             return (
-              <div key={department.id} className="bg-white rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-all duration-200 overflow-hidden">
+              <Card key={department.id} className="hover:shadow-md transition-all duration-200 overflow-hidden">
                 {/* Header */}
                 <div className="p-4 border-b border-gray-100">
                   <div className="flex items-start justify-between">
@@ -289,9 +295,9 @@ export default function DepartmentsPage() {
                       </div>
                     </div>
                     <div className="flex flex-col gap-1">
-                      <span className={`badge text-xs ${getPriorityColor(config.priority)}`}>
+                      <Badge className={getPriorityColor(config.priority)}>
                         {config.priority.charAt(0).toUpperCase() + config.priority.slice(1)}
-                      </span>
+                      </Badge>
                     </div>
                   </div>
                 </div>
@@ -344,20 +350,20 @@ export default function DepartmentsPage() {
                       <span className="font-semibold">{stats.resolutionRate}%</span>
                     </div>
                     <div className="w-full bg-gray-200 rounded-full h-2">
-                      <div 
+                      <div
                         className="bg-gradient-to-r from-status-resolved to-green-400 h-2 rounded-full transition-all duration-500 ease-out"
                         style={{ width: `${stats.resolutionRate}%` }}
                       ></div>
                     </div>
                   </div>
                 </div>
-              </div>
+              </Card>
             );
           })}
         </div>
 
         {/* Performance Table */}
-        <div className="card p-0">
+        <Card className="p-0 overflow-hidden">
           <div className="p-6 border-b border-gray-100">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -389,7 +395,7 @@ export default function DepartmentsPage() {
                   const config = getDepartmentConfig(department.name);
                   const stats = getDepartmentStats(department.id);
                   const IconComponent = config.icon;
-                  
+
                   return (
                     <tr key={department.id} className="hover:bg-gray-50">
                       <td className="px-6 py-4">
@@ -419,7 +425,7 @@ export default function DepartmentsPage() {
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
                           <div className="flex-1 bg-gray-200 rounded-full h-2.5">
-                            <div 
+                            <div
                               className="bg-gradient-to-r from-status-resolved to-green-400 h-2.5 rounded-full transition-all duration-300"
                               style={{ width: `${stats.resolutionRate}%` }}
                             ></div>
@@ -434,9 +440,9 @@ export default function DepartmentsPage() {
                         </div>
                       </td>
                       <td className="px-6 py-4">
-                        <span className={`badge ${getPriorityColor(config.priority)}`}>
+                        <Badge className={getPriorityColor(config.priority)}>
                           {config.priority.charAt(0).toUpperCase() + config.priority.slice(1)}
-                        </span>
+                        </Badge>
                       </td>
                     </tr>
                   );
@@ -444,7 +450,7 @@ export default function DepartmentsPage() {
               </tbody>
             </table>
           </div>
-        </div>
+        </Card>
       </div>
     </div>
   );

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Report, ReportStatus } from '@/types';
 import { reportsApi, ClassifyReportRequest, AssignDepartmentRequest, AssignOfficerRequest, StatusUpdateRequest } from '@/lib/api/reports';
 import { Badge } from '@/components/ui/Badge';
@@ -11,9 +11,9 @@ import { ApproveResolutionModal } from '../ApproveResolutionModal';
 import { RejectResolutionModal } from '../RejectResolutionModal';
 import { VerifyWorkModal } from '../VerifyWorkModal';
 import { ReviewRejectionModal } from '../ReviewRejectionModal';
-import { 
-  CheckCircle, 
-  Clock, 
+import {
+  CheckCircle,
+  Clock,
   AlertTriangle,
   Play,
   Pause,
@@ -28,6 +28,7 @@ import {
   Info,
   TrendingUp
 } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface LifecycleManagerProps {
   report: Report;
@@ -35,6 +36,9 @@ interface LifecycleManagerProps {
 }
 
 export function LifecycleManager({ report, onUpdate }: LifecycleManagerProps) {
+  // Local state for immediate UI updates
+  const [localReport, setLocalReport] = useState(report);
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showActionForm, setShowActionForm] = useState(false);
@@ -49,6 +53,11 @@ export function LifecycleManager({ report, onUpdate }: LifecycleManagerProps) {
   const [showVerifyWorkModal, setShowVerifyWorkModal] = useState(false);
   const [showReviewRejectionModal, setShowReviewRejectionModal] = useState(false);
 
+  // Sync local report with prop changes
+  useEffect(() => {
+    setLocalReport(report);
+  }, [report]);
+
   // Form states
   const [category, setCategory] = useState(report.category || '');
   const [severity, setSeverity] = useState<'low' | 'medium' | 'high' | 'critical'>(report.severity as any || 'medium');
@@ -59,8 +68,8 @@ export function LifecycleManager({ report, onUpdate }: LifecycleManagerProps) {
 
   // Get current workflow stage and available actions
   const getWorkflowStage = () => {
-    const status = report.status;
-    
+    const status = localReport.status;
+
     const stages = [
       {
         id: 'submission',
@@ -130,23 +139,23 @@ export function LifecycleManager({ report, onUpdate }: LifecycleManagerProps) {
   // Get available actions based on current status
   const getAvailableActions = () => {
     const actions = [];
-    
-    switch (report.status) {
+
+    switch (localReport.status) {
       case ReportStatus.RECEIVED:
         actions.push(
           { id: 'classify', label: 'Classify Report', description: 'Set category and severity', icon: Flag, color: 'bg-blue-600 hover:bg-blue-700' },
           { id: 'assign-dept', label: 'Assign Department', description: 'Route to appropriate department', icon: Building2, color: 'bg-purple-600 hover:bg-purple-700' }
         );
         break;
-        
+
       case ReportStatus.PENDING_CLASSIFICATION:
         actions.push(
           { id: 'classify', label: 'Complete Classification', description: 'Finalize category and severity', icon: Flag, color: 'bg-green-600 hover:bg-green-700' }
         );
         break;
-        
+
       case ReportStatus.CLASSIFIED:
-        if (!report.department_id) {
+        if (!localReport.department_id) {
           actions.push(
             { id: 'assign-dept', label: 'Assign Department', description: 'Route to appropriate department', icon: Building2, color: 'bg-purple-600 hover:bg-purple-700' }
           );
@@ -156,83 +165,83 @@ export function LifecycleManager({ report, onUpdate }: LifecycleManagerProps) {
           );
         }
         break;
-        
+
       case ReportStatus.ASSIGNED_TO_DEPARTMENT:
         actions.push(
           { id: 'assign-officer', label: 'Assign Officer', description: 'Assign to field officer', icon: User, color: 'bg-indigo-600 hover:bg-indigo-700' }
         );
         break;
-        
+
       case ReportStatus.ASSIGNED_TO_OFFICER:
         // Admin can view status, officer handles acknowledgment
         actions.push(
           { id: 'view-assignment', label: 'View Assignment', description: 'Officer will acknowledge the task', icon: Info, color: 'bg-blue-600 hover:bg-blue-700', secondary: true }
         );
         break;
-        
+
       case ReportStatus.ASSIGNMENT_REJECTED:
         actions.push(
           { id: 'review-rejection', label: 'Review Rejection', description: 'Review officer\'s rejection and take action', icon: AlertTriangle, color: 'bg-orange-600 hover:bg-orange-700' }
         );
         break;
-        
+
       case ReportStatus.ACKNOWLEDGED:
         // Admin can view status, officer handles starting work
         actions.push(
           { id: 'view-progress', label: 'View Progress', description: 'Officer will start work', icon: Info, color: 'bg-blue-600 hover:bg-blue-700', secondary: true }
         );
         break;
-        
+
       case ReportStatus.IN_PROGRESS:
         // Admin can view progress, officer handles submission
         actions.push(
           { id: 'view-progress', label: 'View Progress', description: 'Officer is working on resolution', icon: Info, color: 'bg-blue-600 hover:bg-blue-700', secondary: true }
         );
         break;
-        
+
       case ReportStatus.PENDING_VERIFICATION:
         // Admin reviews the work first, then approves/rejects
         actions.push(
           { id: 'verify-work', label: 'Review Work', description: 'Review officer\'s work and approve or request rework', icon: FileCheck, color: 'bg-blue-600 hover:bg-blue-700' }
         );
         break;
-        
+
       case ReportStatus.RESOLVED:
         actions.push(
           { id: 'close', label: 'Close Report', description: 'Final closure after citizen feedback', icon: CheckCircle, color: 'bg-gray-600 hover:bg-gray-700' }
         );
         break;
-        
+
       case ReportStatus.REOPENED:
         actions.push(
           { id: 'start-work', label: 'Resume Rework', description: 'Continue working after appeal', icon: Play, color: 'bg-orange-600 hover:bg-orange-700' }
         );
         break;
-        
+
       case ReportStatus.ON_HOLD:
         actions.push(
           { id: 'resume', label: 'Resume Work', description: 'Continue working on report', icon: Play, color: 'bg-blue-600 hover:bg-blue-700' }
         );
         break;
     }
-    
+
     // Administrative override actions - always available for admins
     // These allow admins to reassign or change assignments at any stage
-    const canReassignDepartment = ![ReportStatus.RESOLVED, ReportStatus.CLOSED, ReportStatus.REJECTED, ReportStatus.DUPLICATE].includes(report.status);
-    const canReassignOfficer = report.department_id && ![ReportStatus.RESOLVED, ReportStatus.CLOSED, ReportStatus.REJECTED, ReportStatus.DUPLICATE, ReportStatus.RECEIVED, ReportStatus.PENDING_CLASSIFICATION].includes(report.status);
-    
+    const canReassignDepartment = ![ReportStatus.RESOLVED, ReportStatus.CLOSED, ReportStatus.REJECTED, ReportStatus.DUPLICATE].includes(localReport.status);
+    const canReassignOfficer = localReport.department_id && ![ReportStatus.RESOLVED, ReportStatus.CLOSED, ReportStatus.REJECTED, ReportStatus.DUPLICATE, ReportStatus.RECEIVED, ReportStatus.PENDING_CLASSIFICATION].includes(localReport.status);
+
     if (canReassignDepartment) {
       actions.push(
-        { id: 'assign-dept', label: report.department_id ? 'Reassign Department' : 'Assign Department', description: 'Change department assignment', icon: Building2, color: 'bg-purple-600 hover:bg-purple-700', secondary: true }
+        { id: 'assign-dept', label: localReport.department_id ? 'Reassign Department' : 'Assign Department', description: 'Change department assignment', icon: Building2, color: 'bg-purple-600 hover:bg-purple-700', secondary: true }
       );
     }
-    
+
     if (canReassignOfficer) {
       actions.push(
         { id: 'assign-officer', label: 'Assign/Reassign Officer', description: 'Change officer assignment', icon: User, color: 'bg-indigo-600 hover:bg-indigo-700', secondary: true }
       );
     }
-    
+
     // Always available actions
     actions.push(
       { id: 'work-progress', label: 'Update Progress', description: 'Update work progress and status', icon: Play, color: 'bg-blue-600 hover:bg-blue-700', secondary: true },
@@ -240,74 +249,74 @@ export function LifecycleManager({ report, onUpdate }: LifecycleManagerProps) {
       { id: 'escalation', label: 'Create Escalation', description: 'Escalate to higher authority', icon: TrendingUp, color: 'bg-red-600 hover:bg-red-700', secondary: true },
       { id: 'reject', label: 'Reject Report', description: 'Mark as invalid/spam', icon: X, color: 'bg-red-600 hover:bg-red-700', secondary: true }
     );
-    
+
     return actions;
   };
 
   const handleAction = async (actionId: string) => {
     setCurrentAction(actionId);
-    
+
     // Special handling for modals
     if (actionId === 'assign-officer') {
       setShowAssignOfficerModal(true);
       return;
     }
-    
+
     if (actionId === 'assign-dept') {
       setShowAssignDepartmentModal(true);
       return;
     }
-    
+
     if (actionId === 'work-progress') {
       setShowWorkProgressModal(true);
       return;
     }
-    
+
     if (actionId === 'appeals') {
       setShowAppealsModal(true);
       return;
     }
-    
+
     if (actionId === 'escalation') {
       setShowEscalationModal(true);
       return;
     }
-    
+
     if (actionId === 'approve') {
       setShowApproveModal(true);
       return;
     }
-    
+
     if (actionId === 'reject-work') {
       setShowRejectModal(true);
       return;
     }
-    
+
     if (actionId === 'verify-work') {
       setShowVerifyWorkModal(true);
       return;
     }
-    
+
     if (actionId === 'review-rejection') {
       setShowReviewRejectionModal(true);
       return;
     }
-    
+
     if (actionId === 'view-assignment' || actionId === 'view-progress') {
       // These are informational actions, no modal needed
       return;
     }
-    
+
     // Actions that need forms
     if (['classify', 'hold', 'reject'].includes(actionId)) {
       setShowActionForm(true);
       return;
     }
-    
+
     // Direct actions
     setLoading(true);
     setError(null);
-    
+
     try {
       switch (actionId) {
         case 'acknowledge':
@@ -317,25 +326,25 @@ export function LifecycleManager({ report, onUpdate }: LifecycleManagerProps) {
           await reportsApi.startWork(report.id);
           break;
         case 'submit-completion':
-          await reportsApi.updateStatus(report.id, { 
+          await reportsApi.updateStatus(report.id, {
             new_status: ReportStatus.PENDING_VERIFICATION,
             notes: 'Work completed, awaiting verification'
           });
           break;
         case 'close':
-          await reportsApi.updateStatus(report.id, { 
+          await reportsApi.updateStatus(report.id, {
             new_status: ReportStatus.CLOSED,
             notes: 'Report closed'
           });
           break;
         case 'resume':
-          await reportsApi.updateStatus(report.id, { 
+          await reportsApi.updateStatus(report.id, {
             new_status: ReportStatus.IN_PROGRESS,
             notes: 'Work resumed'
           });
           break;
       }
-      
+
       onUpdate();
     } catch (e: any) {
       setError(e?.response?.data?.detail || 'Action failed');
@@ -349,7 +358,7 @@ export function LifecycleManager({ report, onUpdate }: LifecycleManagerProps) {
     e.preventDefault();
     setLoading(true);
     setError(null);
-    
+
     try {
       switch (currentAction) {
         case 'classify':
@@ -359,7 +368,7 @@ export function LifecycleManager({ report, onUpdate }: LifecycleManagerProps) {
             notes
           });
           break;
-          
+
         case 'assign-officer':
           if (officerId) {
             await reportsApi.assignOfficer(report.id, {
@@ -369,14 +378,14 @@ export function LifecycleManager({ report, onUpdate }: LifecycleManagerProps) {
             });
           }
           break;
-          
+
         case 'hold':
           await reportsApi.updateStatus(report.id, {
             new_status: ReportStatus.ON_HOLD,
             notes
           });
           break;
-          
+
         case 'reject':
           await reportsApi.updateStatus(report.id, {
             new_status: ReportStatus.REJECTED,
@@ -384,7 +393,7 @@ export function LifecycleManager({ report, onUpdate }: LifecycleManagerProps) {
           });
           break;
       }
-      
+
       setShowActionForm(false);
       setCurrentAction(null);
       setNotes('');
@@ -397,6 +406,7 @@ export function LifecycleManager({ report, onUpdate }: LifecycleManagerProps) {
   };
 
   const stages = getWorkflowStage();
+  // Note: getWorkflowStage() uses the component's report state, which is now localReport via closure
   const actions = getAvailableActions();
   const primaryActions = actions.filter(a => !a.secondary);
   const secondaryActions = actions.filter(a => a.secondary);
@@ -406,39 +416,37 @@ export function LifecycleManager({ report, onUpdate }: LifecycleManagerProps) {
       {/* Workflow Progress */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
         <h3 className="text-base font-semibold text-gray-900 mb-6">Report Lifecycle</h3>
-        
+
         <div className="relative">
           {/* Progress Line */}
           <div className="absolute top-5 left-0 right-0 h-0.5 bg-gray-200">
-            <div 
+            <div
               className="h-full bg-green-500 transition-all duration-500"
-              style={{ 
-                width: `${(stages.filter(s => s.completed).length / stages.length) * 100}%` 
+              style={{
+                width: `${(stages.filter(s => s.completed).length / stages.length) * 100}%`
               }}
             />
           </div>
-          
+
           {/* Stages */}
           <div className="relative grid grid-cols-6 gap-1">
             {stages.map((stage, index) => {
               const Icon = stage.icon;
               return (
                 <div key={stage.id} className="flex flex-col items-center">
-                  <div 
-                    className={`w-11 h-11 rounded-full flex items-center justify-center mb-2 transition-all shadow-sm ${
-                      stage.completed 
-                        ? 'bg-green-500 text-white' 
-                        : stage.current 
-                        ? 'bg-blue-500 text-white ring-4 ring-blue-100' 
+                  <div
+                    className={`w-11 h-11 rounded-full flex items-center justify-center mb-2 transition-all shadow-sm ${stage.completed
+                      ? 'bg-green-500 text-white'
+                      : stage.current
+                        ? 'bg-blue-500 text-white ring-4 ring-blue-100'
                         : 'bg-gray-100 text-gray-400 border-2 border-gray-200'
-                    }`}
+                      }`}
                   >
                     <Icon className="w-5 h-5" />
                   </div>
                   <div className="text-center px-1">
-                    <div className={`text-xs font-medium leading-tight ${
-                      stage.current ? 'text-blue-600' : stage.completed ? 'text-green-600' : 'text-gray-500'
-                    }`}>
+                    <div className={`text-xs font-medium leading-tight ${stage.current ? 'text-blue-600' : stage.completed ? 'text-green-600' : 'text-gray-500'
+                      }`}>
                       {stage.label}
                     </div>
                   </div>
@@ -447,7 +455,7 @@ export function LifecycleManager({ report, onUpdate }: LifecycleManagerProps) {
             })}
           </div>
         </div>
-        
+
         {/* Current Stage Description */}
         <div className="mt-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg">
           <div className="flex items-start gap-3">
@@ -467,7 +475,7 @@ export function LifecycleManager({ report, onUpdate }: LifecycleManagerProps) {
       {!showActionForm && (primaryActions.length > 0 || secondaryActions.length > 0) && (
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <h3 className="text-base font-semibold text-gray-900 mb-4">Available Actions</h3>
-          
+
           {error && (
             <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
               <div className="flex items-center gap-2">
@@ -476,7 +484,7 @@ export function LifecycleManager({ report, onUpdate }: LifecycleManagerProps) {
               </div>
             </div>
           )}
-          
+
           {primaryActions.length > 0 && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {primaryActions.map((action) => {
@@ -499,7 +507,7 @@ export function LifecycleManager({ report, onUpdate }: LifecycleManagerProps) {
               })}
             </div>
           )}
-          
+
           {secondaryActions.length > 0 && (
             <div className={primaryActions.length > 0 ? "mt-4 pt-4 border-t border-gray-200" : ""}>
               {primaryActions.length > 0 && (
@@ -532,7 +540,7 @@ export function LifecycleManager({ report, onUpdate }: LifecycleManagerProps) {
           <h3 className="text-base font-semibold text-gray-900 mb-4">
             {actions.find(a => a.id === currentAction)?.label}
           </h3>
-          
+
           <form onSubmit={handleFormSubmit} className="space-y-4">
             {currentAction === 'classify' && (
               <>
@@ -557,7 +565,7 @@ export function LifecycleManager({ report, onUpdate }: LifecycleManagerProps) {
                     <option value="other">Other</option>
                   </select>
                 </div>
-                
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Severity *
@@ -576,7 +584,7 @@ export function LifecycleManager({ report, onUpdate }: LifecycleManagerProps) {
                 </div>
               </>
             )}
-            
+
             {currentAction === 'assign-officer' && (
               <>
                 <div>
@@ -592,7 +600,7 @@ export function LifecycleManager({ report, onUpdate }: LifecycleManagerProps) {
                     required
                   />
                 </div>
-                
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Priority (1-10)
@@ -608,7 +616,7 @@ export function LifecycleManager({ report, onUpdate }: LifecycleManagerProps) {
                 </div>
               </>
             )}
-            
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Notes {['hold', 'reject', 'reject-work'].includes(currentAction) && '*'}
@@ -622,7 +630,7 @@ export function LifecycleManager({ report, onUpdate }: LifecycleManagerProps) {
                 required={['hold', 'reject', 'reject-work'].includes(currentAction)}
               />
             </div>
-            
+
             <div className="flex items-center gap-3">
               <button
                 type="submit"
@@ -662,10 +670,14 @@ export function LifecycleManager({ report, onUpdate }: LifecycleManagerProps) {
       <AssignOfficerModal
         isOpen={showAssignOfficerModal}
         onClose={() => setShowAssignOfficerModal(false)}
-        report={report}
+        report={localReport}
         onSuccess={(updatedReport) => {
           setShowAssignOfficerModal(false);
-          onUpdate(); // Refresh the report data
+          setLocalReport(updatedReport);
+          toast.success('Officer Assigned', {
+            description: 'The officer has been notified of their assignment.'
+          });
+          onUpdate();
         }}
       />
 
@@ -673,10 +685,14 @@ export function LifecycleManager({ report, onUpdate }: LifecycleManagerProps) {
       <AssignDepartmentModal
         isOpen={showAssignDepartmentModal}
         onClose={() => setShowAssignDepartmentModal(false)}
-        report={report}
+        report={localReport}
         onSuccess={(updatedReport) => {
           setShowAssignDepartmentModal(false);
-          onUpdate(); // Refresh the report data
+          setLocalReport(updatedReport);
+          toast.success('Department Assigned', {
+            description: 'The report has been routed to the appropriate department.'
+          });
+          onUpdate();
         }}
       />
 
@@ -684,10 +700,13 @@ export function LifecycleManager({ report, onUpdate }: LifecycleManagerProps) {
       <WorkProgressModal
         isOpen={showWorkProgressModal}
         onClose={() => setShowWorkProgressModal(false)}
-        report={report}
+        report={localReport}
         onSuccess={() => {
           setShowWorkProgressModal(false);
-          onUpdate(); // Refresh the report data
+          toast.success('Progress Updated', {
+            description: 'Work progress has been updated successfully.'
+          });
+          onUpdate();
         }}
       />
 
@@ -695,10 +714,10 @@ export function LifecycleManager({ report, onUpdate }: LifecycleManagerProps) {
       <AppealsModal
         isOpen={showAppealsModal}
         onClose={() => setShowAppealsModal(false)}
-        report={report}
+        report={localReport}
         onSuccess={() => {
           setShowAppealsModal(false);
-          onUpdate(); // Refresh the report data
+          onUpdate();
         }}
       />
 
@@ -706,10 +725,13 @@ export function LifecycleManager({ report, onUpdate }: LifecycleManagerProps) {
       <EscalationModal
         isOpen={showEscalationModal}
         onClose={() => setShowEscalationModal(false)}
-        report={report}
+        report={localReport}
         onSuccess={() => {
           setShowEscalationModal(false);
-          onUpdate(); // Refresh the report data
+          toast.success('Escalation Created', {
+            description: 'The report has been escalated to higher authority.'
+          });
+          onUpdate();
         }}
       />
 
@@ -717,10 +739,14 @@ export function LifecycleManager({ report, onUpdate }: LifecycleManagerProps) {
       <ApproveResolutionModal
         isOpen={showApproveModal}
         onClose={() => setShowApproveModal(false)}
-        report={report}
+        report={localReport}
         onSuccess={(updatedReport) => {
           setShowApproveModal(false);
-          onUpdate(); // Refresh the report data
+          setLocalReport(updatedReport);
+          toast.success('Resolution Approved', {
+            description: 'The report has been marked as resolved.'
+          });
+          onUpdate();
         }}
       />
 
@@ -728,10 +754,14 @@ export function LifecycleManager({ report, onUpdate }: LifecycleManagerProps) {
       <RejectResolutionModal
         isOpen={showRejectModal}
         onClose={() => setShowRejectModal(false)}
-        report={report}
+        report={localReport}
         onSuccess={(updatedReport) => {
           setShowRejectModal(false);
-          onUpdate(); // Refresh the report data
+          setLocalReport(updatedReport);
+          toast.success('Work Rejected', {
+            description: 'The officer has been notified to rework the resolution.'
+          });
+          onUpdate();
         }}
       />
 
@@ -739,10 +769,23 @@ export function LifecycleManager({ report, onUpdate }: LifecycleManagerProps) {
       <VerifyWorkModal
         isOpen={showVerifyWorkModal}
         onClose={() => setShowVerifyWorkModal(false)}
-        report={report}
+        report={localReport}
         onSuccess={(updatedReport) => {
           setShowVerifyWorkModal(false);
-          onUpdate(); // Refresh the report data
+          setLocalReport(updatedReport); // Update local state immediately
+
+          // Show appropriate toast based on action
+          if (updatedReport.status === ReportStatus.IN_PROGRESS) {
+            toast.success('Rework Requested', {
+              description: 'The officer has been notified to improve their work.'
+            });
+          } else if (updatedReport.status === ReportStatus.RESOLVED) {
+            toast.success('Resolution Approved', {
+              description: 'The report has been marked as resolved successfully.'
+            });
+          }
+
+          onUpdate(); // Refresh the report data from server
         }}
       />
 
@@ -750,10 +793,13 @@ export function LifecycleManager({ report, onUpdate }: LifecycleManagerProps) {
       <ReviewRejectionModal
         isOpen={showReviewRejectionModal}
         onClose={() => setShowReviewRejectionModal(false)}
-        report={report}
+        report={localReport}
         onSuccess={() => {
           setShowReviewRejectionModal(false);
-          onUpdate(); // Refresh the report data
+          toast.success('Rejection Reviewed', {
+            description: 'The rejection has been processed successfully.'
+          });
+          onUpdate();
         }}
       />
     </div>

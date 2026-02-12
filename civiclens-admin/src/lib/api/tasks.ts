@@ -108,19 +108,19 @@ class TasksAPI {
     per_page: number = 20,
     filters: TaskFilters = {}
   ): Promise<PaginatedTasks> {
-    const params = new URLSearchParams({
-      skip: ((page - 1) * per_page).toString(),
-      limit: per_page.toString(),
-    });
+    const params: any = {
+      page,
+      per_page,
+    };
 
     // Add filters to params
     Object.entries(filters).forEach(([key, value]) => {
       if (value !== undefined && value !== null && value !== '') {
-        params.append(key, value.toString());
+        params[key] = value;
       }
     });
 
-    const response = await apiClient.get(`/tasks?${params.toString()}`);
+    const response = await apiClient.get('/tasks', { params });
     return response.data;
   }
 

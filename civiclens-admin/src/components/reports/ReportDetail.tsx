@@ -2,18 +2,20 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { Star } from 'lucide-react';
-import { Report, ReportStatus } from '@/types';
+import { Report, ReportStatus, Media } from '@/types';
 import { reportsApi, AssignDepartmentRequest, AssignOfficerRequest, StatusUpdateRequest, StatusHistoryResponse } from '@/lib/api/reports';
 import { mediaApi, MediaFile } from '@/lib/api/media';
 import apiClient from '@/lib/api/client';
 import { Badge } from '@/components/ui/Badge';
 import { ReportHeader, ReportInfoSection } from '@/components/reports/shared';
+import { MediaGallery } from '@/components/reports/manage/MediaGallery';
 import { getMediaUrl } from '@/lib/utils/media';
 
 type Props = {
   reportId: number;
   admin?: boolean; // if true, show admin actions
   onUpdated?: (report: Report) => void;
+  hideHeader?: boolean;
 };
 
 const statusTransitions: Record<ReportStatus, ReportStatus[]> = {
@@ -32,7 +34,7 @@ const statusTransitions: Record<ReportStatus, ReportStatus[]> = {
   [ReportStatus.ON_HOLD]: [ReportStatus.ASSIGNED_TO_DEPARTMENT, ReportStatus.ASSIGNED_TO_OFFICER, ReportStatus.IN_PROGRESS],
 };
 
-export default function ReportDetail({ reportId, admin = false, onUpdated }: Props) {
+export default function ReportDetail({ reportId, admin = false, onUpdated, hideHeader = false }: Props) {
   const [loading, setLoading] = useState(true);
   const [report, setReport] = useState<Report | null>(null);
   const [history, setHistory] = useState<StatusHistoryResponse | null>(null);
@@ -116,9 +118,9 @@ export default function ReportDetail({ reportId, admin = false, onUpdated }: Pro
 
   const handleExportPDF = async (level: 'summary' | 'standard' | 'comprehensive') => {
     if (!report) return;
-    
+
     const { exportReportPDF, PDFExportLevel } = await import('@/lib/utils/pdf-export-service');
-    
+
     if (level === 'summary') {
       exportReportPDF({ level: PDFExportLevel.SUMMARY, report });
     } else if (level === 'standard') {
@@ -126,9 +128,9 @@ export default function ReportDetail({ reportId, admin = false, onUpdated }: Pro
     } else {
       // Comprehensive - fetch activity logs
       const activityLogs = await apiClient.get(`/audit/resource/report/${report.id}`);
-      exportReportPDF({ 
-        level: PDFExportLevel.COMPREHENSIVE, 
-        report, 
+      exportReportPDF({
+        level: PDFExportLevel.COMPREHENSIVE,
+        report,
         history: history?.history,
         activityLogs: activityLogs.data
       });
@@ -424,11 +426,13 @@ export default function ReportDetail({ reportId, admin = false, onUpdated }: Pro
   return (
     <div className="space-y-6">
       {/* Header Section - Using Shared Component */}
-      <ReportHeader 
-        report={report} 
-        showExportButton={true}
-        onExport={handleExportPDF}
-      />
+      {!hideHeader && (
+        <ReportHeader
+          report={report}
+          showExportButton={true}
+          onExport={handleExportPDF}
+        />
+      )}
 
       {/* Report Info Section - Using Shared Component */}
       <ReportInfoSection report={report} showFullDetails={false} />
@@ -469,8 +473,8 @@ export default function ReportDetail({ reportId, admin = false, onUpdated }: Pro
                   <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">AI Confidence</span>
                   <div className="flex items-center gap-2 mt-1">
                     <div className="flex-1 bg-gray-200 rounded-full h-2">
-                      <div 
-                        className="bg-primary-600 h-2 rounded-full transition-all" 
+                      <div
+                        className="bg-primary-600 h-2 rounded-full transition-all"
                         style={{ width: `${Math.round(report.confidence_score * 100)}%` }}
                       />
                     </div>
@@ -588,84 +592,17 @@ export default function ReportDetail({ reportId, admin = false, onUpdated }: Pro
       </div>
 
       {/* Media Gallery Section */}
-      <div className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
-        <div className="flex items-center gap-3 mb-6">
-          <div className="p-2 bg-primary-100 rounded-lg">
-            <svg className="w-5 h-5 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-            </svg>
-          </div>
-          <h3 className="text-lg font-semibold text-gray-900">Media Files ({media.length})</h3>
-        </div>
-        {media.length > 0 ? (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {media.map((file) => {
-              const mediaUrl = getMediaUrl(file.file_url);
-              console.log('Media file:', { id: file.id, type: file.file_type, url: mediaUrl });
-              
-              return (
-                <div key={file.id} className="relative group">
-                  {file.file_type === 'image' ? (
-                    <a href={mediaUrl} target="_blank" rel="noopener noreferrer" className="block">
-                      <div className="aspect-square bg-gray-100 rounded-lg overflow-hidden border-2 border-gray-200 group-hover:border-primary-500 transition-colors relative">
-                        <img 
-                          src={mediaUrl} 
-                          alt={file.caption || 'Report image'} 
-                          className="w-full h-full object-cover"
-                          loading="lazy"
-                          onError={(e) => {
-                            console.error('Image load error:', { url: mediaUrl, file_url: file.file_url });
-                            const target = e.target as HTMLImageElement;
-                            target.style.display = 'none';
-                            const parent = target.parentElement;
-                            if (parent) {
-                              parent.innerHTML = `
-                                <div class="w-full h-full flex flex-col items-center justify-center text-gray-400 p-4">
-                                  <svg class="w-12 h-12 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
-                                  </svg>
-                                  <p class="text-xs text-center">Image unavailable</p>
-                                </div>
-                              `;
-                            }
-                          }}
-                        />
-                        <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-10 transition-all flex items-center justify-center">
-                          <span className="opacity-0 group-hover:opacity-100 text-white text-xs font-medium bg-black bg-opacity-50 px-3 py-1 rounded">
-                            Click to view
-                          </span>
-                        </div>
-                      </div>
-                      {file.is_primary && (
-                        <span className="absolute top-2 right-2 bg-primary-600 text-white text-xs px-2 py-1 rounded-full shadow-md font-medium">Primary</span>
-                      )}
-                    </a>
-                  ) : (
-                    <a href={mediaUrl} target="_blank" rel="noopener noreferrer" className="block">
-                      <div className="aspect-square bg-gray-50 rounded-lg border-2 border-gray-200 group-hover:border-primary-400 transition-colors flex flex-col items-center justify-center p-4">
-                        <svg className="w-12 h-12 text-gray-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
-                        </svg>
-                        <p className="text-xs text-gray-500 text-center">Audio File</p>
-                      </div>
-                    </a>
-                  )}
-                  {file.caption && (
-                    <p className="text-xs text-gray-600 mt-2 truncate" title={file.caption}>{file.caption}</p>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        ) : (
-          <div className="text-center py-8">
-            <svg className="w-16 h-16 text-gray-300 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-            </svg>
-            <p className="text-gray-500 font-medium">No media files attached</p>
-            <p className="text-sm text-gray-400 mt-1">Photos and audio will appear here</p>
-          </div>
-        )}
+      {/* Media Gallery Section */}
+      <div className="bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
+        <MediaGallery
+          report={report}
+          media={media.map(m => ({
+            ...m,
+            file_type: (m as any).file_type?.toUpperCase(),
+            uploaded_at: (m as any).created_at || (m as any).uploaded_at || new Date().toISOString(),
+            caption: (m as any).description || (m as any).caption
+          }) as unknown as Media)}
+        />
       </div>
 
       {/* Timeline Section */}
@@ -691,7 +628,7 @@ export default function ReportDetail({ reportId, admin = false, onUpdated }: Pro
                     <Badge status={h.new_status} size="sm" />
                   </div>
                   <span className="text-xs text-gray-500">
-                    {h.changed_at 
+                    {h.changed_at
                       ? new Date(h.changed_at).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
                       : 'N/A'
                     }
@@ -722,9 +659,9 @@ export default function ReportDetail({ reportId, admin = false, onUpdated }: Pro
           </div>
           <div className="flex flex-wrap gap-2">
             {allowedNext.map((s) => (
-              <button 
-                key={s} 
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 active:scale-95 transition-all text-sm font-medium shadow-sm hover:shadow" 
+              <button
+                key={s}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 active:scale-95 transition-all text-sm font-medium shadow-sm hover:shadow"
                 onClick={() => handleStatusChange(s)}
               >
                 {toLabel(s)}
