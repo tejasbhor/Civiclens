@@ -185,6 +185,11 @@ export const reportsApi = {
     await apiClient.delete(`/reports/${id}`);
   },
 
+  toggleBookmark: async (id: number): Promise<{ is_bookmarked: boolean; message: string }> => {
+    const response = await apiClient.post(`/reports/${id}/bookmark`);
+    return response.data;
+  },
+
   getMyReports: async (): Promise<Report[]> => {
     const response = await apiClient.get('/reports/my-reports');
     return response.data;

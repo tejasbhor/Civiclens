@@ -130,6 +130,7 @@ export interface Report {
   
   // Visibility & Flags
   is_public?: boolean;
+  is_bookmarked?: boolean;
   is_sensitive?: boolean;
   is_featured?: boolean;
   needs_review?: boolean;
@@ -225,6 +226,7 @@ export interface DashboardStats {
   high_priority_count: number;
   critical_priority_count: number;
   avg_resolution_time: number;
+  sla_compliance: number;
   reports_by_category: Record<string, number>;
   reports_by_status: Record<string, number>;
   reports_by_severity: Record<string, number>;

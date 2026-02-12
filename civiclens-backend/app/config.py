@@ -1,5 +1,5 @@
 from pydantic_settings import BaseSettings
-from pydantic import Field
+from pydantic import Field, model_validator
 from typing import List, Optional
 from functools import lru_cache
 
@@ -25,7 +25,7 @@ class Settings(BaseSettings):
     
     # Security
     SECRET_KEY: str
-    ALGORITHM: str = "HS256"
+    ALGORITHM: str
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440
     
     # MinIO Storage (Required)
@@ -75,6 +75,23 @@ class Settings(BaseSettings):
         if isinstance(self.CORS_ORIGINS, str):
             return [origin.strip() for origin in self.CORS_ORIGINS.split(",") if origin.strip()]
         return self.CORS_ORIGINS
+
+    CORS_METHODS: str = "GET,POST,PUT,DELETE,OPTIONS,PATCH"
+    CORS_HEADERS: str = "Content-Type,Authorization,Accept,Origin,X-Requested-With"
+
+    @property
+    def cors_methods_list(self) -> List[str]:
+        """Parse CORS_METHODS string into list"""
+        if isinstance(self.CORS_METHODS, str):
+            return [method.strip() for method in self.CORS_METHODS.split(",") if method.strip()]
+        return self.CORS_METHODS
+
+    @property
+    def cors_headers_list(self) -> List[str]:
+        """Parse CORS_HEADERS string into list"""
+        if isinstance(self.CORS_HEADERS, str):
+            return [header.strip() for header in self.CORS_HEADERS.split(",") if header.strip()]
+        return self.CORS_HEADERS
     
     # Pagination
     DEFAULT_PAGE_SIZE: int = 20
@@ -156,12 +173,28 @@ class Settings(BaseSettings):
     AUDIT_LOG_RETENTION_DAYS: int = 365  # 1 year retention
     
     # HTTPS Enforcement
-    HTTPS_ONLY: bool = False  # Set True in production
-    SECURE_COOKIES: bool = False  # Set True in production (requires HTTPS)
+    HTTPS_ONLY: Optional[bool] = None  # Set True in production (Defaults to True in production)
+    SECURE_COOKIES: Optional[bool] = None  # Set True in production (Defaults to True in production)
     
     # Security Headers
     SECURITY_HEADERS_ENABLED: bool = True
     
+    @model_validator(mode='after')
+    def enforce_secure_defaults(self):
+        """Enforce secure defaults in production environment"""
+        if self.ENVIRONMENT == "production":
+            if self.HTTPS_ONLY is None:
+                self.HTTPS_ONLY = True
+            if self.SECURE_COOKIES is None:
+                self.SECURE_COOKIES = True
+        else:
+            # Default to False in non-production environments if not set
+            if self.HTTPS_ONLY is None:
+                self.HTTPS_ONLY = False
+            if self.SECURE_COOKIES is None:
+                self.SECURE_COOKIES = False
+        return self
+
     class Config:
         env_file = ".env"
         case_sensitive = True

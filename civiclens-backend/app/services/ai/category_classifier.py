@@ -5,6 +5,7 @@ Maps report text to ReportCategory enum
 
 import logging
 import torch
+import asyncio
 from typing import Dict
 from transformers import pipeline
 from app.services.ai.config import AIConfig
@@ -47,7 +48,7 @@ class CategoryClassifier:
             logger.error(f"Failed to load classification model: {str(e)}")
             raise
     
-    def classify(self, title: str, description: str) -> Dict:
+    async def classify(self, title: str, description: str) -> Dict:
         """
         Classify report into category with improved accuracy
         
@@ -75,10 +76,14 @@ class CategoryClassifier:
             candidate_labels = AIConfig.get_category_labels()
             
             # Classify using zero-shot
-            result = self.model(
-                text,
-                candidate_labels,
-                multi_label=False
+            loop = asyncio.get_running_loop()
+            result = await loop.run_in_executor(
+                None,
+                lambda: self.model(
+                    text,
+                    candidate_labels,
+                    multi_label=False
+                )
             )
             
             # Map back to enum value
