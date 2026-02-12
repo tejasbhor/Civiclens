@@ -75,6 +75,23 @@ class Settings(BaseSettings):
         if isinstance(self.CORS_ORIGINS, str):
             return [origin.strip() for origin in self.CORS_ORIGINS.split(",") if origin.strip()]
         return self.CORS_ORIGINS
+
+    CORS_METHODS: str = "GET,POST,PUT,DELETE,OPTIONS,PATCH"
+    CORS_HEADERS: str = "Content-Type,Authorization,Accept,Origin,X-Requested-With"
+
+    @property
+    def cors_methods_list(self) -> List[str]:
+        """Parse CORS_METHODS string into list"""
+        if isinstance(self.CORS_METHODS, str):
+            return [method.strip() for method in self.CORS_METHODS.split(",") if method.strip()]
+        return self.CORS_METHODS
+
+    @property
+    def cors_headers_list(self) -> List[str]:
+        """Parse CORS_HEADERS string into list"""
+        if isinstance(self.CORS_HEADERS, str):
+            return [header.strip() for header in self.CORS_HEADERS.split(",") if header.strip()]
+        return self.CORS_HEADERS
     
     # Pagination
     DEFAULT_PAGE_SIZE: int = 20
