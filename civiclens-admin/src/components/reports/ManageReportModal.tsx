@@ -7,6 +7,7 @@ import { usersApi } from '@/lib/api/users';
 import { ReportSeverity, Department, User, UserRole, Report } from '@/types';
 import { Badge } from '@/components/ui/Badge';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { ExportPDFButton } from '@/components/reports/ExportPDFButton';
 import apiClient from '@/lib/api/client';
 
 interface ManageReportModalProps {
@@ -67,7 +68,8 @@ export function ManageReportModal({
   const [loading, setLoading] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
   const [fullReport, setFullReport] = useState<Report | null>(null);
-  const [showExportMenu, setShowExportMenu] = useState(false);
+  const [history, setHistory] = useState<any[]>([]);
+  const [activityLogs, setActivityLogs] = useState<any[]>([]);
   const [error, setError] = useState<string>('');
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
 
@@ -79,8 +81,14 @@ export function ManageReportModal({
   // Load full report data for header display
   useEffect(() => {
     const loadReport = async () => {
-      const data = await fetchReportData(reportId);
+      const [data, hist, logs] = await Promise.all([
+        fetchReportData(reportId),
+        reportsApi.getStatusHistory(reportId).catch(() => ({ history: [] })),
+        reportsApi.getReportAuditLogs(reportId).catch(() => [])
+      ]);
       setFullReport(data);
+      setHistory(hist?.history || []);
+      setActivityLogs(logs || []);
     };
     loadReport();
   }, [reportId]);
@@ -176,7 +184,7 @@ export function ManageReportModal({
       // Step 1: Classify
       await reportsApi.classifyReport(reportId, {
         category,
-        severity,
+        severity: severity as ReportSeverity,
         notes: notes.trim() || undefined
       });
 
@@ -209,30 +217,7 @@ export function ManageReportModal({
   const canProceedToStep2 = category && severity;
   const canProceedToStep3 = canProceedToStep2 && departmentId;
 
-  const handleExportPDF = async (level: 'summary' | 'standard' | 'comprehensive') => {
-    if (!fullReport) return;
 
-    const { exportReportPDF, PDFExportLevel } = await import('@/lib/utils/pdf-export-service');
-
-    if (level === 'summary') {
-      exportReportPDF({ level: PDFExportLevel.SUMMARY, report: fullReport });
-    } else if (level === 'standard') {
-      const history = await apiClient.get(`/reports/${reportId}/status-history`);
-      exportReportPDF({ level: PDFExportLevel.STANDARD, report: fullReport, history: history.data.history });
-    } else {
-      const [history, activityLogs] = await Promise.all([
-        apiClient.get(`/reports/${reportId}/status-history`),
-        apiClient.get(`/audit/resource/report/${reportId}`)
-      ]);
-      exportReportPDF({
-        level: PDFExportLevel.COMPREHENSIVE,
-        report: fullReport,
-        history: history.data.history,
-        activityLogs: activityLogs.data
-      });
-    }
-    setShowExportMenu(false);
-  };
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
@@ -263,30 +248,16 @@ export function ManageReportModal({
             </div>
             <div className="flex items-center gap-2">
               {fullReport && (
-                <div className="relative">
-                  <button
-                    onClick={() => setShowExportMenu(!showExportMenu)}
-                    className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-                    title="Export PDF"
-                  >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                    </svg>
-                  </button>
-                  {showExportMenu && (
-                    <div className="absolute right-0 mt-2 w-56 bg-white rounded-lg shadow-xl border border-gray-200 py-2 z-50">
-                      <button onClick={() => handleExportPDF('summary')} className="w-full text-left px-4 py-2 hover:bg-gray-50 text-sm text-gray-700">
-                        Summary
-                      </button>
-                      <button onClick={() => handleExportPDF('standard')} className="w-full text-left px-4 py-2 hover:bg-gray-50 text-sm text-gray-700">
-                        Standard
-                      </button>
-                      <button onClick={() => handleExportPDF('comprehensive')} className="w-full text-left px-4 py-2 hover:bg-gray-50 text-sm text-gray-700">
-                        Comprehensive
-                      </button>
-                    </div>
-                  )}
-                </div>
+                <ExportPDFButton
+                  report={fullReport}
+                  history={history}
+                  activityLogs={activityLogs}
+                  variant="ghost"
+                  size="sm"
+                  label=""
+                  showIcon={true}
+                  className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100"
+                />
               )}
               <button
                 onClick={onClose}
@@ -307,18 +278,18 @@ export function ManageReportModal({
                 <React.Fragment key={step}>
                   <div className="flex flex-col items-center">
                     <div className={`flex items-center justify-center w-12 h-12 rounded-full font-bold text-base transition-all ${currentStep === step
-                        ? 'bg-blue-600 text-white shadow-lg ring-4 ring-blue-100 scale-110'
-                        : currentStep > step
-                          ? 'bg-green-500 text-white shadow-md'
-                          : 'bg-gray-200 text-gray-500'
+                      ? 'bg-blue-600 text-white shadow-lg ring-4 ring-blue-100 scale-110'
+                      : currentStep > step
+                        ? 'bg-green-500 text-white shadow-md'
+                        : 'bg-gray-200 text-gray-500'
                       }`}>
                       {currentStep > step ? '✓' : step}
                     </div>
                     <span className={`text-xs font-semibold mt-2 transition-colors ${currentStep === step
-                        ? 'text-blue-600'
-                        : currentStep > step
-                          ? 'text-green-600'
-                          : 'text-gray-500'
+                      ? 'text-blue-600'
+                      : currentStep > step
+                        ? 'text-green-600'
+                        : 'text-gray-500'
                       }`}>
                       {step === 1 ? 'Categorize' : step === 2 ? 'Assign Dept' : 'Assign Officer'}
                     </span>
@@ -382,15 +353,15 @@ export function ManageReportModal({
                       onClick={() => setSeverity(sev.value)}
                       disabled={loading || currentStep !== 1}
                       className={`px-4 py-3 rounded-lg border-2 text-sm font-medium transition-all ${severity === sev.value
-                          ? 'border-blue-500 bg-blue-50 text-blue-700 shadow-sm'
-                          : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300 hover:bg-gray-50'
+                        ? 'border-blue-500 bg-blue-50 text-blue-700 shadow-sm'
+                        : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300 hover:bg-gray-50'
                         }`}
                     >
                       <div className="flex items-center justify-center gap-2">
                         <div className={`w-2 h-2 rounded-full ${sev.value === 'low' ? 'bg-green-500' :
-                            sev.value === 'medium' ? 'bg-yellow-500' :
-                              sev.value === 'high' ? 'bg-orange-500' :
-                                'bg-red-500'
+                          sev.value === 'medium' ? 'bg-yellow-500' :
+                            sev.value === 'high' ? 'bg-orange-500' :
+                              'bg-red-500'
                           }`} />
                         {sev.label}
                       </div>
@@ -489,11 +460,14 @@ export function ManageReportModal({
                     disabled={loading || currentStep !== 3 || !departmentId}
                   >
                     <option value="">Select Officer</option>
-                    {officers.map(officer => (
-                      <option key={officer.id} value={officer.id}>
-                        {officer.full_name} ({officer.email}){officer.department?.name ? ` - ${officer.department.name}` : ''}
-                      </option>
-                    ))}
+                    {officers.map(officer => {
+                      const officerDept = departments.find(d => d.id === officer.department_id);
+                      return (
+                        <option key={officer.id} value={officer.id}>
+                          {officer.full_name} ({officer.email}){officerDept ? ` - ${officerDept.name}` : ''}
+                        </option>
+                      );
+                    })}
                   </select>
                   {!departmentId ? (
                     <p className="text-xs text-amber-600 mt-1 flex items-center gap-1">

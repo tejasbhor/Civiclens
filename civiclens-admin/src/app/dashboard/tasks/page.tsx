@@ -28,7 +28,6 @@ import {
   User,
   Building2
 } from 'lucide-react';
-import { TaskCard } from '@/components/tasks/TaskCard';
 import { TaskDetailModal } from '@/components/tasks/TaskDetailModal';
 import { TaskEditModal } from '@/components/tasks/TaskEditModal';
 import { TaskReassignModal } from '@/components/tasks/TaskReassignModal';
@@ -42,7 +41,6 @@ import {
   TaskStats
 } from '@/lib/api/tasks';
 import { cn } from '@/lib/utils/cn';
-import { getStatusBadgeClasses, getSeverityBadgeClasses, toLabel } from '@/lib/utils/status-colors';
 import { toast } from 'sonner';
 import { useAuth } from '@/lib/hooks/useAuth';
 
@@ -237,16 +235,16 @@ export default function TasksPage() {
   }
 
   return (
-    <div className="p-6 space-y-6 bg-gray-50 min-h-screen">
+    <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <div className="p-3 bg-primary-600 rounded-lg shadow-sm">
-            <ClipboardList className="w-7 h-7 text-white" />
+            <ClipboardList className="w-6 h-6 text-white" />
           </div>
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Task Management</h1>
-            <p className="text-sm text-gray-600">Monitor and manage officer tasks</p>
+            <p className="text-sm text-gray-500 mt-1">Monitor and manage officer tasks</p>
           </div>
         </div>
 
@@ -254,21 +252,14 @@ export default function TasksPage() {
           <button
             onClick={handleRefresh}
             disabled={refreshing}
-            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 active:bg-gray-100 transition-all disabled:opacity-50"
+            className="flex items-center gap-2 px-3 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-colors disabled:opacity-50 border border-gray-200"
           >
             <RefreshCw className={cn("w-4 h-4", refreshing && "animate-spin")} />
-            Refresh
-          </button>
-
-          <button
-            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 active:bg-gray-100 transition-all"
-          >
-            <Download className="w-4 h-4" />
-            Export
+            <span>Refresh</span>
           </button>
 
           <div className="flex items-center gap-2 pl-3 border-l border-gray-300">
-            <div className="text-2xl font-bold text-primary-600">{totalTasks}</div>
+            <div className="text-xl font-bold text-primary-600">{totalTasks}</div>
             <div className="text-sm text-gray-500">Total Tasks</div>
           </div>
         </div>
@@ -312,7 +303,7 @@ export default function TasksPage() {
               <div className="flex items-center justify-between">
                 <div className="flex-1">
                   <div className={`text-xs font-medium text-gray-500 uppercase tracking-wide ${colors.hover.split(' ')[1]}`}>{stat.label}</div>
-                  <div className={`text-2xl font-bold ${colors.text} mt-2`}>{stat.count.toLocaleString()}</div>
+                  <div className={`text-xl font-bold ${colors.text} mt-2`}>{stat.count.toLocaleString()}</div>
                 </div>
                 <div className={`p-3 ${colors.bg} rounded-lg transition-colors`}>
                   <stat.icon className={`w-6 h-6 ${colors.text}`} />
@@ -325,7 +316,7 @@ export default function TasksPage() {
 
       {/* Filters and Search */}
       <Card>
-        <CardContent className="p-4">
+        <CardContent className="p-6">
           <div className="flex flex-col lg:flex-row gap-4 items-start lg:items-center">
             {/* Search */}
             <div className="flex-1">
@@ -346,8 +337,8 @@ export default function TasksPage() {
               <button
                 onClick={() => setViewMode('card')}
                 className={`p-2 rounded-lg transition-colors ${viewMode === 'card'
-                    ? 'bg-primary-100 text-primary-600'
-                    : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
+                  ? 'bg-primary-100 text-primary-600'
+                  : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
                   }`}
                 title="Card View"
               >
@@ -356,8 +347,8 @@ export default function TasksPage() {
               <button
                 onClick={() => setViewMode('list')}
                 className={`p-2 rounded-lg transition-colors ${viewMode === 'list'
-                    ? 'bg-primary-100 text-primary-600'
-                    : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
+                  ? 'bg-primary-100 text-primary-600'
+                  : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
                   }`}
                 title="List View"
               >
@@ -427,7 +418,7 @@ export default function TasksPage() {
       {/* Error State */}
       {error && (
         <Card className="border-red-200 bg-red-50">
-          <CardContent className="p-4">
+          <CardContent className="p-6">
             <div className="flex items-center gap-3">
               <AlertTriangle className="w-5 h-5 text-red-600" />
               <div>
@@ -483,12 +474,10 @@ export default function TasksPage() {
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-2">
-                          <span className="badge text-xs font-mono bg-gray-100 text-gray-700 border-gray-200">
+                          <Badge variant="secondary" size="sm" className="font-mono">
                             {task.report?.report_number || 'N/A'}
-                          </span>
-                          <span className={`badge text-xs ${getStatusBadgeClasses(task.status)}`}>
-                            {toLabel(task.status)}
-                          </span>
+                          </Badge>
+                          <Badge status={task.status} size="sm" />
                         </div>
                         <h3 className="text-base font-semibold text-gray-900 line-clamp-2 mb-1">{task.report?.title || 'Untitled'}</h3>
                       </div>
@@ -527,9 +516,7 @@ export default function TasksPage() {
                     {task.report?.severity && (
                       <div className="flex items-center justify-between pt-2 border-t border-gray-100">
                         <span className="text-xs text-gray-600 font-medium">Priority</span>
-                        <span className={`badge text-xs ${getSeverityBadgeClasses(task.report.severity)}`}>
-                          {toLabel(task.report.severity)}
-                        </span>
+                        <Badge status={task.report.severity} size="sm" />
                       </div>
                     )}
 
@@ -560,16 +547,12 @@ export default function TasksPage() {
                     {/* Left: Task Info */}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-3 mb-2">
-                        <span className="badge text-xs font-mono bg-gray-100 text-gray-700 border-gray-200">
+                        <Badge variant="secondary" size="sm" className="font-mono">
                           {task.report?.report_number || 'N/A'}
-                        </span>
-                        <span className={`badge text-xs ${getStatusBadgeClasses(task.status)}`}>
-                          {toLabel(task.status)}
-                        </span>
+                        </Badge>
+                        <Badge status={task.status} size="sm" />
                         {task.report?.severity && (
-                          <span className={`badge text-xs ${getSeverityBadgeClasses(task.report.severity)}`}>
-                            {toLabel(task.report.severity)}
-                          </span>
+                          <Badge status={task.report.severity} size="sm" />
                         )}
                       </div>
                       <h3 className="text-sm font-semibold text-gray-900 mb-1 truncate">{task.report?.title || 'Untitled'}</h3>
@@ -617,7 +600,7 @@ export default function TasksPage() {
           {/* Pagination */}
           {totalPages > 1 && (
             <Card>
-              <CardContent className="p-4">
+              <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div className="text-sm text-gray-600">
                     Showing {((currentPage - 1) * perPage) + 1} to {Math.min(currentPage * perPage, totalTasks)} of {totalTasks} tasks
@@ -639,7 +622,7 @@ export default function TasksPage() {
                         return (
                           <Button
                             key={page}
-                            variant={currentPage === page ? "default" : "outline"}
+                            variant={currentPage === page ? "primary" : "outline"}
                             size="sm"
                             onClick={() => setCurrentPage(page)}
                             className="w-8 h-8 p-0"

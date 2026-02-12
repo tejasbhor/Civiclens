@@ -2,20 +2,20 @@
 
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { Card } from '@/components/ui/Card';
+import { Button } from '@/components/ui/Button';
 import { BarChart, BarChartData } from '@/components/charts/BarChart';
 import { PieChart, PieChartData } from '@/components/charts/PieChart';
 import { LineChart, LineChartData } from '@/components/charts/LineChart';
 import { analyticsApi } from '@/lib/api/analytics';
 import { DashboardStats } from '@/types';
-import { 
-  BarChart3, 
-  TrendingUp, 
-  PieChart as PieChartIcon, 
+import {
+  BarChart3,
+  TrendingUp,
+  PieChart as PieChartIcon,
   Activity,
   Calendar,
   RefreshCw,
-  Download,
-  Filter
+  Download
 } from 'lucide-react';
 import { cn } from '@/lib/utils/cn';
 import { useAuth } from '@/lib/hooks/useAuth';
@@ -26,7 +26,7 @@ export default function AnalyticsPage() {
   const { user } = useAuth();
   const role = user?.role || '';
   const canViewAnalytics = ['super_admin', 'admin', 'moderator'].includes(role);
-  
+
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -105,7 +105,7 @@ export default function AnalyticsPage() {
   const getTrendData = useMemo((): LineChartData[] => {
     // Return actual trend data or fallback to last 7 days mock
     if (trendData.length > 0) return trendData;
-    
+
     // Generate mock data for last 7 days as fallback
     const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     const today = new Date().getDay();
@@ -172,7 +172,7 @@ export default function AnalyticsPage() {
 
   if (loading) {
     return (
-      <div className="p-6 space-y-6 bg-gray-50 min-h-screen">
+      <div className="space-y-6">
         <div className="flex items-center justify-center py-12">
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto mb-4"></div>
@@ -184,43 +184,43 @@ export default function AnalyticsPage() {
   }
 
   return (
-    <div className="p-6 space-y-6 bg-gray-50 min-h-screen">
+    <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Analytics</h1>
-          <p className="text-gray-600 mt-1">Comprehensive insights and data visualization</p>
+        <div className="flex items-center gap-4">
+          <div className="p-3 bg-primary-600 rounded-lg shadow-sm">
+            <BarChart3 className="w-6 h-6 text-white" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Analytics</h1>
+            <p className="text-sm text-gray-500 mt-1">Comprehensive insights and data visualization</p>
+          </div>
         </div>
         <div className="flex items-center gap-3">
           {/* Time Range Filter */}
           <div className="flex items-center gap-2 bg-white rounded-lg border border-gray-200 p-1">
             {(['7d', '30d', '90d'] as const).map((range) => (
-              <button
+              <Button
                 key={range}
                 onClick={() => setTimeRange(range)}
+                variant={timeRange === range ? 'primary' : 'ghost'}
+                size="sm"
                 className={cn(
-                  'px-4 py-2 rounded-md text-sm font-medium transition-colors',
-                  timeRange === range
-                    ? 'bg-primary-600 text-white'
-                    : 'text-gray-600 hover:bg-gray-100'
+                  timeRange !== range && 'text-gray-600 hover:bg-gray-100'
                 )}
               >
                 {range === '7d' && 'Last 7 Days'}
                 {range === '30d' && 'Last 30 Days'}
                 {range === '90d' && 'Last 90 Days'}
-              </button>
+              </Button>
             ))}
           </div>
           <button
             onClick={loadAnalytics}
-            className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+            className="flex items-center gap-2 px-3 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-colors border border-gray-200"
           >
             <RefreshCw className="w-4 h-4" />
-            <span className="text-sm font-medium">Refresh</span>
-          </button>
-          <button className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors">
-            <Download className="w-4 h-4" />
-            <span className="text-sm font-medium">Export</span>
+            <span>Refresh</span>
           </button>
         </div>
       </div>
@@ -230,19 +230,20 @@ export default function AnalyticsPage() {
         <div className="bg-red-50 border border-red-200 rounded-lg p-4">
           <p className="text-sm text-red-700">{error}</p>
         </div>
-      )}
+      )
+      }
 
       {/* Key Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {metrics.map((metric) => {
           const Icon = metric.icon;
           const colors = getColorClasses(metric.color);
           return (
-            <Card key={metric.label} className="p-6">
+            <Card key={metric.label} className="p-4">
               <div className="flex items-start justify-between">
                 <div className="flex-1">
                   <p className="text-sm font-medium text-gray-600 mb-1">{metric.label}</p>
-                  <p className={cn('text-3xl font-bold mb-2', colors.text)}>
+                  <p className={cn('text-2xl font-bold mb-2', colors.text)}>
                     {metric.value}
                   </p>
                   <div className="flex items-center gap-1">
@@ -261,7 +262,7 @@ export default function AnalyticsPage() {
       </div>
 
       {/* Charts Row 1 */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Reports by Category */}
         <Card className="p-6">
           <div className="flex items-center gap-3 mb-6">
@@ -311,26 +312,28 @@ export default function AnalyticsPage() {
       </div>
 
       {/* Charts Row 3 - Only show if department data exists */}
-      {stats?.reports_by_department && Object.keys(stats.reports_by_department).length > 0 && (
-        <div className="grid grid-cols-1 gap-6">
-          {/* Reports by Department */}
-          <Card className="p-6">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="p-2 bg-orange-100 rounded-lg">
-                <BarChart3 className="w-5 h-5 text-orange-600" />
+      {
+        stats?.reports_by_department && Object.keys(stats.reports_by_department).length > 0 && (
+          <div className="grid grid-cols-1 gap-6">
+            {/* Reports by Department */}
+            <Card className="p-6">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="p-2 bg-orange-100 rounded-lg">
+                  <BarChart3 className="w-5 h-5 text-orange-600" />
+                </div>
+                <h2 className="text-lg font-semibold text-gray-900">Reports by Department</h2>
               </div>
-              <h2 className="text-lg font-semibold text-gray-900">Reports by Department</h2>
-            </div>
-            <BarChart data={getDepartmentData} height={300} showValues />
-          </Card>
-        </div>
-      )}
+              <BarChart data={getDepartmentData} height={300} showValues />
+            </Card>
+          </div>
+        )
+      }
 
       {/* Insights Summary */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Card className="p-6 bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
           <h3 className="text-sm font-semibold text-blue-900 mb-2">Most Reported Category</h3>
-          <p className="text-2xl font-bold text-blue-900">
+          <p className="text-xl font-bold text-blue-900">
             {getCategoryData[0]?.label || 'N/A'}
           </p>
           <p className="text-sm text-blue-700 mt-1">
@@ -340,7 +343,7 @@ export default function AnalyticsPage() {
 
         <Card className="p-6 bg-gradient-to-br from-green-50 to-green-100 border-green-200">
           <h3 className="text-sm font-semibold text-green-900 mb-2">Resolution Rate</h3>
-          <p className="text-2xl font-bold text-green-900">
+          <p className="text-xl font-bold text-green-900">
             {stats ? Math.round((stats.reports_by_status?.resolved || 0) / (stats.total_reports || 1) * 100) : 0}%
           </p>
           <p className="text-sm text-green-700 mt-1">
@@ -350,7 +353,7 @@ export default function AnalyticsPage() {
 
         <Card className="p-6 bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200">
           <h3 className="text-sm font-semibold text-purple-900 mb-2">Critical Issues</h3>
-          <p className="text-2xl font-bold text-purple-900">
+          <p className="text-xl font-bold text-purple-900">
             {stats?.critical_priority_count || 0}
           </p>
           <p className="text-sm text-purple-700 mt-1">
@@ -358,6 +361,6 @@ export default function AnalyticsPage() {
           </p>
         </Card>
       </div>
-    </div>
+    </div >
   );
 }

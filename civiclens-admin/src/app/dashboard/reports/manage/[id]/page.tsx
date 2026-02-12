@@ -5,11 +5,11 @@ import { useRouter, useParams } from 'next/navigation';
 import { Report, ReportStatus, ReportSeverity, User, Task, Media } from '@/types';
 import { reportsApi, StatusHistoryResponse } from '@/lib/api/reports';
 import { Badge } from '@/components/ui/Badge';
-import { 
-  ArrowLeft, 
-  Settings, 
-  Download, 
-  MapPin, 
+import {
+  ArrowLeft,
+  Settings,
+  Download,
+  MapPin,
   Calendar,
   User as UserIcon,
   Building2,
@@ -69,10 +69,11 @@ export default function ManageReportPage() {
   // Core state
   const [report, setReport] = useState<Report | null>(null);
   const [history, setHistory] = useState<StatusHistoryResponse | null>(null);
+  const [activityLogs, setActivityLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
-  
+
   // Map preview state
   const [mapPreview, setMapPreview] = useState<{ lat: number; lng: number; address?: string | null } | null>(null);
 
@@ -100,12 +101,22 @@ export default function ManageReportPage() {
     }
   }, [reportId]);
 
+  const loadActivityLogs = useCallback(async () => {
+    if (!reportId) return;
+    try {
+      const data = await reportsApi.getReportAuditLogs(reportId);
+      setActivityLogs(data);
+    } catch (e: any) {
+      console.error('Failed to load activity logs:', e);
+    }
+  }, [reportId]);
+
   const loadData = useCallback(async () => {
     setLoading(true);
     setError(null);
-    await Promise.all([loadReport(), loadHistory()]);
+    await Promise.all([loadReport(), loadHistory(), loadActivityLogs()]);
     setLoading(false);
-  }, [loadReport, loadHistory]);
+  }, [loadReport, loadHistory, loadActivityLogs]);
 
   useEffect(() => {
     if (reportId) {
@@ -113,14 +124,18 @@ export default function ManageReportPage() {
     }
   }, [reportId, loadData]);
 
-  const handleRefresh = () => {
-    loadData();
-  };
-
-  const handleUpdate = () => {
+  const handleRefresh = useCallback(() => {
+    // Trigger background refresh without full page loader
     loadReport();
     loadHistory();
-  };
+    loadActivityLogs();
+  }, [loadReport, loadHistory, loadActivityLogs]);
+
+  const handleUpdate = useCallback(() => {
+    loadReport();
+    loadHistory();
+    loadActivityLogs();
+  }, [loadReport, loadHistory, loadActivityLogs]);
 
   if (loading) {
     return (
@@ -158,11 +173,13 @@ export default function ManageReportPage() {
   return (
     <div className="p-6 space-y-6 bg-gray-50 min-h-screen">
       {/* Header */}
-      <ReportHeader 
-        report={report} 
+      <ReportHeader
+        report={report}
         onBack={() => router.push('/dashboard/reports')}
         onRefresh={handleRefresh}
         refreshing={refreshing}
+        history={history?.history}
+        activityLogs={activityLogs}
       />
 
       {/* Main Content */}
@@ -173,7 +190,7 @@ export default function ManageReportPage() {
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
             <ReportOverview report={report} onUpdate={handleUpdate} />
           </div>
-          
+
           {/* Right - Lifecycle Manager (2 columns) - Min height matches overview, can grow */}
           <div className="lg:col-span-2 min-h-full">
             <LifecycleManager report={report} onUpdate={handleUpdate} />
@@ -192,18 +209,18 @@ export default function ManageReportPage() {
             <CitizenInfo report={report} />
             <MediaGallery report={report} />
           </div>
-          
+
           {/* Column 2 - Location Details + Quick Stats */}
           <div className="space-y-6">
-            <LocationDetails 
-              report={report} 
+            <LocationDetails
+              report={report}
               onViewMap={() => setMapPreview({ lat: report.latitude, lng: report.longitude, address: report.address })}
             />
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
               <QuickStats report={report} history={history} />
             </div>
           </div>
-          
+
           {/* Column 3 - Timeline */}
           <div>
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">

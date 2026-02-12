@@ -64,7 +64,7 @@ export const PerformanceCard: React.FC<PerformanceCardProps> = ({
               </div>
               <div>
                 <p className="text-sm text-gray-600">Avg Resolution Time</p>
-                <p className="text-2xl font-bold text-gray-900">{avgResolutionTime}h</p>
+                <p className="text-xl font-bold text-gray-900">{avgResolutionTime}h</p>
               </div>
             </div>
             <div className="text-right">
@@ -99,7 +99,7 @@ export const PerformanceCard: React.FC<PerformanceCardProps> = ({
               </div>
               <div>
                 <p className="text-sm text-gray-600">SLA Compliance</p>
-                <p className="text-2xl font-bold text-gray-900">{slaCompliance}%</p>
+                <p className="text-xl font-bold text-gray-900">{slaCompliance}%</p>
               </div>
             </div>
             <div className="text-right">

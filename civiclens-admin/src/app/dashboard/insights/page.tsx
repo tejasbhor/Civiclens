@@ -21,7 +21,12 @@ import {
 } from 'lucide-react';
 import { aiInsightsApi, DuplicateCluster } from '@/lib/api/ai-insights';
 import { Badge } from '@/components/ui/Badge';
+import { Button } from '@/components/ui/Button';
+import { Card } from '@/components/ui/Card';
+import { SimpleSelect } from '@/components/ui/select';
+import { Input } from '@/components/ui/Input';
 import { useRouter } from 'next/navigation';
+import { showToast, confirmAction } from '@/lib/utils/toast';
 
 export default function InsightsPage() {
   const router = useRouter();
@@ -29,7 +34,7 @@ export default function InsightsPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [clusters, setClusters] = useState<DuplicateCluster[]>([]);
   const [expandedCluster, setExpandedCluster] = useState<number | null>(null);
-  
+
   // Filters
   const [statusFilter, setStatusFilter] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
@@ -66,44 +71,70 @@ export default function InsightsPage() {
   }, [statusFilter, categoryFilter, minDuplicates]);
 
   const handleMerge = async (cluster: DuplicateCluster, duplicateIds: number[]) => {
+    const toastId = showToast.loading('Merging duplicate reports...');
+
     try {
       await aiInsightsApi.mergeDuplicates({
         primary_report_id: cluster.primary_report_id,
         duplicate_report_ids: duplicateIds,
         notes: 'Admin merged duplicate cluster'
       });
-      
-      // Refresh data
-      await fetchClusters();
-      
-      // Close modal
+
+      // Close modal first
       setMergeModal({ isOpen: false, cluster: null, selectedDuplicates: new Set() });
-      
-      alert('Duplicates merged successfully!');
-    } catch (error) {
+
+      // Force refresh data with loading state
+      setLoading(true);
+      await fetchClusters();
+      setLoading(false);
+
+      showToast.dismiss(toastId);
+      showToast.success('Duplicates merged successfully!', {
+        description: `${duplicateIds.length} reports merged into primary report #${cluster.primary_report_number}`,
+        duration: 5000
+      });
+    } catch (error: any) {
       console.error('Failed to merge duplicates:', error);
-      alert('Failed to merge duplicates. Please try again.');
+      showToast.dismiss(toastId);
+      showToast.error('Failed to merge duplicates', {
+        description: error?.message || 'Please try again or contact support',
+        duration: 6000
+      });
+      setLoading(false);
     }
   };
 
   const handleUnmark = async (reportId: number) => {
-    if (!confirm('Are you sure you want to unmark this report as duplicate?')) {
+    if (!confirmAction('Are you sure you want to unmark this report as duplicate? This will restore it to its original status.')) {
       return;
     }
+
+    const toastId = showToast.loading('Unmarking report...');
 
     try {
       await aiInsightsApi.unmarkDuplicate({
         report_id: reportId,
         notes: 'Admin unmarked as false positive'
       });
-      
-      // Refresh data
+
+      // Force refresh data
+      setLoading(true);
       await fetchClusters();
-      
-      alert('Report unmarked successfully!');
-    } catch (error) {
+      setLoading(false);
+
+      showToast.dismiss(toastId);
+      showToast.success('Report unmarked successfully!', {
+        description: 'The report has been restored to its original status',
+        duration: 4000
+      });
+    } catch (error: any) {
       console.error('Failed to unmark duplicate:', error);
-      alert('Failed to unmark duplicate. Please try again.');
+      showToast.dismiss(toastId);
+      showToast.error('Failed to unmark report', {
+        description: error?.message || 'Please try again',
+        duration: 5000
+      });
+      setLoading(false);
     }
   };
 
@@ -126,7 +157,7 @@ export default function InsightsPage() {
     if (diffDays === 0) return 'Today';
     if (diffDays === 1) return 'Yesterday';
     if (diffDays < 7) return `${diffDays} days ago`;
-    
+
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   };
 
@@ -144,58 +175,56 @@ export default function InsightsPage() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <div className="p-3 bg-primary-600 rounded-lg shadow-sm">
-            <Lightbulb className="w-7 h-7 text-white" />
+            <Lightbulb className="w-6 h-6 text-white" />
           </div>
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Duplicate Insights</h1>
-            <p className="text-sm text-gray-600">Manage and merge duplicate report clusters</p>
+            <p className="text-sm text-gray-500 mt-1">Manage and merge duplicate report clusters</p>
           </div>
         </div>
         <div className="flex items-center gap-3">
           <button
             onClick={() => setShowFilters(!showFilters)}
-            className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+            className="flex items-center gap-2 px-3 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-colors border border-gray-200"
           >
             <Filter className="w-4 h-4" />
-            Filters
+            <span>Filters</span>
             {showFilters ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
           </button>
           <button
             onClick={fetchClusters}
             disabled={refreshing}
-            className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
+            className="flex items-center gap-2 px-3 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-colors disabled:opacity-50 border border-gray-200"
           >
             <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-            Refresh
+            <span>Refresh</span>
           </button>
         </div>
       </div>
 
       {/* Filters */}
       {showFilters && (
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <Card className="p-6">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
-              <select
+              <SimpleSelect
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
               >
                 <option value="">All Statuses</option>
                 <option value="received">Received</option>
                 <option value="duplicate">Duplicate</option>
                 <option value="classified">Classified</option>
                 <option value="assigned_to_department">Assigned to Department</option>
-              </select>
+              </SimpleSelect>
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Category</label>
-              <select
+              <SimpleSelect
                 value={categoryFilter}
                 onChange={(e) => setCategoryFilter(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
               >
                 <option value="">All Categories</option>
                 <option value="roads">Roads</option>
@@ -206,80 +235,79 @@ export default function InsightsPage() {
                 <option value="drainage">Drainage</option>
                 <option value="public_property">Public Property</option>
                 <option value="other">Other</option>
-              </select>
+              </SimpleSelect>
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Min Duplicates</label>
-              <input
+              <Input
                 type="number"
-                min="1"
+                min={1}
                 value={minDuplicates}
                 onChange={(e) => setMinDuplicates(Number(e.target.value))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
               />
             </div>
           </div>
-        </div>
+        </Card>
       )}
 
       {/* Summary Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <Card className="p-6">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-purple-100 rounded-lg">
               <Copy className="w-5 h-5 text-purple-600" />
             </div>
             <div>
               <p className="text-sm text-gray-600">Total Clusters</p>
-              <p className="text-2xl font-bold text-gray-900">{clusters.length}</p>
+              <p className="text-xl font-bold text-gray-900">{clusters.length}</p>
             </div>
           </div>
-        </div>
+        </Card>
 
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <Card className="p-6">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-blue-100 rounded-lg">
               <Users className="w-5 h-5 text-blue-600" />
             </div>
             <div>
               <p className="text-sm text-gray-600">Total Duplicates</p>
-              <p className="text-2xl font-bold text-gray-900">
+              <p className="text-xl font-bold text-gray-900">
                 {clusters.reduce((sum, c) => sum + c.duplicate_count, 0)}
               </p>
             </div>
           </div>
-        </div>
+        </Card>
 
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <Card className="p-6">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-green-100 rounded-lg">
               <CheckCircle className="w-5 h-5 text-green-600" />
             </div>
             <div>
               <p className="text-sm text-gray-600">Avg per Cluster</p>
-              <p className="text-2xl font-bold text-gray-900">
-                {clusters.length > 0 
+              <p className="text-xl font-bold text-gray-900">
+                {clusters.length > 0
                   ? (clusters.reduce((sum, c) => sum + c.duplicate_count, 0) / clusters.length).toFixed(1)
                   : '0'}
               </p>
             </div>
           </div>
-        </div>
+        </Card>
 
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <Card className="p-6">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-orange-100 rounded-lg">
               <AlertCircle className="w-5 h-5 text-orange-600" />
             </div>
             <div>
               <p className="text-sm text-gray-600">Needs Review</p>
-              <p className="text-2xl font-bold text-gray-900">
+              <p className="text-xl font-bold text-gray-900">
                 {clusters.filter(c => c.primary_status === 'duplicate').length}
               </p>
             </div>
           </div>
-        </div>
+        </Card>
       </div>
 
       {/* Clusters List */}
@@ -289,16 +317,16 @@ export default function InsightsPage() {
             <Copy className="w-12 h-12 text-gray-400 mx-auto mb-4" />
             <h3 className="text-lg font-semibold text-gray-900 mb-2">No Duplicate Clusters Found</h3>
             <p className="text-gray-600">
-              {statusFilter || categoryFilter 
+              {statusFilter || categoryFilter
                 ? 'Try adjusting your filters to see more results.'
                 : 'Great! No duplicate reports detected.'}
             </p>
           </div>
         ) : (
           clusters.map((cluster) => (
-            <div
+            <Card
               key={cluster.primary_report_id}
-              className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow"
+              className="overflow-hidden hover:shadow-md transition-shadow"
             >
               {/* Cluster Header */}
               <div className="p-6">
@@ -308,12 +336,12 @@ export default function InsightsPage() {
                       <h3 className="text-lg font-semibold text-gray-900">
                         {cluster.primary_title}
                       </h3>
-                      <Badge color="purple" className="flex items-center gap-1">
+                      <Badge className="bg-purple-100 text-purple-800 border-purple-200 flex items-center gap-1">
                         <Copy className="w-3 h-3" />
                         {cluster.duplicate_count} duplicates
                       </Badge>
                     </div>
-                    
+
                     <div className="flex items-center gap-4 text-sm text-gray-600">
                       <span className="font-mono text-xs bg-gray-100 px-2 py-1 rounded">
                         {cluster.primary_report_number}
@@ -330,11 +358,11 @@ export default function InsightsPage() {
                   </div>
 
                   <div className="flex items-center gap-2">
-                    <Badge color="blue" size="sm">
+                    <Badge className="bg-blue-100 text-blue-800 border-blue-200" size="sm">
                       {cluster.primary_status}
                     </Badge>
                     {cluster.category && (
-                      <Badge color="gray" size="sm" className="capitalize">
+                      <Badge className="bg-gray-100 text-gray-800 border-gray-200 capitalize" size="sm">
                         {cluster.category.replace('_', ' ')}
                       </Badge>
                     )}
@@ -346,36 +374,42 @@ export default function InsightsPage() {
 
                 {/* Actions */}
                 <div className="flex items-center gap-3">
-                  <button
+                  <Button
                     onClick={() => setExpandedCluster(
                       expandedCluster === cluster.primary_report_id ? null : cluster.primary_report_id
                     )}
-                    className="flex items-center gap-2 px-4 py-2 bg-primary-50 text-primary-700 rounded-lg hover:bg-primary-100 transition-colors text-sm font-medium"
+                    variant="ghost"
+                    size="sm"
+                    className="gap-2"
                   >
                     <Eye className="w-4 h-4" />
                     {expandedCluster === cluster.primary_report_id ? 'Hide' : 'View'} Duplicates
                     {expandedCluster === cluster.primary_report_id ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                  </button>
+                  </Button>
 
-                  <button
+                  <Button
                     onClick={() => router.push(`/dashboard/reports?id=${cluster.primary_report_id}`)}
-                    className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium"
+                    variant="outline"
+                    size="sm"
+                    className="gap-2"
                   >
                     <ExternalLink className="w-4 h-4" />
                     View Primary Report
-                  </button>
+                  </Button>
 
-                  <button
+                  <Button
                     onClick={() => setMergeModal({
                       isOpen: true,
                       cluster,
                       selectedDuplicates: new Set(cluster.duplicates.map(d => d.id))
                     })}
-                    className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
+                    variant="primary"
+                    size="sm"
+                    className="gap-2"
                   >
                     <GitMerge className="w-4 h-4" />
                     Merge All
-                  </button>
+                  </Button>
                 </div>
               </div>
 
@@ -395,7 +429,7 @@ export default function InsightsPage() {
                               <span className="font-mono text-xs bg-gray-100 px-2 py-1 rounded">
                                 {duplicate.report_number}
                               </span>
-                              <Badge color="blue" size="sm">{duplicate.status}</Badge>
+                              <Badge className="bg-blue-100 text-blue-800 border-blue-200" size="sm">{duplicate.status}</Badge>
                               {duplicate.ai_confidence && (
                                 <span className="text-xs text-gray-600">
                                   AI Confidence: <strong>{(duplicate.ai_confidence * 100).toFixed(0)}%</strong>
@@ -430,7 +464,7 @@ export default function InsightsPage() {
                   </div>
                 </div>
               )}
-            </div>
+            </Card>
           ))
         )}
       </div>
@@ -478,19 +512,20 @@ export default function InsightsPage() {
             </div>
 
             <div className="p-6 border-t border-gray-200 flex items-center justify-end gap-3">
-              <button
+              <Button
                 onClick={() => setMergeModal({ isOpen: false, cluster: null, selectedDuplicates: new Set() })}
-                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                variant="outline"
               >
                 Cancel
-              </button>
-              <button
+              </Button>
+              <Button
                 onClick={() => handleMerge(mergeModal.cluster!, Array.from(mergeModal.selectedDuplicates))}
-                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2"
+                variant="primary"
+                className="gap-2"
               >
                 <GitMerge className="w-4 h-4" />
                 Confirm Merge
-              </button>
+              </Button>
             </div>
           </div>
         </div>

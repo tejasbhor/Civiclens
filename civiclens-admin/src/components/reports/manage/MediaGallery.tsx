@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Report, Media, MediaType, UploadSource } from '@/types';
 import { getMediaUrl } from '@/lib/utils/media';
-import { 
-  Camera, 
-  Video, 
-  FileText, 
-  Download, 
-  Eye, 
+import {
+  Camera,
+  Video,
+  FileText,
+  Download,
+  Eye,
   X,
   ChevronLeft,
   ChevronRight,
@@ -26,9 +26,10 @@ import {
 
 interface MediaGalleryProps {
   report: Report;
+  media?: Media[];
 }
 
-export function MediaGallery({ report }: MediaGalleryProps) {
+export function MediaGallery({ report, media }: MediaGalleryProps) {
   const [selectedMedia, setSelectedMedia] = useState<Media | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [showModal, setShowModal] = useState(false);
@@ -38,8 +39,9 @@ export function MediaGallery({ report }: MediaGalleryProps) {
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const imageRef = useRef<HTMLImageElement>(null);
 
-  // Mock media data since the report might not have media populated
-  const mockMedia: Media[] = report.media || [];
+  // Use provided media or fall back to report.media
+  const displayMedia: Media[] = media || report.media || [];
+  const mockMedia = displayMedia; // Keep variable name for minimal diff, or rename if preferred
 
   const getMediaIcon = (type: MediaType) => {
     switch (type) {
@@ -100,14 +102,14 @@ export function MediaGallery({ report }: MediaGalleryProps) {
 
   const navigateMedia = (direction: 'prev' | 'next') => {
     if (mockMedia.length === 0) return;
-    
+
     let newIndex;
     if (direction === 'prev') {
       newIndex = currentIndex > 0 ? currentIndex - 1 : mockMedia.length - 1;
     } else {
       newIndex = currentIndex < mockMedia.length - 1 ? currentIndex + 1 : 0;
     }
-    
+
     setCurrentIndex(newIndex);
     setSelectedMedia(mockMedia[newIndex]);
     setZoom(1);
@@ -158,7 +160,7 @@ export function MediaGallery({ report }: MediaGalleryProps) {
     const handleWheel = (e: WheelEvent) => {
       if (showModal && selectedMedia?.file_type === MediaType.IMAGE && e.ctrlKey) {
         e.preventDefault();
-        
+
         if (e.deltaY < 0) {
           // Scroll up - zoom in
           setZoom(prev => Math.min(prev + 0.1, 5));
@@ -231,7 +233,7 @@ export function MediaGallery({ report }: MediaGalleryProps) {
           <div className="grid grid-cols-2 gap-3">
             {mockMedia.map((media, index) => {
               const source = getSourceLabel(media.upload_source);
-              
+
               return (
                 <div
                   key={media.id}
@@ -258,7 +260,7 @@ export function MediaGallery({ report }: MediaGalleryProps) {
                         </span>
                       </div>
                     )}
-                    
+
                     {/* Fallback for broken images */}
                     <div className="hidden flex-col items-center justify-center text-gray-400">
                       {getMediaIcon(media.file_type)}
@@ -306,7 +308,7 @@ export function MediaGallery({ report }: MediaGalleryProps) {
 
       {/* Full Screen Modal */}
       {showModal && selectedMedia && (
-        <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-[100]">
           <div className="relative w-full h-full flex items-center justify-center p-4">
             {/* Close Button */}
             <button
@@ -367,7 +369,7 @@ export function MediaGallery({ report }: MediaGalleryProps) {
             )}
 
             {/* Media Content */}
-            <div 
+            <div
               className="w-full h-full flex items-center justify-center overflow-hidden px-20 py-20"
               onMouseDown={handleMouseDown}
               onMouseMove={handleMouseMove}
