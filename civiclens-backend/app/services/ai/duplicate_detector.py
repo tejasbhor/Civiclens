@@ -209,20 +209,16 @@ class DuplicateDetector:
         Works with GEOGRAPHY type (no need for ST_Transform)
         """
         try:
-            # Create point using latitude/longitude columns directly
-            # Since Report.location is GEOGRAPHY type, we use lat/lon columns
+            # Create point for query
             point = func.ST_SetSRID(func.ST_MakePoint(longitude, latitude), 4326)
             
             # Build query conditions
             conditions = [
-                # Spatial filter using lat/lon columns
+                # Spatial filter using Report.location (GIST index)
                 func.ST_DWithin(
-                    func.ST_SetSRID(
-                        func.ST_MakePoint(Report.longitude, Report.latitude),
-                        4326
-                    ),
+                    Report.location,
                     point,
-                    radius_meters  # ST_DWithin with geography uses meters directly
+                    radius_meters
                 ),
                 # Temporal filter
                 Report.created_at >= time_threshold,
