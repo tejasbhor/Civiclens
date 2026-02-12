@@ -5,7 +5,7 @@ Ensures zero inconsistent states through atomic operations and comprehensive val
 
 from typing import Optional, List, Dict, Any, Tuple
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, and_, or_
+from sqlalchemy import select, func, and_, or_, update
 from datetime import datetime, timedelta
 from fastapi import Depends
 import logging
@@ -782,6 +782,12 @@ class ReportService:
         # Verify department exists upfront
         await self._verify_department_exists(department_id)
         
+        # Get department name for notifications
+        dept_result = await self.db.execute(
+            select(Department.name).where(Department.id == department_id)
+        )
+        dept_name = dept_result.scalar() or "Department"
+
         results = {
             "total": len(report_ids),
             "successful": 0,
@@ -791,28 +797,128 @@ class ReportService:
             "failed_ids": []
         }
         
-        for report_id in report_ids:
-            try:
-                await self.assign_department(
-                    report_id=report_id,
-                    department_id=department_id,
-                    user_id=user_id,
-                    notes=notes,
-                    auto_update_status=True
-                )
-                results["successful"] += 1
-                results["successful_ids"].append(report_id)
-                
-            except Exception as e:
+        # 1. Fetch all reports in one query
+        stmt = select(Report).where(Report.id.in_(report_ids))
+        result = await self.db.execute(stmt)
+        reports = result.scalars().all()
+        existing_reports_map = {r.id: r for r in reports}
+
+        # 2. Identify valid/invalid reports
+        valid_report_ids = []
+        for rid in report_ids:
+            if rid in existing_reports_map:
+                valid_report_ids.append(rid)
+            else:
                 results["failed"] += 1
-                results["failed_ids"].append(report_id)
+                results["failed_ids"].append(rid)
                 results["errors"].append({
-                    "report_id": str(report_id),
-                    "error": str(e)
+                    "report_id": str(rid),
+                    "error": "Report not found"
                 })
-        
-        # Commit all successful operations
-        await self.db.commit()
+
+        if not valid_report_ids:
+            return results
+
+        # 3. Prepare Updates and Notifications
+        now = datetime.utcnow()
+        status_update_ids = []
+        history_entries = []
+        notifications_to_send = []
+
+        for rid in valid_report_ids:
+            report = existing_reports_map[rid]
+
+            # Detach from session to allow modification without triggering ORM updates
+            # This ensures we can pass updated objects to notifications without
+            # causing SQLAlchemy to generate redundant UPDATE statements during commit
+            self.db.expunge(report)
+
+            old_status = report.status
+
+            # Determine if status should change (logic from assign_department)
+            new_status = old_status
+            status_changed = False
+
+            # Update department on the object for notifications
+            report.department_id = department_id
+
+            if report.status in {ReportStatus.RECEIVED, ReportStatus.PENDING_CLASSIFICATION}:
+                new_status = ReportStatus.ASSIGNED_TO_DEPARTMENT
+                status_changed = True
+                status_update_ids.append(rid)
+
+                # Update status on the object for notifications
+                report.status = new_status
+                report.status_updated_at = now
+
+            # Prepare history entry if status changed
+            if status_changed:
+                history = ReportStatusHistory(
+                    report_id=rid,
+                    old_status=old_status,
+                    new_status=new_status,
+                    changed_by_user_id=user_id,
+                    notes=notes,
+                    changed_at=now
+                )
+                history_entries.append(history)
+
+            notifications_to_send.append(report)
+
+            results["successful"] += 1
+            results["successful_ids"].append(rid)
+
+        try:
+            # 4. Bulk Update Department ID (for ALL valid reports)
+            await self.db.execute(
+                update(Report)
+                .where(Report.id.in_(valid_report_ids))
+                .values(department_id=department_id)
+            )
+
+            # 5. Bulk Update Status (for applicable reports)
+            if status_update_ids:
+                await self.db.execute(
+                    update(Report)
+                    .where(Report.id.in_(status_update_ids))
+                    .values(
+                        status=ReportStatus.ASSIGNED_TO_DEPARTMENT,
+                        status_updated_at=now
+                    )
+                )
+
+            # 6. Bulk Insert History
+            if history_entries:
+                self.db.add_all(history_entries)
+
+            # 7. Send Notifications (iterative but batched commit)
+            from app.services.notification_service import NotificationService
+            notification_service = NotificationService(self.db)
+            admin_ids = await notification_service.get_admin_user_ids()
+
+            for report in notifications_to_send:
+                # Note: report object might have stale status/dept in memory,
+                # but notifications primarily use ID and passed dept_name.
+                await notification_service.notify_department_assigned(
+                    report=report,
+                    department_name=dept_name,
+                    admin_user_ids=admin_ids
+                )
+
+            # 8. Commit All
+            await self.db.commit()
+
+        except Exception as e:
+            await self.db.rollback()
+            logger.error(f"Bulk assign department failed: {str(e)}")
+
+            # Mark all as failed since transaction rolled back
+            results["successful"] = 0
+            results["successful_ids"] = []
+            results["failed"] += len(valid_report_ids)
+            results["failed_ids"].extend(valid_report_ids)
+            results["errors"].append({"error": f"Bulk transaction failed: {str(e)}"})
+
         return results
     
     async def bulk_assign_officer(
