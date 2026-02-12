@@ -44,7 +44,7 @@ class AIProcessingPipeline:
             logger.info("Warming up AI models on GPU...")
             # Simple dummy inference to trigger model loading and CUDA kernel compilation
             self.category_classifier.classify("Test", "Test description")
-            self.urgency_scorer.score_urgency("Test", "Test description")
+            self.urgency_scorer.warmup()
             logger.info("Models warmed up and ready")
         except Exception as e:
             logger.warning(f"Model warmup failed (non-critical): {e}")
@@ -240,7 +240,7 @@ class AIProcessingPipeline:
             # ========== STAGE 3: SEVERITY SCORING ==========
             logger.info("Stage 3: Severity scoring...")
             try:
-                severity_result = self.urgency_scorer.score_urgency(
+                severity_result = await self.urgency_scorer.score_urgency(
                     report.title,
                     report.description,
                     category_result["category"]

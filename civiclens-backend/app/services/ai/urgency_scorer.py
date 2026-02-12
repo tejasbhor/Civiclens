@@ -4,6 +4,7 @@ Maps report urgency to ReportSeverity enum
 """
 
 import logging
+import asyncio
 import torch
 from typing import Dict
 from transformers import pipeline
@@ -46,8 +47,26 @@ class UrgencyScorer:
         except Exception as e:
             logger.error(f"Failed to load urgency model: {str(e)}")
             raise
+
+    def warmup(self):
+        """Warmup model synchronously (used during initialization)"""
+        if self.model:
+            try:
+                candidate_labels = AIConfig.get_severity_labels()
+                self._run_zero_shot_model("Test warmup", candidate_labels)
+                logger.info("Urgency scorer warmed up")
+            except Exception as e:
+                logger.warning(f"Urgency scorer warmup failed: {e}")
+
+    def _run_zero_shot_model(self, text: str, candidate_labels: list) -> Dict:
+        """Run blocking model inference"""
+        return self.model(
+            text,
+            candidate_labels,
+            multi_label=False
+        )
     
-    def score_urgency(
+    async def score_urgency(
         self,
         title: str,
         description: str,
@@ -103,11 +122,13 @@ class UrgencyScorer:
             # Get severity labels
             candidate_labels = AIConfig.get_severity_labels()
             
-            # Classify
-            result = self.model(
+            # Classify (offloaded to executor)
+            loop = asyncio.get_running_loop()
+            result = await loop.run_in_executor(
+                None,
+                self._run_zero_shot_model,
                 text,
-                candidate_labels,
-                multi_label=False
+                candidate_labels
             )
             
             # Map back to enum value
