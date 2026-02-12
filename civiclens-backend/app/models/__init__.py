@@ -19,6 +19,7 @@ from app.models.sync import ClientSyncState, SyncConflict, OfflineAction
 from app.models.audit_log import AuditLog, AuditAction, AuditStatus
 from app.models.notification import Notification, NotificationType, NotificationPriority
 from app.models.feedback import Feedback
+from app.models.validation import Validation
 
 __all__ = [
     "BaseModel",
@@ -54,4 +55,5 @@ __all__ = [
     "NotificationType",
     "NotificationPriority",
     "Feedback",
+    "Validation",
 ]

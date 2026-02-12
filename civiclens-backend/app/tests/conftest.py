@@ -48,7 +48,7 @@ from app.models import (
     user, department, report, task, media,
     area_assignment, role_history, appeal, escalation,
     report_status_history, session, sync, audit_log,
-    notification, feedback
+    notification, feedback, validation
 )
 
 # Use SQLite for tests (in-memory, no setup needed)

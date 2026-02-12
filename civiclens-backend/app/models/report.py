@@ -120,7 +120,7 @@ class Report(BaseModel):
     appeals = relationship("Appeal", back_populates="report", cascade="all, delete-orphan")
     escalations = relationship("Escalation", back_populates="report", cascade="all, delete-orphan")
     feedback = relationship("Feedback", back_populates="report", uselist=False, cascade="all, delete-orphan")
-    # validations = relationship("Validation", back_populates="report", cascade="all, delete-orphan")  # TODO: Create Validation model
+    validations = relationship("Validation", back_populates="report", cascade="all, delete-orphan")
     
     # Indexes
     __table_args__ = (
