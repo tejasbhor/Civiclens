@@ -104,6 +104,12 @@ class Report(BaseModel):
 
     # Relationships
     user = relationship("User", back_populates="reports", foreign_keys=[user_id])
+    bookmarked_by = relationship(
+        "User",
+        secondary="report_bookmarks",
+        back_populates="bookmarked_reports",
+        lazy="select"
+    )
     classified_by = relationship("User", foreign_keys=[classified_by_user_id])
     assignment_rejected_by = relationship("User", foreign_keys=[assignment_rejected_by_user_id])
     hold_approved_by = relationship("User", foreign_keys=[hold_approved_by_user_id])

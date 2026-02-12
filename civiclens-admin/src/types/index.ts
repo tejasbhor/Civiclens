@@ -130,6 +130,7 @@ export interface Report {
   
   // Visibility & Flags
   is_public?: boolean;
+  is_bookmarked?: boolean;
   is_sensitive?: boolean;
   is_featured?: boolean;
   needs_review?: boolean;
