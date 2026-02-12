@@ -11,6 +11,7 @@ import {
   ActivityIndicator,
   BackHandler,
 } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -40,6 +41,7 @@ interface CitizenLoginScreenProps {
 }
 
 export const CitizenLoginScreen = ({ onBack }: CitizenLoginScreenProps) => {
+  const navigation = useNavigation();
   const [authMode, setAuthMode] = useState<AuthMode>('select');
   const [authStep, setAuthStep] = useState<AuthStep>('phone');
   
@@ -284,11 +286,9 @@ export const CitizenLoginScreen = ({ onBack }: CitizenLoginScreenProps) => {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.selectWrapper}>
-          {onBack && (
-            <TouchableOpacity onPress={onBack} style={styles.heroBackButton}>
-              <Ionicons name="arrow-back" size={22} color={colors.white} />
-            </TouchableOpacity>
-          )}
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.heroBackButton}>
+            <Ionicons name="arrow-back" size={22} color={colors.white} />
+          </TouchableOpacity>
 
           <LinearGradient
             colors={[colors.primary, colors.primaryDark]}

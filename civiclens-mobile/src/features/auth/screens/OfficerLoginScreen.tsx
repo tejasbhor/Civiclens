@@ -10,6 +10,7 @@ import {
   Platform,
   ScrollView,
 } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -26,10 +27,10 @@ import { Toast } from '@shared/components';
 
 interface OfficerLoginScreenProps {
   onBack?: () => void;
-  navigation?: any;
 }
 
-export const OfficerLoginScreen: React.FC<OfficerLoginScreenProps> = ({ onBack, navigation }) => {
+export const OfficerLoginScreen: React.FC<OfficerLoginScreenProps> = ({ onBack }) => {
+  const navigation = useNavigation();
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -169,11 +170,9 @@ export const OfficerLoginScreen: React.FC<OfficerLoginScreenProps> = ({ onBack, 
     <SafeAreaView style={styles.container}>
       <View style={styles.wrapper}>
         {/* Back Button */}
-        {onBack && (
-          <TouchableOpacity onPress={onBack} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={22} color={colors.text} />
-          </TouchableOpacity>
-        )}
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+          <Ionicons name="arrow-back" size={22} color={colors.text} />
+        </TouchableOpacity>
 
         {/* Hero Card */}
         <LinearGradient
@@ -289,17 +288,17 @@ export const OfficerLoginScreen: React.FC<OfficerLoginScreenProps> = ({ onBack, 
                   </>
                 )}
               </TouchableOpacity>
+            </View>
 
-              <View style={styles.securityNotice}>
-                <View style={styles.securityIcon}>
-                  <Ionicons name="shield-checkmark" size={18} color={colors.primaryDark} />
-                </View>
-                <View style={styles.securityTextContainer}>
-                  <Text style={styles.securityTitle}>Secure Portal</Text>
-                  <Text style={styles.securityText}>
-                    Restricted to authorized government personnel only. All access attempts are logged and monitored.
-                  </Text>
-                </View>
+            <View style={styles.securityNotice}>
+              <View style={styles.securityIcon}>
+                <Ionicons name="shield-checkmark" size={18} color={colors.primaryDark} />
+              </View>
+              <View style={styles.securityTextContainer}>
+                <Text style={styles.securityTitle}>Secure Portal</Text>
+                <Text style={styles.securityText}>
+                  Restricted to authorized government personnel only. All access attempts are logged and monitored.
+                </Text>
               </View>
             </View>
           </ScrollView>
