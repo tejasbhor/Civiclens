@@ -5,7 +5,7 @@ Ensures zero inconsistent states through atomic operations and comprehensive val
 
 from typing import Optional, List, Dict, Any, Tuple
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, and_, or_
+from sqlalchemy import select, func, and_, or_, case
 from datetime import datetime, timedelta
 from fastapi import Depends
 import logging
@@ -187,23 +187,76 @@ class WorkloadBalancer:
         Get officers available for assignment in a department
         Optionally excludes officers with high workload
         """
-        # Get all officers in the department
-        officers_result = await self.db.execute(
-            select(User).where(
+        # Calculate active reports conditions
+        active_status_conditions = Report.status.in_([
+            ReportStatus.ASSIGNED_TO_OFFICER,
+            ReportStatus.ACKNOWLEDGED,
+            ReportStatus.IN_PROGRESS,
+            ReportStatus.PENDING_VERIFICATION
+        ])
+
+        # Calculate resolved reports conditions
+        resolved_status_conditions = Report.status.in_([ReportStatus.RESOLVED, ReportStatus.CLOSED])
+
+        # Calculate 30 days ago
+        thirty_days_ago = datetime.utcnow() - timedelta(days=30)
+
+        # Build the optimized query
+        stmt = (
+            select(
+                User,
+                func.count(case((active_status_conditions, Report.id), else_=None)).label("active_reports"),
+                func.count(case((resolved_status_conditions, Report.id), else_=None)).label("resolved_reports"),
+                func.avg(
+                    case(
+                        (
+                            and_(
+                                resolved_status_conditions,
+                                Report.updated_at >= thirty_days_ago,
+                                Report.updated_at.isnot(None)
+                            ),
+                            func.extract('epoch', Report.updated_at - Report.created_at) / 86400
+                        ),
+                        else_=None
+                    )
+                ).label("avg_resolution_time")
+            )
+            .select_from(User)
+            .outerjoin(Task, Task.assigned_to == User.id)
+            .outerjoin(Report, Task.report_id == Report.id)
+            .where(
                 and_(
                     User.department_id == department_id,
                     User.role.in_([UserRole.NODAL_OFFICER, UserRole.ADMIN]),
                     User.is_active == True
                 )
             )
+            .group_by(User.id)
         )
-        officers = officers_result.scalars().all()
         
-        # Calculate workload for each officer
+        result = await self.db.execute(stmt)
+        rows = result.all()
+
         officer_workloads = []
-        for officer in officers:
-            workload = await self.get_officer_workload(officer.id)
-            workload.update({
+        for row in rows:
+            officer = row[0]
+            active_reports = row.active_reports or 0
+            resolved_reports = row.resolved_reports or 0
+            avg_resolution_time = row.avg_resolution_time or 7.0
+
+            workload_score = active_reports + (float(avg_resolution_time) / 7.0) * 2
+            capacity_level = self._get_capacity_level(active_reports, avg_resolution_time)
+
+            if exclude_high_workload and capacity_level == "high":
+                continue
+
+            officer_workloads.append({
+                "officer_id": officer.id,
+                "active_reports": active_reports,
+                "resolved_reports": resolved_reports,
+                "avg_resolution_time_days": round(avg_resolution_time, 2),
+                "workload_score": round(workload_score, 2),
+                "capacity_level": capacity_level,
                 "user_id": officer.id,
                 "full_name": officer.full_name,
                 "email": officer.email,
@@ -211,12 +264,6 @@ class WorkloadBalancer:
                 "employee_id": officer.employee_id
             })
             
-            # Filter out high workload officers if requested
-            if exclude_high_workload and workload["capacity_level"] == "high":
-                continue
-                
-            officer_workloads.append(workload)
-        
         return officer_workloads
     
     async def select_best_officer(
