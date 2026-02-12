@@ -4,6 +4,9 @@ import { ENV } from '@shared/config/env';
 import { SecureStorage } from '@shared/services/storage';
 import { validateToken, cleanupInvalidAuthState } from '@shared/utils/authUtils';
 import NetInfo from '@react-native-community/netinfo';
+import { createLogger } from '@shared/utils/logger';
+
+const log = createLogger('API');
 
 // Track if we're currently refreshing token to avoid multiple refresh attempts
 let isRefreshing = false;
@@ -30,8 +33,8 @@ class ApiClient {
   private client: AxiosInstance;
 
   constructor() {
-    console.log('🔍 ApiClient constructor called');
-    console.log('🔍 ENV.API_BASE_URL:', ENV.API_BASE_URL);
+    log.debug('ApiClient constructor called');
+    log.debug('ENV.API_BASE_URL:', ENV.API_BASE_URL);
     
     this.client = axios.create({
       baseURL: ENV.API_BASE_URL,
@@ -46,7 +49,7 @@ class ApiClient {
       },
     });
 
-    console.log('✅ API Client initialized with base URL:', ENV.API_BASE_URL);
+    log.info('API Client initialized with base URL:', ENV.API_BASE_URL);
     this.setupInterceptors();
   }
 
@@ -71,7 +74,7 @@ class ApiClient {
           const validation = validateToken(token);
           
           if (!validation.isValid || validation.isExpired) {
-            console.warn('🔑 Invalid or expired token, cleaning up auth state');
+            log.warn('Invalid or expired token, cleaning up auth state');
             await cleanupInvalidAuthState();
             
             // Don't add invalid token to request
@@ -87,14 +90,14 @@ class ApiClient {
         }
 
         if (ENV.ENABLE_LOGGING) {
-          console.log('API Request:', config.method?.toUpperCase(), config.url);
+          log.info('API Request:', config.method?.toUpperCase(), config.url);
         }
 
         return config;
       },
       error => {
         if (ENV.ENABLE_LOGGING) {
-          console.error('API Request Error:', error);
+          log.error('API Request Error:', error);
         }
         return Promise.reject(error);
       }
@@ -104,7 +107,7 @@ class ApiClient {
     this.client.interceptors.response.use(
       response => {
         if (ENV.ENABLE_LOGGING) {
-          console.log('API Response:', response.status, response.config.url);
+          log.info('API Response:', response.status, response.config.url);
         }
         return response;
       },
@@ -112,7 +115,7 @@ class ApiClient {
         const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
 
         if (ENV.ENABLE_LOGGING) {
-          console.error('API Response Error:', error.response?.status, error.config?.url);
+          log.error(`API Response Error: ${error.response?.status} ${error.config?.url}`);
         }
 
         // Handle 401 Unauthorized - Token expired
@@ -124,7 +127,7 @@ class ApiClient {
 
           // Circuit breaker: Stop if too many consecutive failures
           if (consecutiveAuthFailures >= MAX_AUTH_FAILURES) {
-            console.log('🔐 Auth error detected, stopping retries');
+            log.info('Auth error detected, stopping retries');
             await SecureStorage.clearAuthTokens();
             await SecureStorage.clearUserData();
             return Promise.reject({
@@ -156,7 +159,7 @@ class ApiClient {
           if (refreshToken) {
             try {
               // Try to refresh the token
-              console.log('🔄 Refreshing access token...');
+              log.info('Refreshing access token...');
               const response = await axios.post(
                 `${ENV.API_BASE_URL}/auth/refresh`,
                 { refresh_token: refreshToken },
@@ -169,14 +172,14 @@ class ApiClient {
                 throw new Error('No access_token in refresh response');
               }
 
-              console.log('🔑 New access token received:', access_token.substring(0, 30) + '...');
+              log.debug('New access token received');
 
               // Update access token
               await SecureStorage.setAuthToken(access_token);
               
               // Verify it was stored
-              const storedToken = await SecureStorage.getAuthToken();
-              console.log('🔑 Stored token verified:', storedToken?.substring(0, 30) + '...');
+              // const storedToken = await SecureStorage.getAuthToken();
+              // log.debug('Stored token verified');
               
               // Update refresh token only if backend provides a new one
               // Note: Backend may not return new refresh token on every refresh
@@ -184,7 +187,7 @@ class ApiClient {
                 await SecureStorage.setRefreshToken(newRefreshToken);
               }
 
-              console.log('✅ Token refreshed and stored successfully');
+              log.info('Token refreshed and stored successfully');
 
               // Reset failure counter on successful refresh
               consecutiveAuthFailures = 0;
@@ -201,7 +204,7 @@ class ApiClient {
             } catch (refreshError: any) {
               // Refresh failed - increment failure counter
               consecutiveAuthFailures++;
-              console.error(`❌ Token refresh failed (attempt ${consecutiveAuthFailures}/${MAX_AUTH_FAILURES})`);
+              log.error(`Token refresh failed (attempt ${consecutiveAuthFailures}/${MAX_AUTH_FAILURES})`);
               isRefreshing = false;
               processQueue(refreshError as AxiosError, null);
 
@@ -234,12 +237,12 @@ class ApiClient {
 
           if (status === 403) {
             // 403 Forbidden - might be due to invalid token or insufficient permissions
-            console.warn('🚫 403 Forbidden - checking auth state');
+            log.warn('403 Forbidden - checking auth state');
             
             // If we have a token but getting 403, it might be invalid
             const token = await SecureStorage.getAuthToken();
             if (token) {
-              console.warn('🔑 Have token but got 403 - clearing potentially invalid auth state');
+              log.warn('Have token but got 403 - clearing potentially invalid auth state');
               await cleanupInvalidAuthState();
               
               return Promise.reject({
