@@ -14,7 +14,7 @@ from app.schemas.report import (
     StatusUpdateRequest, StatusHistoryResponse, StatusHistoryItem,
 )
 from app.schemas.common import PaginatedResponse
-from app.models.user import User
+from app.models.user import User, report_bookmarks
 from app.models.report import Report, ReportStatus, ReportSeverity
 from app.crud.report import report_crud
 from app.crud.user import user_crud
@@ -22,7 +22,7 @@ from app.core.rate_limiter import rate_limiter
 from app.config import settings
 from pydantic import BaseModel, Field
 from app.models.task import Task, TaskStatus
-from sqlalchemy import select
+from sqlalchemy import select, func
 from app.models.report_status_history import ReportStatusHistory
 from datetime import datetime
 from app.models.department import Department
@@ -36,12 +36,17 @@ from app.core.background_tasks import (
 logger = logging.getLogger(__name__)
 
 
-def serialize_report_with_details(report, current_user: Optional[User] = None) -> dict:
+def serialize_report_with_details(report, current_user: Optional[User] = None, bookmarked_ids: Optional[set[int]] = None) -> dict:
     """Helper function to serialize a report with its relationships"""
+    is_bookmarked = False
+    if bookmarked_ids is not None:
+        is_bookmarked = report.id in bookmarked_ids
+
     payload = {
         "id": report.id,
         "report_number": getattr(report, "report_number", None),
         "user_id": report.user_id,
+        "is_bookmarked": is_bookmarked,
         "department_id": getattr(report, "department_id", None),
         "category": getattr(report, "category", None),
         "sub_category": getattr(report, "sub_category", None),
@@ -528,8 +533,17 @@ async def get_reports(
         if report.task:
             await db.refresh(report.task, ['officer'])
     
+    # Fetch bookmarked IDs for current user
+    bookmarked_ids = set()
+    if current_user:
+        result = await db.execute(
+            select(report_bookmarks.c.report_id)
+            .where(report_bookmarks.c.user_id == current_user.id)
+        )
+        bookmarked_ids = set(result.scalars().all())
+
     # Serialize reports with department data
-    serialized_reports = [serialize_report_with_details(report, current_user) for report in reports]
+    serialized_reports = [serialize_report_with_details(report, current_user, bookmarked_ids) for report in reports]
     
     return PaginatedResponse(
         data=serialized_reports,
@@ -676,6 +690,58 @@ async def get_my_reports(
     return reports
 
 
+@router.get("/bookmarks", response_model=PaginatedResponse[ReportWithDetails])
+async def get_bookmarked_reports(
+    page: int = Query(1, ge=1),
+    per_page: int = Query(20, ge=1, le=100),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Get all reports bookmarked by the current user"""
+    skip = (page - 1) * per_page
+
+    # Query bookmarked reports
+    query = (
+        select(Report)
+        .join(report_bookmarks, Report.id == report_bookmarks.c.report_id)
+        .where(report_bookmarks.c.user_id == current_user.id)
+        .order_by(report_bookmarks.c.created_at.desc())
+        .offset(skip)
+        .limit(per_page)
+    )
+
+    # Execute query
+    result = await db.execute(query)
+    reports = result.scalars().all()
+
+    # Count total
+    count_query = (
+        select(func.count())
+        .select_from(report_bookmarks)
+        .where(report_bookmarks.c.user_id == current_user.id)
+    )
+    total = await db.scalar(count_query) or 0
+
+    # Load relationships needed for serialization
+    for report in reports:
+         await db.refresh(report, ['user', 'department', 'media', 'task'])
+         if report.task:
+             await db.refresh(report.task, ['officer'])
+
+    # Create set of bookmarked IDs (all returned reports are bookmarked obviously)
+    bookmarked_ids = {r.id for r in reports}
+
+    serialized_reports = [serialize_report_with_details(report, current_user, bookmarked_ids) for report in reports]
+
+    return PaginatedResponse(
+        data=serialized_reports,
+        total=total,
+        page=page,
+        per_page=per_page,
+        total_pages=(total + per_page - 1) // per_page
+    )
+
+
 @router.get("/{report_id}", response_model=ReportWithDetails)
 async def get_report(
     report_id: int,
@@ -693,7 +759,19 @@ async def get_report(
     if report.task:
         await db.refresh(report.task, ['officer'])
     
-    return serialize_report_with_details(report, current_user)
+    bookmarked_ids = set()
+    if current_user:
+        result = await db.execute(
+            select(report_bookmarks.c.report_id)
+            .where(
+                report_bookmarks.c.user_id == current_user.id,
+                report_bookmarks.c.report_id == report_id
+            )
+        )
+        if result.scalar_one_or_none():
+            bookmarked_ids.add(report_id)
+
+    return serialize_report_with_details(report, current_user, bookmarked_ids)
 
 
 # =============================
@@ -1862,6 +1940,53 @@ async def delete_report(
     
     await report_crud.delete(db, report_id)
     return None
+
+
+@router.post("/{report_id}/bookmark", response_model=dict)
+async def toggle_bookmark(
+    report_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Toggle bookmark status for a report"""
+    report = await report_crud.get(db, report_id)
+    if not report:
+        raise NotFoundException("Report not found")
+
+    # Check if already bookmarked
+    stmt = select(report_bookmarks).where(
+        report_bookmarks.c.user_id == current_user.id,
+        report_bookmarks.c.report_id == report_id
+    )
+    result = await db.execute(stmt)
+    existing = result.first()
+
+    is_bookmarked = False
+    if existing:
+        # Remove bookmark
+        await db.execute(
+            report_bookmarks.delete().where(
+                report_bookmarks.c.user_id == current_user.id,
+                report_bookmarks.c.report_id == report_id
+            )
+        )
+        is_bookmarked = False
+    else:
+        # Add bookmark
+        await db.execute(
+            report_bookmarks.insert().values(
+                user_id=current_user.id,
+                report_id=report_id
+            )
+        )
+        is_bookmarked = True
+
+    await db.commit()
+
+    return {
+        "is_bookmarked": is_bookmarked,
+        "message": "Bookmark added" if is_bookmarked else "Bookmark removed"
+    }
 
 
 # ============================================================================
