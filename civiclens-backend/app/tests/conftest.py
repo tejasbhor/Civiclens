@@ -1,20 +1,66 @@
 import pytest
 import asyncio
 from typing import AsyncGenerator
+import sys
+from unittest.mock import MagicMock
+import sqlalchemy
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
-from sqlalchemy.pool import NullPool
+from sqlalchemy.pool import NullPool, StaticPool
 from httpx import AsyncClient
+
+# ============================================================================
+# Monkeypatching for SQLite Compatibility
+# ============================================================================
+# Must be done before importing app.main or models
+from sqlalchemy.dialects import postgresql
+import geoalchemy2
+from sqlalchemy.types import TypeDecorator, String
+
+# Monkeypatch JSONB -> JSON
+postgresql.JSONB = sqlalchemy.JSON
+
+# Monkeypatch Geography -> String (or similar)
+class MockGeography(TypeDecorator):
+    impl = String
+    cache_ok = True
+
+    def __init__(self, *args, **kwargs):
+        # Ignore arguments passed to Geography(...)
+        super().__init__()
+
+    def load_dialect_impl(self, dialect):
+        return dialect.type_descriptor(String)
+
+    def process_bind_param(self, value, dialect):
+        return str(value) if value else None
+
+    def process_result_value(self, value, dialect):
+        return value
+
+geoalchemy2.Geography = MockGeography
+geoalchemy2.types.Geography = MockGeography
+
 from app.main import app
 from app.core.database import Base, get_db
 
+# Import all models to ensure they are registered in Base.metadata
+from app.models import (
+    user, department, report, task, media,
+    area_assignment, role_history, appeal, escalation,
+    report_status_history, session, sync, audit_log,
+    notification, feedback
+)
+
 # Use SQLite for tests (in-memory, no setup needed)
+# Using Shared In-Memory Database with StaticPool
 TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
 
 # Create test engine
 test_engine = create_async_engine(
     TEST_DATABASE_URL,
     echo=False,
-    poolclass=NullPool,  # Disable pooling for SQLite
+    poolclass=StaticPool,  # Keep connection open for in-memory DB
+    connect_args={"check_same_thread": False} # Needed for SQLite with multiple threads/async
 )
 
 # Test session factory

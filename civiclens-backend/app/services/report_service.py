@@ -5,7 +5,7 @@ Ensures zero inconsistent states through atomic operations and comprehensive val
 
 from typing import Optional, List, Dict, Any, Tuple
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, and_, or_, case
+from sqlalchemy import select, func, and_, or_, update
 from datetime import datetime, timedelta
 from fastapi import Depends
 import logging
@@ -461,6 +461,88 @@ class ReportService:
         
         return max(1, min(10, base + sev_bonus + age_bonus))
     
+    async def _assign_officer_internal(
+        self,
+        report: Report,
+        officer: User,
+        assigned_by_id: int,
+        existing_task: Optional[Task] = None,
+        priority: Optional[int] = None,
+        notes: Optional[str] = None,
+        auto_update_status: bool = True
+    ) -> Task:
+        """
+        Internal method to handle officer assignment logic.
+        Validates department, updates/creates task, updates status, and logs history.
+        Does NOT commit transaction.
+        """
+        # Validate department assignment exists
+        if not report.department_id:
+            raise ValidationException(
+                "Cannot assign officer: Report must be assigned to a department first"
+            )
+
+        # Validate officer belongs to the same department
+        if officer.department_id != report.department_id:
+            # We can't easily fetch dept name here without risking async issues or extra queries
+            # standard error message is fine
+             raise ValidationException(
+                f"Officer does not belong to the assigned department. "
+                f"Please assign an officer from the correct department."
+            )
+
+        old_status = report.status
+
+        if existing_task:
+            # Update existing task
+            existing_task.assigned_to = officer.id
+            existing_task.assigned_by = assigned_by_id
+            if priority is not None:
+                existing_task.priority = priority
+            if notes is not None:
+                existing_task.notes = notes
+            task = existing_task
+        else:
+            # Create new task
+            calculated_priority = priority or self._calculate_priority(
+                report.severity,
+                report.created_at
+            )
+
+            task = Task(
+                report_id=report.id,
+                assigned_to=officer.id,
+                assigned_by=assigned_by_id,
+                status=TaskStatus.ASSIGNED,
+                priority=calculated_priority,
+                notes=notes,
+                assigned_at=datetime.utcnow()
+            )
+            self.db.add(task)
+
+        # Auto-update report status if appropriate
+        if auto_update_status and report.status in {
+            ReportStatus.RECEIVED,
+            ReportStatus.PENDING_CLASSIFICATION,
+            ReportStatus.CLASSIFIED,
+            ReportStatus.ASSIGNED_TO_DEPARTMENT
+        }:
+            report.status = ReportStatus.ASSIGNED_TO_OFFICER
+            report.status_updated_at = datetime.utcnow()
+
+            # Record history
+            history = ReportStatusHistory(
+                report_id=report.id,
+                old_status=old_status,
+                new_status=ReportStatus.ASSIGNED_TO_OFFICER,
+                changed_by_user_id=assigned_by_id,
+                notes=notes,
+                changed_at=datetime.utcnow()
+            )
+            self.db.add(history)
+
+        return task
+
     # ============================================================================
     # ATOMIC OPERATIONS - All operations are transactional
     # ============================================================================
@@ -557,23 +639,6 @@ class ReportService:
         report = await self._verify_report_exists(report_id)
         officer = await self._verify_officer_exists(officer_id)
         
-        # Validate department assignment exists
-        if not report.department_id:
-            raise ValidationException(
-                "Cannot assign officer: Report must be assigned to a department first"
-            )
-        
-        # Validate officer belongs to the same department
-        if officer.department_id != report.department_id:
-            dept_result = await self.db.execute(
-                select(Department.name).where(Department.id == report.department_id)
-            )
-            dept_name = dept_result.scalar()
-            raise ValidationException(
-                f"Officer does not belong to the assigned department ({dept_name}). "
-                f"Please assign an officer from the correct department."
-            )
-        
         # Validate officer capacity if requested
         if validate_capacity:
             can_assign, reason = await self.workload_balancer.validate_officer_capacity(officer_id)
@@ -582,87 +647,40 @@ class ReportService:
                 # Don't fail the assignment, just log the warning
                 # This allows manual override of capacity limits
         
-        old_status = report.status
-        
         # Check if task already exists
         existing_task = await task_crud.get_by_report(self.db, report_id)
         
-        if existing_task:
-            # Update existing task
-            existing_task.assigned_to = officer_id
-            existing_task.assigned_by = assigned_by_id
-            if priority is not None:
-                existing_task.priority = priority
-            if notes is not None:
-                existing_task.notes = notes
-            await self.db.flush()
-        else:
-            # Create new task
-            calculated_priority = priority or self._calculate_priority(
-                report.severity,
-                report.created_at
-            )
-            
-            task = Task(
-                report_id=report_id,
-                assigned_to=officer_id,
-                assigned_by=assigned_by_id,
-                status=TaskStatus.ASSIGNED,
-                priority=calculated_priority,
-                notes=notes,
-                assigned_at=datetime.utcnow()
-            )
-            self.db.add(task)
-            await self.db.flush()
-        
-        # Auto-update report status if appropriate
-        if auto_update_status and report.status in {
-            ReportStatus.RECEIVED,
-            ReportStatus.PENDING_CLASSIFICATION,
-            ReportStatus.CLASSIFIED,
-            ReportStatus.ASSIGNED_TO_DEPARTMENT
-        }:
-            updated_report = await report_crud.update(
-                self.db,
-                report_id,
-                ReportUpdate(
-                    status=ReportStatus.ASSIGNED_TO_OFFICER,
-                    status_updated_at=datetime.utcnow()
-                )
-            )
-            
-            await self._record_history(
-                report_id,
-                old_status,
-                ReportStatus.ASSIGNED_TO_OFFICER,
-                assigned_by_id,
-                notes
-            )
-        else:
-            updated_report = report
+        # Use internal method for assignment logic
+        task = await self._assign_officer_internal(
+            report=report,
+            officer=officer,
+            assigned_by_id=assigned_by_id,
+            existing_task=existing_task,
+            priority=priority,
+            notes=notes,
+            auto_update_status=auto_update_status
+        )
         
         await self.db.commit()
-        await self.db.refresh(updated_report)
+        await self.db.refresh(report)
         
         # Send notifications
         try:
             from app.services.notification_service import NotificationService
             notification_service = NotificationService(self.db)
             
-            # Get task and report with relationships
-            task = await task_crud.get_by_report(self.db, report_id)
-            if task:
-                await notification_service.notify_task_assigned(
-                    task=task,
-                    report=updated_report,
-                    assigned_by_user_id=assigned_by_id
-                )
-                await self.db.commit()
+            # Use task object returned by internal method
+            await notification_service.notify_task_assigned(
+                task=task,
+                report=report,
+                assigned_by_user_id=assigned_by_id
+            )
+            await self.db.commit()
         except Exception as e:
             logger.error(f"Failed to send officer assignment notifications: {str(e)}")
             # Don't fail the operation if notifications fail
         
-        return updated_report
+        return report
     
     async def update_status(
         self,
@@ -829,6 +847,12 @@ class ReportService:
         # Verify department exists upfront
         await self._verify_department_exists(department_id)
         
+        # Get department name for notifications
+        dept_result = await self.db.execute(
+            select(Department.name).where(Department.id == department_id)
+        )
+        dept_name = dept_result.scalar() or "Department"
+
         results = {
             "total": len(report_ids),
             "successful": 0,
@@ -838,28 +862,128 @@ class ReportService:
             "failed_ids": []
         }
         
-        for report_id in report_ids:
-            try:
-                await self.assign_department(
-                    report_id=report_id,
-                    department_id=department_id,
-                    user_id=user_id,
-                    notes=notes,
-                    auto_update_status=True
-                )
-                results["successful"] += 1
-                results["successful_ids"].append(report_id)
-                
-            except Exception as e:
+        # 1. Fetch all reports in one query
+        stmt = select(Report).where(Report.id.in_(report_ids))
+        result = await self.db.execute(stmt)
+        reports = result.scalars().all()
+        existing_reports_map = {r.id: r for r in reports}
+
+        # 2. Identify valid/invalid reports
+        valid_report_ids = []
+        for rid in report_ids:
+            if rid in existing_reports_map:
+                valid_report_ids.append(rid)
+            else:
                 results["failed"] += 1
-                results["failed_ids"].append(report_id)
+                results["failed_ids"].append(rid)
                 results["errors"].append({
-                    "report_id": str(report_id),
-                    "error": str(e)
+                    "report_id": str(rid),
+                    "error": "Report not found"
                 })
-        
-        # Commit all successful operations
-        await self.db.commit()
+
+        if not valid_report_ids:
+            return results
+
+        # 3. Prepare Updates and Notifications
+        now = datetime.utcnow()
+        status_update_ids = []
+        history_entries = []
+        notifications_to_send = []
+
+        for rid in valid_report_ids:
+            report = existing_reports_map[rid]
+
+            # Detach from session to allow modification without triggering ORM updates
+            # This ensures we can pass updated objects to notifications without
+            # causing SQLAlchemy to generate redundant UPDATE statements during commit
+            self.db.expunge(report)
+
+            old_status = report.status
+
+            # Determine if status should change (logic from assign_department)
+            new_status = old_status
+            status_changed = False
+
+            # Update department on the object for notifications
+            report.department_id = department_id
+
+            if report.status in {ReportStatus.RECEIVED, ReportStatus.PENDING_CLASSIFICATION}:
+                new_status = ReportStatus.ASSIGNED_TO_DEPARTMENT
+                status_changed = True
+                status_update_ids.append(rid)
+
+                # Update status on the object for notifications
+                report.status = new_status
+                report.status_updated_at = now
+
+            # Prepare history entry if status changed
+            if status_changed:
+                history = ReportStatusHistory(
+                    report_id=rid,
+                    old_status=old_status,
+                    new_status=new_status,
+                    changed_by_user_id=user_id,
+                    notes=notes,
+                    changed_at=now
+                )
+                history_entries.append(history)
+
+            notifications_to_send.append(report)
+
+            results["successful"] += 1
+            results["successful_ids"].append(rid)
+
+        try:
+            # 4. Bulk Update Department ID (for ALL valid reports)
+            await self.db.execute(
+                update(Report)
+                .where(Report.id.in_(valid_report_ids))
+                .values(department_id=department_id)
+            )
+
+            # 5. Bulk Update Status (for applicable reports)
+            if status_update_ids:
+                await self.db.execute(
+                    update(Report)
+                    .where(Report.id.in_(status_update_ids))
+                    .values(
+                        status=ReportStatus.ASSIGNED_TO_DEPARTMENT,
+                        status_updated_at=now
+                    )
+                )
+
+            # 6. Bulk Insert History
+            if history_entries:
+                self.db.add_all(history_entries)
+
+            # 7. Send Notifications (iterative but batched commit)
+            from app.services.notification_service import NotificationService
+            notification_service = NotificationService(self.db)
+            admin_ids = await notification_service.get_admin_user_ids()
+
+            for report in notifications_to_send:
+                # Note: report object might have stale status/dept in memory,
+                # but notifications primarily use ID and passed dept_name.
+                await notification_service.notify_department_assigned(
+                    report=report,
+                    department_name=dept_name,
+                    admin_user_ids=admin_ids
+                )
+
+            # 8. Commit All
+            await self.db.commit()
+
+        except Exception as e:
+            await self.db.rollback()
+            logger.error(f"Bulk assign department failed: {str(e)}")
+
+            # Mark all as failed since transaction rolled back
+            results["successful"] = 0
+            results["successful_ids"] = []
+            results["failed"] += len(valid_report_ids)
+            results["failed_ids"].extend(valid_report_ids)
+            results["errors"].append({"error": f"Bulk transaction failed: {str(e)}"})
+
         return results
     
     async def bulk_assign_officer(
@@ -871,10 +995,16 @@ class ReportService:
         notes: Optional[str] = None
     ) -> Dict[str, Any]:
         """
-        Bulk assign officer with transaction safety
+        Bulk assign officer with optimized batch processing
+        Significantly reduces database round-trips for large batches
         """
         # Verify officer exists upfront
-        await self._verify_officer_exists(officer_id)
+        officer = await self._verify_officer_exists(officer_id)
+
+        # Validate officer capacity (log warning if exceeded, consistent with single assign)
+        can_assign, reason = await self.workload_balancer.validate_officer_capacity(officer_id)
+        if not can_assign:
+            logger.warning(f"Officer capacity validation failed for officer {officer_id}: {reason}")
         
         results = {
             "total": len(report_ids),
@@ -885,28 +1015,142 @@ class ReportService:
             "failed_ids": []
         }
         
-        for report_id in report_ids:
+        # 1. Fetch all reports in one query
+        try:
+            stmt = select(Report).where(Report.id.in_(report_ids))
+            reports_result = await self.db.execute(stmt)
+            reports = reports_result.scalars().all()
+            reports_map = {r.id: r for r in reports}
+        except Exception as e:
+            # Fallback if fetching fails entirely
+            logger.error(f"Failed to fetch reports for bulk assignment: {e}")
+            results["failed"] = len(report_ids)
+            results["errors"].append({"error": str(e)})
+            return results
+
+        # Identify missing reports
+        valid_reports = []
+        for rid in report_ids:
+            if rid not in reports_map:
+                results["failed"] += 1
+                results["failed_ids"].append(rid)
+                results["errors"].append({"report_id": str(rid), "error": "Report not found"})
+                continue
+
+            report = reports_map[rid]
+
+            # Validate department assignment exists
+            if not report.department_id:
+                results["failed"] += 1
+                results["failed_ids"].append(rid)
+                results["errors"].append({
+                    "report_id": str(rid),
+                    "error": "Report not assigned to department"
+                })
+                continue
+
+            # Validate officer belongs to the same department
+            if officer.department_id != report.department_id:
+                results["failed"] += 1
+                results["failed_ids"].append(rid)
+                results["errors"].append({
+                    "report_id": str(rid),
+                    "error": "Officer department mismatch"
+                })
+                continue
+
+            valid_reports.append(report)
+
+        if not valid_reports:
+            return results
+
+        # 2. Fetch existing tasks for valid reports
+        try:
+            stmt = select(Task).where(Task.report_id.in_([r.id for r in valid_reports]))
+            tasks_result = await self.db.execute(stmt)
+            existing_tasks = tasks_result.scalars().all()
+            tasks_map = {t.report_id: t for t in existing_tasks}
+        except Exception as e:
+            logger.error(f"Failed to fetch tasks for bulk assignment: {e}")
+            # Mark all remaining as failed
+            for r in valid_reports:
+                results["failed"] += 1
+                results["failed_ids"].append(r.id)
+                results["errors"].append({"report_id": str(r.id), "error": str(e)})
+            return results
+
+        # 3. Process assignments in memory
+        tasks_to_notify = []  # List of (task, report) tuples for notifications
+
+        for report in valid_reports:
             try:
-                await self.assign_officer(
-                    report_id=report_id,
-                    officer_id=officer_id,
+                # Check if task already exists
+                existing_task = tasks_map.get(report.id)
+
+                task = await self._assign_officer_internal(
+                    report=report,
+                    officer=officer,
                     assigned_by_id=assigned_by_id,
+                    existing_task=existing_task,
                     priority=priority,
                     notes=notes,
                     auto_update_status=True
                 )
+
                 results["successful"] += 1
-                results["successful_ids"].append(report_id)
+                results["successful_ids"].append(report.id)
+                tasks_to_notify.append((task, report))
                 
             except Exception as e:
                 results["failed"] += 1
-                results["failed_ids"].append(report_id)
+                results["failed_ids"].append(report.id)
                 results["errors"].append({
-                    "report_id": str(report_id),
+                    "report_id": str(report.id),
                     "error": str(e)
                 })
         
-        await self.db.commit()
+        # 4. Commit all database changes in one transaction
+        try:
+            await self.db.commit()
+        except Exception as e:
+            logger.error(f"Failed to commit bulk assignment: {e}")
+            await self.db.rollback()
+            # If commit fails, all pending changes are lost. We should reflect this in results.
+            # However, we already counted them as successful in memory.
+            # This is a limitation of bulk operations - either all succeed or all fail at commit.
+            # But we filtered errors individually before commit.
+            results["successful"] = 0
+            results["successful_ids"] = []
+            results["failed"] += len(tasks_to_notify)
+            results["errors"].append({"error": f"Database commit failed: {str(e)}"})
+            return results
+
+        # 5. Send notifications (post-commit)
+        # We process notifications individually as failure here shouldn't rollback the transaction
+        # and NotificationService doesn't support bulk operations yet
+        try:
+            from app.services.notification_service import NotificationService
+            notification_service = NotificationService(self.db)
+
+            notifications_sent = 0
+            for task, report in tasks_to_notify:
+                try:
+                    await notification_service.notify_task_assigned(
+                        task=task,
+                        report=report,
+                        assigned_by_user_id=assigned_by_id
+                    )
+                    notifications_sent += 1
+                except Exception as e:
+                    logger.error(f"Failed to send notification for report {report.id}: {str(e)}")
+
+            # Commit notifications
+            if notifications_sent > 0:
+                await self.db.commit()
+
+        except Exception as e:
+            logger.error(f"Failed to initialize notification service: {str(e)}")
+
         return results
     
     async def bulk_update_status(

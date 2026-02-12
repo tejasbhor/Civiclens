@@ -43,7 +43,7 @@ export function DashboardClient({
     if (!stats) return 0;
     
     const resolvedCount = stats.reports_by_status?.resolved || 0;
-    const slaCompliance = 85;
+    const slaCompliance = stats.sla_compliance || 0;
     const resolutionRate = (resolvedCount / (stats.total_reports || 1)) * 100;
     const responseTimeScore = stats.avg_resolution_time <= 48 ? 100 : 70;
     
@@ -55,7 +55,7 @@ export function DashboardClient({
   };
   
   const calculateSLACompliance = () => {
-    return 85; // TODO: Get actual SLA data from backend
+    return stats?.sla_compliance || 0;
   };
 
   // REMOVED: Critical Actions Alert - No longer needed

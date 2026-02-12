@@ -1,5 +1,7 @@
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.httpsredirect import HTTPSRedirectMiddleware
+from app.core.middleware import SecurityHeadersMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.exceptions import RequestValidationError
@@ -110,13 +112,21 @@ app = FastAPI(
     # openapi_url="/openapi.json"  # Default: /openapi.json
 )
 
+# HTTPS Enforcement
+if settings.HTTPS_ONLY:
+    app.add_middleware(HTTPSRedirectMiddleware)
+
+# Security Headers
+if settings.SECURITY_HEADERS_ENABLED:
+    app.add_middleware(SecurityHeadersMiddleware)
+
 # CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_origins_list,  # Fixed: Use list property instead of string
+    allow_origins=settings.cors_origins_list,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=settings.cors_methods_list,
+    allow_headers=settings.cors_headers_list,
 )
 
 # Note: Static file serving removed - using MinIO for all media files

@@ -8,7 +8,7 @@ import os
 import uuid
 import hashlib
 import mimetypes
-from typing import List, Optional, Dict, Any, BinaryIO
+from typing import List, Optional, Dict, Any, BinaryIO, Tuple
 from pathlib import Path
 import asyncio
 from datetime import datetime, timedelta
@@ -198,6 +198,67 @@ class FileUploadService:
             'is_valid': True
         }
     
+    @staticmethod
+    def _process_image_sync(
+        content: bytes,
+        mime_type: str,
+        max_dimension: int,
+        jpeg_quality: int,
+        webp_quality: int
+    ) -> Tuple[bytes, str, Optional[str]]:
+        """
+        Synchronous image processing logic to run in executor.
+        Returns: (processed_content, final_mime_type, final_extension)
+        final_extension is None if it wasn't changed.
+        """
+        # Open image
+        image = Image.open(io.BytesIO(content))
+
+        # Convert to RGB if necessary (for JPEG compatibility)
+        if image.mode in ('RGBA', 'LA', 'P'):
+            # Create white background for transparency
+            background = Image.new('RGB', image.size, (255, 255, 255))
+            if image.mode == 'P':
+                image = image.convert('RGBA')
+            background.paste(image, mask=image.split()[-1] if image.mode == 'RGBA' else None)
+            image = background
+
+        # Resize if too large
+        width, height = image.size
+        if width > max_dimension or height > max_dimension:
+            # Calculate new dimensions maintaining aspect ratio
+            ratio = min(max_dimension / width, max_dimension / height)
+            new_width = int(width * ratio)
+            new_height = int(height * ratio)
+
+            image = image.resize((new_width, new_height), Image.Resampling.LANCZOS)
+            logger.info(f"Resized image from {width}x{height} to {new_width}x{new_height}")
+
+        # Save optimized image
+        output = io.BytesIO()
+        final_mime_type = mime_type
+        final_extension = None
+
+        # Choose optimal format
+        if mime_type == 'image/png' and image.mode == 'RGB':
+            # Convert PNG to JPEG if no transparency
+            image.save(output, format='JPEG', quality=jpeg_quality, optimize=True)
+            final_mime_type = 'image/jpeg'
+            final_extension = '.jpg'
+        elif mime_type == 'image/webp':
+            image.save(output, format='WEBP', quality=webp_quality, optimize=True)
+        else:
+            # Keep original format but optimize
+            format_map = {'image/jpeg': 'JPEG', 'image/png': 'PNG'}
+            format_name = format_map.get(mime_type, 'JPEG')
+
+            if format_name == 'JPEG':
+                image.save(output, format=format_name, quality=jpeg_quality, optimize=True)
+            else:
+                image.save(output, format=format_name, optimize=True)
+
+        return output.getvalue(), final_mime_type, final_extension
+
     async def process_image(self, file: UploadFile, validation_result: Dict[str, Any]) -> bytes:
         """Process and optimize image"""
         
@@ -205,54 +266,22 @@ class FileUploadService:
         content = await file.read()
         
         try:
-            # Open image
-            image = Image.open(io.BytesIO(content))
+            loop = asyncio.get_running_loop()
+            processed_content, final_mime_type, final_extension = await loop.run_in_executor(
+                None,
+                self._process_image_sync,
+                content,
+                validation_result['mime_type'],
+                self.MAX_IMAGE_DIMENSION,
+                self.JPEG_QUALITY,
+                self.WEBP_QUALITY
+            )
             
-            # Convert to RGB if necessary (for JPEG compatibility)
-            if image.mode in ('RGBA', 'LA', 'P'):
-                # Create white background for transparency
-                background = Image.new('RGB', image.size, (255, 255, 255))
-                if image.mode == 'P':
-                    image = image.convert('RGBA')
-                background.paste(image, mask=image.split()[-1] if image.mode == 'RGBA' else None)
-                image = background
-            
-            # Resize if too large
-            width, height = image.size
-            if width > self.MAX_IMAGE_DIMENSION or height > self.MAX_IMAGE_DIMENSION:
-                # Calculate new dimensions maintaining aspect ratio
-                ratio = min(self.MAX_IMAGE_DIMENSION / width, self.MAX_IMAGE_DIMENSION / height)
-                new_width = int(width * ratio)
-                new_height = int(height * ratio)
-                
-                image = image.resize((new_width, new_height), Image.Resampling.LANCZOS)
-                logger.info(f"Resized image from {width}x{height} to {new_width}x{new_height}")
-            
-            # Save optimized image
-            output = io.BytesIO()
-            
-            # Choose optimal format
-            if validation_result['mime_type'] == 'image/png' and image.mode == 'RGB':
-                # Convert PNG to JPEG if no transparency
-                image.save(output, format='JPEG', quality=self.JPEG_QUALITY, optimize=True)
-                validation_result['mime_type'] = 'image/jpeg'
-                validation_result['extension'] = '.jpg'
-            elif validation_result['mime_type'] == 'image/webp':
-                image.save(output, format='WEBP', quality=self.WEBP_QUALITY, optimize=True)
-            else:
-                # Keep original format but optimize
-                format_map = {'image/jpeg': 'JPEG', 'image/png': 'PNG'}
-                format_name = format_map.get(validation_result['mime_type'], 'JPEG')
-                
-                if format_name == 'JPEG':
-                    image.save(output, format=format_name, quality=self.JPEG_QUALITY, optimize=True)
-                else:
-                    image.save(output, format=format_name, optimize=True)
-            
-            processed_content = output.getvalue()
-            
-            # Update size after processing
+            # Update validation result
             validation_result['size'] = len(processed_content)
+            validation_result['mime_type'] = final_mime_type
+            if final_extension:
+                validation_result['extension'] = final_extension
             
             logger.info(f"Image processed: {len(content)} -> {len(processed_content)} bytes")
             

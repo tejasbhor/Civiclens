@@ -225,6 +225,7 @@ export interface DashboardStats {
   high_priority_count: number;
   critical_priority_count: number;
   avg_resolution_time: number;
+  sla_compliance: number;
   reports_by_category: Record<string, number>;
   reports_by_status: Record<string, number>;
   reports_by_severity: Record<string, number>;

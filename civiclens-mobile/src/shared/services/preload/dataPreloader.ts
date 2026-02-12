@@ -8,7 +8,7 @@ import { offlineFirstApi } from '@shared/services/api/offlineFirstApi';
 import { networkService } from '@shared/services/network/networkService';
 import { apiErrorHandler } from '@shared/services/api/errorHandler';
 import { useAuthStore } from '../../../store/authStore';
-// import { database } from '@shared/database/database'; // TODO: Use when needed
+import { database } from '@shared/database/database';
 import { createLogger } from '@shared/utils/logger';
 
 const log = createLogger('DataPreloader');
@@ -435,6 +435,9 @@ class DataPreloader {
     log.info('Initializing data preloader');
     
     try {
+      // Initialize database
+      await database.init();
+
       // Add small delay to let useOfficerDashboard initialize first (prevents race condition)
       setTimeout(() => {
         this.preloadEssentialData().catch(error => {

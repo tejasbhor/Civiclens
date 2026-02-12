@@ -9,7 +9,7 @@ import logging
 import signal
 import sys
 import os
-from datetime import datetime, timedelta
+from datetime import datetime
 from sqlalchemy import select
 from app.core.database import AsyncSessionLocal, get_redis
 
@@ -108,6 +108,7 @@ async def process_ai_queue():
     logger.info("[SYSTEM] Initializing AI Pipeline (loading models)...")
     try:
         pipeline = AIProcessingPipeline()
+        await pipeline._warmup_models()
         logger.info("[SYSTEM] AI Pipeline initialized successfully")
     except Exception as e:
         logger.critical(f"[SYSTEM] Failed to initialize AI Pipeline: {e}")
@@ -215,7 +216,7 @@ async def process_ai_queue():
                             logger.error("")
                             logger.error(f"[ERROR] Report: {report_number} (ID: {report_id})")
                             logger.error(f"[ERROR] Failed to process: {str(e)}")
-                            logger.error(f"[ERROR] Moving to failed queue for manual review")
+                            logger.error("[ERROR] Moving to failed queue for manual review")
                             logger.error("-" * 80)
                             
                             # Update failure metrics
@@ -236,7 +237,7 @@ async def process_ai_queue():
                 
             except Exception as e:
                 logger.error(f"[SYSTEM] Worker error: {str(e)}")
-                logger.error(f"[SYSTEM] Retrying in 1 second...")
+                logger.error("[SYSTEM] Retrying in 1 second...")
                 await asyncio.sleep(1)  # Back off on error
     
     finally:
