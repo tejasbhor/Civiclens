@@ -133,8 +133,6 @@ export function AddOfficerModal({ onClose, onSuccess }: AddOfficerModalProps) {
         department_id: formData.department_id || undefined,
       };
 
-      console.log('Creating officer with payload:', payload);
-
       await apiClient.post('/auth/create-officer', payload);
       
       onSuccess();
