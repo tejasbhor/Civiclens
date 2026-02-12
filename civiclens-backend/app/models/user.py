@@ -1,10 +1,20 @@
-from sqlalchemy import Column, String, Integer, Enum as SQLEnum, Boolean, Float, Text, ForeignKey, JSON, DateTime
+from sqlalchemy import Column, String, Integer, Enum as SQLEnum, Boolean, Float, Text, ForeignKey, JSON, DateTime, Table, func
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import JSONB
 from geoalchemy2 import Geography
 from app.models.base import BaseModel
+from app.core.database import Base
 from datetime import datetime
 import enum
+
+# Association table for bookmarks
+report_bookmarks = Table(
+    'report_bookmarks',
+    Base.metadata,
+    Column('user_id', ForeignKey('users.id', ondelete='CASCADE'), primary_key=True),
+    Column('report_id', ForeignKey('reports.id', ondelete='CASCADE'), primary_key=True),
+    Column('created_at', DateTime(timezone=True), server_default=func.now(), nullable=False)
+)
 
 
 class UserRole(str, enum.Enum):
@@ -125,6 +135,13 @@ class User(BaseModel):
     sessions = relationship("Session", back_populates="user", cascade="all, delete-orphan")
     sync_states = relationship("ClientSyncState", back_populates="user", cascade="all, delete-orphan")
     notifications = relationship("Notification", back_populates="user", cascade="all, delete-orphan")
+
+    bookmarked_reports = relationship(
+        "Report",
+        secondary=report_bookmarks,
+        back_populates="bookmarked_by",
+        lazy="select"
+    )
 
     def __repr__(self):
         return f"<User(id={self.id}, phone={self.phone}, role={self.role})>"

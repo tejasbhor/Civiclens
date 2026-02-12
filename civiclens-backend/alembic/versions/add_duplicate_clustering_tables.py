@@ -12,7 +12,7 @@ from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
 revision = 'add_duplicate_clustering'
-down_revision = None  # Update this to your latest revision
+down_revision = '7a2751c30c52'
 branch_labels = None
 depends_on = None
 

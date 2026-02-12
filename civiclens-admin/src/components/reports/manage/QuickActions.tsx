@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Report } from '@/types';
+import { reportsApi } from '@/lib/api/reports';
 import { 
   Zap, 
   Phone, 
@@ -21,7 +22,8 @@ interface QuickActionsProps {
 }
 
 export function QuickActions({ report, onUpdate }: QuickActionsProps) {
-  const [bookmarked, setBookmarked] = useState(false);
+  const [bookmarked, setBookmarked] = useState(report.is_bookmarked || false);
+  const [loading, setLoading] = useState(false);
 
   const handleContactCitizen = () => {
     if (report.user?.phone) {
@@ -52,9 +54,25 @@ export function QuickActions({ report, onUpdate }: QuickActionsProps) {
     }
   };
 
-  const toggleBookmark = () => {
-    setBookmarked(!bookmarked);
-    // TODO: Implement bookmark API call
+  const toggleBookmark = async () => {
+    if (loading) return;
+
+    // Optimistic update
+    const previousState = bookmarked;
+    setBookmarked(!previousState);
+    setLoading(true);
+
+    try {
+      const response = await reportsApi.toggleBookmark(report.id);
+      setBookmarked(response.is_bookmarked);
+      onUpdate(); // Refresh parent data if needed
+    } catch (error) {
+      console.error('Failed to toggle bookmark:', error);
+      // Revert on error
+      setBookmarked(previousState);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const getStatusColor = (status: string) => {

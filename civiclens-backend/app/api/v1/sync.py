@@ -16,6 +16,8 @@ from app.core.exceptions import ValidationException, NotFoundException
 from app.models.user import User
 from app.models.sync import ClientSyncState, SyncConflict, OfflineAction
 from app.models.report import Report
+from app.models.task import Task
+from app.models.notification import Notification
 from app.crud.report import report_crud
 from app.crud.user import user_crud
 
@@ -193,7 +195,62 @@ async def incremental_download(
             "updated_at": current_user.updated_at.isoformat()
         }]
     
-    # TODO: Add tasks, notifications, etc.
+    # Get updated tasks
+    tasks_query = select(Task).where(
+        and_(
+            Task.assigned_to == current_user.id,
+            or_(
+                Task.created_at > since,
+                Task.updated_at > since
+            )
+        )
+    ).limit(limit)
+
+    tasks_result = await db.execute(tasks_query)
+    tasks = tasks_result.scalars().all()
+
+    data["tasks"] = [
+        {
+            "id": t.id,
+            "report_id": t.report_id,
+            "status": t.status.value if hasattr(t.status, 'value') else str(t.status),
+            "priority": t.priority,
+            "sla_deadline": t.sla_deadline.isoformat() if t.sla_deadline else None,
+            "assigned_at": t.assigned_at.isoformat() if t.assigned_at else None,
+            "updated_at": t.updated_at.isoformat() if t.updated_at else None
+        }
+        for t in tasks
+    ]
+
+    # Get updated notifications
+    notifications_query = select(Notification).where(
+        and_(
+            Notification.user_id == current_user.id,
+            or_(
+                Notification.created_at > since,
+                Notification.read_at > since
+            )
+        )
+    ).limit(limit)
+
+    notifications_result = await db.execute(notifications_query)
+    notifications = notifications_result.scalars().all()
+
+    data["notifications"] = [
+        {
+            "id": n.id,
+            "type": n.type,
+            "priority": n.priority,
+            "title": n.title,
+            "message": n.message,
+            "is_read": n.is_read,
+            "read_at": n.read_at.isoformat() if n.read_at else None,
+            "created_at": n.created_at.isoformat() if n.created_at else None,
+            "related_report_id": n.related_report_id,
+            "related_task_id": n.related_task_id
+        }
+        for n in notifications
+    ]
     
     # Update sync state with timezone-aware timestamps
     now_utc = datetime.now(timezone.utc)

@@ -243,10 +243,6 @@ const CitizenLogin = () => {
         duration: 10000, // Show for 10 seconds
       });
       
-      // Also log to console
-      if ((response as any).otp) {
-        console.log('🔐 SIGNUP OTP:', (response as any).otp);
-      }
       // Move to OTP verification step
       setAuthStep('otp');
       

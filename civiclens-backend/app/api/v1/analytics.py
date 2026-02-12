@@ -175,6 +175,44 @@ async def get_dashboard_stats(
     )
     critical_priority_count = critical_priority_result.scalar() or 0
     
+    # Calculate SLA compliance (percentage of resolved tasks where sla_violated == 0)
+    sla_compliant_count_result = await db.execute(
+        select(func.count(Task.id)).where(
+            Task.status == TaskStatus.RESOLVED,
+            Task.sla_violated == 0
+        )
+    )
+    sla_compliant_count = sla_compliant_count_result.scalar() or 0
+
+    total_resolved_tasks_result = await db.execute(
+        select(func.count(Task.id)).where(
+            Task.status == TaskStatus.RESOLVED
+        )
+    )
+    total_resolved_tasks = total_resolved_tasks_result.scalar() or 0
+
+    sla_compliance = 0.0
+    if total_resolved_tasks > 0:
+        sla_compliance = round((sla_compliant_count / total_resolved_tasks) * 100, 1)
+
+    # Calculate average resolution time (in hours) from resolved tasks
+    avg_resolution_result = await db.execute(
+        select(
+            func.avg(
+                func.extract('epoch', Task.resolved_at - Task.assigned_at) / 3600.0
+            )
+        ).where(
+            Task.status == TaskStatus.RESOLVED,
+            Task.resolved_at.isnot(None),
+            Task.assigned_at.isnot(None)
+        )
+    )
+    avg_resolution_hours = avg_resolution_result.scalar()
+    if avg_resolution_hours is None:
+        avg_resolution_hours = 0.0
+    else:
+        avg_resolution_hours = round(float(avg_resolution_hours), 1)
+
     # Get statistics
     stats = await report_crud.get_statistics(db)
     
@@ -185,7 +223,8 @@ async def get_dashboard_stats(
         "resolved_today": resolved_today,
         "high_priority_count": high_priority_count,
         "critical_priority_count": critical_priority_count,
-        "avg_resolution_time": 2.4,  # TODO: Calculate actual
+        "sla_compliance": sla_compliance,
+        "avg_resolution_time": avg_resolution_hours,
         "reports_by_category": stats['by_category'],
         "reports_by_status": {k.value if hasattr(k, 'value') else str(k): v for k, v in stats['by_status'].items()},
         "reports_by_severity": {k.value if hasattr(k, 'value') else str(k): v for k, v in stats['by_severity'].items()},
