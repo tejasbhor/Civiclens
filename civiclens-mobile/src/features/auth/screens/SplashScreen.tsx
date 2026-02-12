@@ -24,121 +24,29 @@ export const SplashScreen = ({
   footerSubtext = 'v1.0 • Powered by CivicLens',
   isError = false,
 }: SplashScreenProps) => {
-  const progressAnim = useRef(new Animated.Value(0)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
-  const pulseAnim = useRef(new Animated.Value(1)).current;
-  const shimmerAnim = useRef(new Animated.Value(0)).current;
-  const iconFadeAnim = useRef(new Animated.Value(0)).current;
-  const chipStaggerAnim = useRef(highlights.map(() => new Animated.Value(0))).current;
+  const progressAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    // Stagger animation sequence for professional reveal
-    const animations = [];
-
-    // 1. Fade in logo container
-    animations.push(
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 600,
-        useNativeDriver: true,
-      })
-    );
-
-    // 2. Fade in icon with slight delay
-    animations.push(
-      Animated.timing(iconFadeAnim, {
-        toValue: 1,
-        duration: 500,
-        delay: 200,
-        useNativeDriver: true,
-      })
-    );
-
-    // 3. Stagger chip animations
-    const chipAnimations = chipStaggerAnim.map((anim, index) =>
-      Animated.timing(anim, {
-        toValue: 1,
-        duration: 400,
-        delay: 600 + index * 100,
-        useNativeDriver: true,
-      })
-    );
-
-    // 4. Continuous pulse animation for logo
-    const pulseAnimation = Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulseAnim, {
-          toValue: 1.08,
-          duration: 1500,
-          useNativeDriver: true,
-        }),
-        Animated.timing(pulseAnim, {
-          toValue: 1,
-          duration: 1500,
-          useNativeDriver: true,
-        }),
-      ])
-    );
-
-    // 5. Shimmer effect for progress bar
-    const shimmerAnimation = Animated.loop(
-      Animated.sequence([
-        Animated.timing(shimmerAnim, {
-          toValue: 1,
-          duration: 1500,
-          useNativeDriver: true,
-        }),
-        Animated.timing(shimmerAnim, {
-          toValue: 0,
-          duration: 0,
-          useNativeDriver: true,
-        }),
-      ])
-    );
-
-    let progressAnimation: Animated.CompositeAnimation | undefined;
+    // Simple fade in
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 800,
+      useNativeDriver: true,
+    }).start();
 
     if (!isError) {
-      progressAnim.setValue(0);
-      progressAnimation = Animated.timing(progressAnim, {
+       Animated.timing(progressAnim, {
         toValue: 1,
         duration: 2200,
         useNativeDriver: false,
-      });
+      }).start();
     }
-
-    // Start all animations
-    Animated.parallel([
-      Animated.sequence(animations),
-      Animated.parallel(chipAnimations),
-    ]).start();
-
-    if (!isError) {
-      pulseAnimation.start();
-      shimmerAnimation.start();
-      progressAnimation?.start();
-    }
-
-    return () => {
-      fadeAnim.stopAnimation();
-      iconFadeAnim.stopAnimation();
-      pulseAnim.stopAnimation();
-      shimmerAnim.stopAnimation();
-      chipStaggerAnim.forEach(anim => anim.stopAnimation());
-      if (progressAnimation) {
-        progressAnimation.stop();
-      }
-    };
-  }, [fadeAnim, progressAnim, isError, pulseAnim, shimmerAnim, iconFadeAnim, chipStaggerAnim]);
+  }, [fadeAnim, progressAnim, isError]);
 
   const progressWidth = progressAnim.interpolate({
     inputRange: [0, 1],
     outputRange: ['0%', '100%'],
-  });
-
-  const shimmerTranslate = shimmerAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [-200, 200],
   });
 
   return (
@@ -149,57 +57,26 @@ export const SplashScreen = ({
       style={styles.container}
     >
       <Animated.View style={[styles.content, { opacity: fadeAnim }]}>
-        {/* Enhanced Logo */}
+        {/* Logo Container - Simplified */}
         <View style={styles.logoContainer}>
-          <Animated.View 
-            style={[
-              styles.logoCircle,
-              { 
-                transform: [{ scale: pulseAnim }],
-              }
-            ]}
-          >
-            {/* Outer glow ring */}
-            <View style={styles.glowRing} />
-            
-            {/* Inner gradient circle */}
-            <LinearGradient
-              colors={['rgba(255, 255, 255, 0.25)', 'rgba(255, 255, 255, 0.1)']}
-              style={styles.logoGradient}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-            >
-              <Animated.View style={{ opacity: iconFadeAnim }}>
+            {/*
+                TODO: Replace with actual App Logo Image
+                <Image source={require('@assets/logo.png')} style={styles.logoImage} />
+            */}
+            <View style={styles.logoCircle}>
                 <Ionicons name="shield-checkmark" size={64} color="#FFFFFF" />
-              </Animated.View>
-            </LinearGradient>
-          </Animated.View>
+            </View>
           
           <Text style={styles.appName}>CivicLens</Text>
           <Text style={styles.tagline}>Citizen & Officer Collaboration Platform</Text>
         </View>
 
+        {/* Highlights - Simplified (Static) */}
         <View style={styles.chipRow}>
-          {highlights.map((highlight, index) => (
-            <Animated.View 
-              key={highlight} 
-              style={[
-                styles.highlightChip,
-                {
-                  opacity: chipStaggerAnim[index],
-                  transform: [
-                    {
-                      translateY: chipStaggerAnim[index].interpolate({
-                        inputRange: [0, 1],
-                        outputRange: [20, 0],
-                      }),
-                    },
-                  ],
-                },
-              ]}
-            >
+          {highlights.map((highlight) => (
+            <View key={highlight} style={styles.highlightChip}>
               <Text style={styles.highlightText}>✓ {highlight}</Text>
-            </Animated.View>
+            </View>
           ))}
         </View>
 
@@ -218,17 +95,7 @@ export const SplashScreen = ({
                       width: progressWidth,
                     },
                   ]}
-                >
-                  {/* Shimmer effect on progress bar */}
-                  <Animated.View
-                    style={[
-                      styles.shimmer,
-                      {
-                        transform: [{ translateX: shimmerTranslate }],
-                      },
-                    ]}
-                  />
-                </Animated.View>
+                />
               </View>
               <Text style={styles.loadingText}>{statusMessage}</Text>
             </>
@@ -259,39 +126,18 @@ const styles = StyleSheet.create({
   },
   logoContainer: {
     alignItems: 'center',
-    marginBottom: 80,
+    marginBottom: 60,
   },
   logoCircle: {
-    width: 140,
-    height: 140,
-    borderRadius: 70,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 28,
-    position: 'relative',
-  },
-  glowRing: {
-    position: 'absolute',
-    width: '100%',
-    height: '100%',
-    borderRadius: 70,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-    borderWidth: 2,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
-  },
-  logoGradient: {
     width: 120,
     height: 120,
     borderRadius: 60,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.4,
-    shadowRadius: 20,
-    elevation: 12,
+    marginBottom: 20,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
+    borderColor: 'rgba(255, 255, 255, 0.3)',
   },
   appName: {
     fontSize: 40,
@@ -299,9 +145,6 @@ const styles = StyleSheet.create({
     color: colors.white,
     marginBottom: 8,
     letterSpacing: 1.5,
-    textShadowColor: 'rgba(0, 0, 0, 0.3)',
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 8,
   },
   tagline: {
     fontSize: 13,
@@ -309,9 +152,6 @@ const styles = StyleSheet.create({
     color: 'rgba(255, 255, 255, 0.9)',
     letterSpacing: 0.8,
     textAlign: 'center',
-    textShadowColor: 'rgba(0, 0, 0, 0.2)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 4,
   },
   chipRow: {
     flexDirection: 'row',
@@ -326,13 +166,8 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 20,
     backgroundColor: 'rgba(255,255,255,0.15)',
-    borderWidth: 1.5,
-    borderColor: 'rgba(255,255,255,0.3)',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 3,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
   },
   highlightText: {
     fontSize: 11,
@@ -356,38 +191,21 @@ const styles = StyleSheet.create({
   },
   progressBarBackground: {
     width: '100%',
-    height: 5,
-    backgroundColor: 'rgba(255, 255, 255, 0.25)',
-    borderRadius: 10,
+    height: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderRadius: 2,
     overflow: 'hidden',
     marginBottom: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.15)',
   },
   progressBarFill: {
     height: '100%',
     backgroundColor: '#fff',
-    borderRadius: 10,
-    position: 'relative',
-    overflow: 'hidden',
-    shadowColor: '#fff',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.5,
-    shadowRadius: 4,
-  },
-  shimmer: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    width: 100,
-    backgroundColor: 'rgba(255, 255, 255, 0.4)',
+    borderRadius: 2,
   },
   loadingText: {
     marginTop: 4,
     fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.9)',
+    color: 'rgba(255, 255, 255, 0.8)',
     fontWeight: '500',
     textAlign: 'center',
   },

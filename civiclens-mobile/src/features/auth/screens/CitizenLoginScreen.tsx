@@ -9,6 +9,7 @@ import {
   Platform,
   ScrollView,
   ActivityIndicator,
+  BackHandler,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -58,6 +59,28 @@ export const CitizenLoginScreen = ({ onBack }: CitizenLoginScreenProps) => {
 
   const { setTokens } = useAuthStore();
   const { toast, showSuccess, showError } = useToast();
+
+  useEffect(() => {
+    const backAction = () => {
+      if (authStep === 'otp') {
+        setAuthStep(authMode === 'full-register' ? 'register' : 'phone');
+        return true;
+      }
+      if (authMode !== 'select') {
+        setAuthMode('select');
+        setAuthStep('phone');
+        return true;
+      }
+      return false;
+    };
+
+    const backHandler = BackHandler.addEventListener(
+      'hardwareBackPress',
+      backAction
+    );
+
+    return () => backHandler.remove();
+  }, [authStep, authMode]);
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -481,7 +504,7 @@ export const CitizenLoginScreen = ({ onBack }: CitizenLoginScreenProps) => {
 
                 {error && <Text style={styles.errorText}>{error}</Text>}
 
-                {devOtp && (
+                {devOtp && __DEV__ && (
                   <View style={styles.devOtpContainer}>
                     <Text style={styles.devOtpText}>Dev OTP: {devOtp}</Text>
                   </View>
