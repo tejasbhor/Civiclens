@@ -14,6 +14,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
 import { colors } from '@shared/theme/colors';
 import { useToast } from '@shared/hooks';
 import { Toast } from '@shared/components';
@@ -35,11 +36,8 @@ import {
 type AuthMode = 'select' | 'quick-otp' | 'full-register' | 'password-login';
 type AuthStep = 'phone' | 'otp' | 'register' | 'password';
 
-interface CitizenLoginScreenProps {
-  onBack?: () => void;
-}
-
-export const CitizenLoginScreen = ({ onBack }: CitizenLoginScreenProps) => {
+export const CitizenLoginScreen = () => {
+  const navigation = useNavigation();
   const [authMode, setAuthMode] = useState<AuthMode>('select');
   const [authStep, setAuthStep] = useState<AuthStep>('phone');
   
@@ -60,27 +58,31 @@ export const CitizenLoginScreen = ({ onBack }: CitizenLoginScreenProps) => {
   const { setTokens } = useAuthStore();
   const { toast, showSuccess, showError } = useToast();
 
-  useEffect(() => {
-    const backAction = () => {
-      if (authStep === 'otp') {
-        setAuthStep(authMode === 'full-register' ? 'register' : 'phone');
-        return true;
-      }
-      if (authMode !== 'select') {
-        setAuthMode('select');
-        setAuthStep('phone');
-        return true;
-      }
-      return false;
-    };
+  const handleBack = () => {
+    if (authStep === 'otp') {
+      setAuthStep(authMode === 'full-register' ? 'register' : 'phone');
+      return true;
+    }
+    if (authMode !== 'select') {
+      setAuthMode('select');
+      setAuthStep('phone');
+      return true;
+    }
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+      return true;
+    }
+    return false;
+  };
 
+  useEffect(() => {
     const backHandler = BackHandler.addEventListener(
       'hardwareBackPress',
-      backAction
+      handleBack
     );
 
     return () => backHandler.remove();
-  }, [authStep, authMode]);
+  }, [authStep, authMode, navigation]);
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -274,21 +276,13 @@ export const CitizenLoginScreen = ({ onBack }: CitizenLoginScreenProps) => {
     }
   };
 
-  const formatTime = (seconds: number): string => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
-
   if (authMode === 'select') {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.selectWrapper}>
-          {onBack && (
-            <TouchableOpacity onPress={onBack} style={styles.heroBackButton}>
-              <Ionicons name="arrow-back" size={22} color={colors.white} />
-            </TouchableOpacity>
-          )}
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.heroBackButton}>
+            <Ionicons name="arrow-back" size={22} color={colors.white} />
+          </TouchableOpacity>
 
           <LinearGradient
             colors={[colors.primary, colors.primaryDark]}
@@ -385,14 +379,7 @@ export const CitizenLoginScreen = ({ onBack }: CitizenLoginScreenProps) => {
       <View style={styles.wrapper}>
         {/* Back Button */}
         <TouchableOpacity
-          onPress={() => {
-            if (authStep === 'otp') {
-              setAuthStep(authMode === 'full-register' ? 'register' : 'phone');
-            } else {
-              setAuthMode('select');
-              setAuthStep('phone');
-            }
-          }}
+          onPress={handleBack}
           style={styles.backButton}
         >
           <Ionicons name="arrow-back" size={22} color={colors.text} />
@@ -744,6 +731,7 @@ export const CitizenLoginScreen = ({ onBack }: CitizenLoginScreenProps) => {
           </ScrollView>
         </KeyboardAvoidingView>
       </View>
+      <Toast {...toast} onHide={() => {}} />
     </SafeAreaView>
   );
 };
