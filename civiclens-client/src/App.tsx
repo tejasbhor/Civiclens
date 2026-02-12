@@ -14,6 +14,7 @@ import { PageLoader } from "@/components/PageLoader";
 // Lazy load pages for code splitting and better performance
 const Landing = lazy(() => import("./pages/Landing"));
 const CitizenLogin = lazy(() => import("./pages/citizen/Login"));
+const CitizenLoginNew = lazy(() => import("./pages/citizen/LoginNew"));
 const CitizenDashboard = lazy(() => import("./pages/citizen/Dashboard"));
 const CitizenProfile = lazy(() => import("./pages/citizen/Profile"));
 const CitizenNotifications = lazy(() => import("./pages/citizen/Notifications"));
@@ -64,6 +65,7 @@ const App = () => (
 
                   {/* Citizen Routes */}
                   <Route path="/citizen/login" element={<CitizenLogin />} />
+                  <Route path="/citizen/login-new" element={<CitizenLoginNew />} />
                   <Route
                     path="/citizen/dashboard"
                     element={
