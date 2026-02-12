@@ -40,7 +40,7 @@ export default function DashboardPage() {
     const resolutionRate = (resolvedCount / (stats.total_reports || 1)) * 100;
     const responseTimeScore = stats.avg_resolution_time <= TARGET_RESOLUTION_TIME ? 100 : 70;
     return Math.round(
-      (SLA_COMPLIANCE_TARGET * 0.4) +
+      ((stats.sla_compliance || 0) * 0.4) +
       (resolutionRate * 0.3) +
       (responseTimeScore * 0.3)
     );
@@ -126,7 +126,7 @@ export default function DashboardPage() {
         healthScore={healthScore}
         criticalIssues={stats?.critical_priority_count || 0}
         pendingTasks={stats?.pending_tasks || 0}
-        slaCompliance={SLA_COMPLIANCE_TARGET}
+        slaCompliance={stats?.sla_compliance || 0}
         loading={loading}
       />
 
@@ -247,7 +247,7 @@ export default function DashboardPage() {
         <PerformanceCard
           avgResolutionTime={stats?.avg_resolution_time || 0}
           targetTime={TARGET_RESOLUTION_TIME}
-          slaCompliance={SLA_COMPLIANCE_TARGET}
+          slaCompliance={stats?.sla_compliance || 0}
           loading={loading}
         />
         <WorkloadCard
