@@ -189,9 +189,11 @@ cleanup_for_github.bat
 # Internal Tools and Agent Files
 .agent/
 .gemini/
+docs/internal/
 *.md
 !README.md
 !LICENSE
+!QUICK-START.md
 !docs/**/*.md
 
 # Production logs
