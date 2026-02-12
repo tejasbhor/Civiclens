@@ -239,7 +239,7 @@ class AIProcessingPipeline:
             # ========== STAGE 3: SEVERITY SCORING ==========
             logger.info("Stage 3: Severity scoring...")
             try:
-                severity_result = self.urgency_scorer.score_urgency(
+                severity_result = await self.urgency_scorer.score_urgency(
                     report.title,
                     report.description,
                     category_result["category"]
