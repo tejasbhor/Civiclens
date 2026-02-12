@@ -59,7 +59,9 @@ const ChartContainer = React.forwardRef<
 ChartContainer.displayName = "Chart";
 
 const ChartStyle = ({ id, config }: { id: string; config: ChartConfig }) => {
-  const colorConfig = Object.entries(config).filter(([_, config]) => config.theme || config.color);
+  const colorConfig = Object.entries(config).filter(
+    ([key, config]) => (config.theme || config.color) && isSafeKey(key)
+  );
 
   if (!colorConfig.length) {
     return null;
@@ -75,7 +77,7 @@ ${prefix} [data-chart=${id}] {
 ${colorConfig
   .map(([key, itemConfig]) => {
     const color = itemConfig.theme?.[theme as keyof typeof itemConfig.theme] || itemConfig.color;
-    return color ? `  --color-${key}: ${color};` : null;
+    return color && isSafeCSSValue(color) ? `  --color-${key}: ${color};` : null;
   })
   .join("\n")}
 }
@@ -298,6 +300,17 @@ function getPayloadConfigFromPayload(config: ChartConfig, payload: unknown, key:
   }
 
   return configLabelKey in config ? config[configLabelKey] : config[key as keyof typeof config];
+}
+
+function isSafeKey(key: string) {
+  // Only allow alphanumeric characters, underscores, and hyphens to prevent injection into variable names
+  return /^[\w-]+$/.test(key);
+}
+
+function isSafeCSSValue(value: string) {
+  // Reject values that contain characters that could break out of CSS context or start an HTML tag
+  // This prevents CSS injection (via ; or }) and HTML injection (via <)
+  return !/[{};<>]/.test(value);
 }
 
 export { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent, ChartStyle };
