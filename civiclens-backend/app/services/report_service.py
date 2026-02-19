@@ -105,14 +105,39 @@ class WorkloadBalancer:
         Calculate comprehensive officer workload metrics
         Returns active reports, resolution time, and workload score
         """
-        # Count active reports (assigned but not resolved)
-        active_reports_result = await self.db.execute(
-            select(func.count(Report.id))
+        # Delegate to batch method for consistency
+        batch_result = await self.get_officers_workload_batch([officer_id])
+        return batch_result[officer_id]
+
+    async def get_officers_workload_batch(self, officer_ids: List[int]) -> Dict[int, Dict[str, Any]]:
+        """
+        Calculate workload metrics for multiple officers efficiently
+        Execute grouped queries to avoid N+1 problem
+        """
+        if not officer_ids:
+            return {}
+
+        # Initialize result with defaults
+        results = {
+            oid: {
+                "officer_id": oid,
+                "active_reports": 0,
+                "resolved_reports": 0,
+                "avg_resolution_time_days": 7.0,
+                "workload_score": 0.0,
+                "capacity_level": "low"
+            }
+            for oid in officer_ids
+        }
+
+        # 1. Count Active Reports (Grouped by officer)
+        active_stmt = (
+            select(Task.assigned_to, func.count(Report.id))
             .select_from(Report)
             .join(Task, Report.id == Task.report_id)
             .where(
                 and_(
-                    Task.assigned_to == officer_id,
+                    Task.assigned_to.in_(officer_ids),
                     Report.status.in_([
                         ReportStatus.ASSIGNED_TO_OFFICER,
                         ReportStatus.ACKNOWLEDGED,
@@ -121,53 +146,67 @@ class WorkloadBalancer:
                     ])
                 )
             )
+            .group_by(Task.assigned_to)
         )
-        active_reports = active_reports_result.scalar() or 0
-        
-        # Count total resolved reports for experience metric
-        resolved_reports_result = await self.db.execute(
-            select(func.count(Report.id))
+        active_result = await self.db.execute(active_stmt)
+        for oid, count in active_result:
+            if oid in results:
+                results[oid]["active_reports"] = count
+
+        # 2. Count Resolved Reports (Grouped by officer)
+        resolved_stmt = (
+            select(Task.assigned_to, func.count(Report.id))
             .select_from(Report)
             .join(Task, Report.id == Task.report_id)
             .where(
                 and_(
-                    Task.assigned_to == officer_id,
+                    Task.assigned_to.in_(officer_ids),
                     Report.status.in_([ReportStatus.RESOLVED, ReportStatus.CLOSED])
                 )
             )
+            .group_by(Task.assigned_to)
         )
-        resolved_reports = resolved_reports_result.scalar() or 0
-        
-        # Calculate average resolution time (last 30 days)
+        resolved_result = await self.db.execute(resolved_stmt)
+        for oid, count in resolved_result:
+            if oid in results:
+                results[oid]["resolved_reports"] = count
+
+        # 3. Calculate Avg Resolution Time (Grouped by officer)
         thirty_days_ago = datetime.utcnow() - timedelta(days=30)
-        avg_resolution_result = await self.db.execute(
-            select(func.avg(func.extract('epoch', Report.updated_at - Report.created_at) / 86400))
+        avg_stmt = (
+            select(
+                Task.assigned_to,
+                func.avg(func.extract('epoch', Report.updated_at - Report.created_at) / 86400)
+            )
             .select_from(Report)
             .join(Task, Report.id == Task.report_id)
             .where(
                 and_(
-                    Task.assigned_to == officer_id,
+                    Task.assigned_to.in_(officer_ids),
                     Report.status.in_([ReportStatus.RESOLVED, ReportStatus.CLOSED]),
                     Report.updated_at >= thirty_days_ago,
                     Report.updated_at.isnot(None)
                 )
             )
+            .group_by(Task.assigned_to)
         )
-        avg_resolution_time = avg_resolution_result.scalar() or 7.0  # Default 7 days
-        
-        # Calculate workload score (lower is better)
-        # Formula: active_reports + (avg_resolution_time / 7) * 2
-        # This balances quantity with efficiency
-        workload_score = active_reports + (float(avg_resolution_time) / 7.0) * 2
-        
-        return {
-            "officer_id": officer_id,
-            "active_reports": active_reports,
-            "resolved_reports": resolved_reports,
-            "avg_resolution_time_days": round(avg_resolution_time, 2),
-            "workload_score": round(workload_score, 2),
-            "capacity_level": self._get_capacity_level(active_reports, avg_resolution_time)
-        }
+        avg_result = await self.db.execute(avg_stmt)
+        for oid, avg_time in avg_result:
+            if oid in results and avg_time is not None:
+                results[oid]["avg_resolution_time_days"] = float(avg_time)
+
+        # 4. Finalize calculations
+        for oid, data in results.items():
+            active_reports = data["active_reports"]
+            avg_resolution_time = data["avg_resolution_time_days"]
+
+            workload_score = active_reports + (float(avg_resolution_time) / 7.0) * 2
+
+            data["workload_score"] = round(workload_score, 2)
+            data["avg_resolution_time_days"] = round(avg_resolution_time, 2)
+            data["capacity_level"] = self._get_capacity_level(active_reports, avg_resolution_time)
+
+        return results
     
     def _get_capacity_level(self, active_reports: int, avg_resolution_time: float) -> str:
         """Determine officer capacity level"""
@@ -199,10 +238,22 @@ class WorkloadBalancer:
         )
         officers = officers_result.scalars().all()
         
+        if not officers:
+            return []
+
+        # Optimization: Fetch workload for all officers in batch to avoid N+1 queries
+        officer_ids = [o.id for o in officers]
+        workloads_map = await self.get_officers_workload_batch(officer_ids)
+
         # Calculate workload for each officer
         officer_workloads = []
         for officer in officers:
-            workload = await self.get_officer_workload(officer.id)
+            workload = workloads_map.get(officer.id)
+
+            # This should always be true given the map initialization, but safety first
+            if not workload:
+                workload = await self.get_officer_workload(officer.id)
+
             workload.update({
                 "user_id": officer.id,
                 "full_name": officer.full_name,
