@@ -119,8 +119,19 @@ class FileUploadService:
         # Reset file pointer
         await file.seek(0)
         
-        # Read file content for validation
-        content = await file.read()
+        # Determine max size based on expected type
+        if expected_type == 'image':
+            max_size = self.MAX_IMAGE_SIZE
+            allowed_types = self.ALLOWED_IMAGE_TYPES
+        elif expected_type == 'audio':
+            max_size = self.MAX_AUDIO_SIZE
+            allowed_types = self.ALLOWED_AUDIO_TYPES
+        else:
+            raise ValidationException(f"Unsupported file type: {expected_type}")
+
+        # Read file content with size limit + 1 byte to check for overflow
+        # This prevents loading huge files into memory (DoS protection)
+        content = await file.read(max_size + 1)
         await file.seek(0)  # Reset for later use
         
         if not content:
@@ -128,16 +139,12 @@ class FileUploadService:
         
         # File size validation
         file_size = len(content)
-        if expected_type == 'image':
-            if file_size > self.MAX_IMAGE_SIZE:
+
+        if file_size > max_size:
+            if expected_type == 'image':
                 raise ValidationException(f"Image file too large. Maximum size: {self.MAX_IMAGE_SIZE // (1024*1024)}MB")
-            allowed_types = self.ALLOWED_IMAGE_TYPES
-        elif expected_type == 'audio':
-            if file_size > self.MAX_AUDIO_SIZE:
+            elif expected_type == 'audio':
                 raise ValidationException(f"Audio file too large. Maximum size: {self.MAX_AUDIO_SIZE // (1024*1024)}MB")
-            allowed_types = self.ALLOWED_AUDIO_TYPES
-        else:
-            raise ValidationException(f"Unsupported file type: {expected_type}")
         
         # MIME type validation using python-magic
         if HAS_MAGIC and magic is not None:
