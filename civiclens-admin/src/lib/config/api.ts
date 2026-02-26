@@ -2,7 +2,12 @@
  * API Configuration and URL Building Utilities
  */
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
+const IS_PROD = process.env.NODE_ENV === 'production';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || (IS_PROD ? 'https://api.civiclens.com/api/v1' : 'http://localhost:8000/api/v1');
+
+if (IS_PROD && !process.env.NEXT_PUBLIC_API_URL) {
+  console.warn('⚠️ No NEXT_PUBLIC_API_URL provided for production, using default: https://api.civiclens.com/api/v1');
+}
 
 /**
  * Build a complete API URL from a path
@@ -12,10 +17,10 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/a
 export function buildApiUrl(path: string): string {
   // Remove leading slash if present
   const cleanPath = path.startsWith('/') ? path.slice(1) : path;
-  
+
   // Remove trailing slash from base URL if present
   const cleanBase = API_BASE_URL.endsWith('/') ? API_BASE_URL.slice(0, -1) : API_BASE_URL;
-  
+
   return `${cleanBase}/${cleanPath}`;
 }
 

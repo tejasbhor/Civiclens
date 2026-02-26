@@ -29,6 +29,7 @@ import { useCompleteReportSubmission } from '@shared/hooks/useCompleteReportSubm
 import { ReportCategory, ReportSeverity } from '@shared/types/report';
 import { TopNavbar } from '@shared/components';
 import { getContentContainerStyle } from '@shared/utils/screenPadding';
+import { networkService } from '@shared/services/network/networkService';
 
 // Backend-consistent category options
 const CATEGORY_OPTIONS = [
@@ -65,7 +66,7 @@ export const SubmitReportScreen: React.FC = () => {
     address: string;
   } | null>(null);
   const [locationLoading, setLocationLoading] = useState(false);
-  
+
   // Modal states
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [showSeverityModal, setShowSeverityModal] = useState(false);
@@ -84,23 +85,86 @@ export const SubmitReportScreen: React.FC = () => {
         accuracy: Location.Accuracy.High,
       });
 
-      const addresses = await Location.reverseGeocodeAsync({
-        latitude: loc.coords.latitude,
-        longitude: loc.coords.longitude,
-      });
+      let formattedAddress = '';
 
-      const addr = addresses[0];
-      const formattedAddress = [addr.street, addr.city, addr.region, addr.postalCode]
-        .filter(Boolean)
-        .join(', ');
+      // Try OSM Nominatim if online (matches web client quality)
+      if (networkService.isOnline()) {
+        try {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+
+          const response = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${loc.coords.latitude}&lon=${loc.coords.longitude}&zoom=19&addressdetails=1&extratags=1&namedetails=1`,
+            {
+              headers: {
+                'User-Agent': 'CivicLensMobile/1.0',
+                'Accept-Language': 'en' // Get results in English
+              },
+              signal: controller.signal
+            }
+          );
+
+          clearTimeout(timeoutId);
+
+          if (response.ok) {
+            const data = await response.json();
+            const addr = data.address || {};
+
+            // Web-aligned formatting logic
+            const addressComponents = [
+              addr.house_number,
+              addr.house_name,
+              addr.road || addr.street || addr.pedestrian,
+              addr.neighbourhood || addr.suburb || addr.village,
+              addr.city || addr.town || addr.municipality,
+              addr.state || addr.region,
+              addr.postcode,
+              addr.country
+            ].filter(Boolean);
+
+            formattedAddress = data.display_name || addressComponents.join(', ');
+          }
+        } catch (apiError) {
+          console.warn('OSM Geocoding failed, falling back to native:', apiError);
+        }
+      }
+
+      // Fallback to native geocoder if offline or API failed
+      if (!formattedAddress) {
+        try {
+          const addresses = await Location.reverseGeocodeAsync({
+            latitude: loc.coords.latitude,
+            longitude: loc.coords.longitude,
+          });
+
+          if (addresses && addresses.length > 0) {
+            const addr = addresses[0];
+            formattedAddress = [
+              addr.street,
+              addr.subregion, // Often contains neighborhood info in Expo
+              addr.city,
+              addr.region,
+              addr.postalCode
+            ]
+              .filter(Boolean)
+              .join(', ');
+          }
+        } catch (nativeError) {
+          console.warn('Native reverse geocoding failed:', nativeError);
+        }
+      }
+
+      // Final fallback to coordinates
+      if (!formattedAddress) {
+        formattedAddress = `${loc.coords.latitude.toFixed(6)}, ${loc.coords.longitude.toFixed(6)}`;
+      }
 
       setLocation({
         latitude: loc.coords.latitude,
         longitude: loc.coords.longitude,
-        address: formattedAddress || `${loc.coords.latitude.toFixed(6)}, ${loc.coords.longitude.toFixed(6)}`,
+        address: formattedAddress,
       });
 
-      Alert.alert('Success', 'Location captured successfully');
     } catch (error) {
       console.error('Location error:', error);
       Alert.alert('Error', 'Failed to capture location. Please try again.');
@@ -158,36 +222,36 @@ export const SubmitReportScreen: React.FC = () => {
 
   const validateForm = (): { isValid: boolean; message?: string; field?: string } => {
     if (!title.trim() || title.trim().length < 5) {
-      return { 
-        isValid: false, 
+      return {
+        isValid: false,
         message: 'Please enter a title (minimum 5 characters)',
         field: 'Title'
       };
     }
     if (!description.trim() || description.trim().length < 10) {
-      return { 
-        isValid: false, 
+      return {
+        isValid: false,
         message: 'Please provide a detailed description (minimum 10 characters)',
         field: 'Description'
       };
     }
     if (!category) {
-      return { 
-        isValid: false, 
+      return {
+        isValid: false,
         message: 'Please select a category for your report',
         field: 'Category'
       };
     }
     if (photos.length === 0) {
-      return { 
-        isValid: false, 
+      return {
+        isValid: false,
         message: 'Please add at least one photo to help us understand the issue',
         field: 'Photos'
       };
     }
     if (!location) {
-      return { 
-        isValid: false, 
+      return {
+        isValid: false,
         message: 'Please capture your current location',
         field: 'Location'
       };
@@ -298,7 +362,7 @@ export const SubmitReportScreen: React.FC = () => {
         title="Report Issue"
         showBack={true}
       />
-      
+
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -671,91 +735,91 @@ export const SubmitReportScreen: React.FC = () => {
               </View>
 
               {/* Scrollable Report Summary */}
-              <ScrollView 
+              <ScrollView
                 style={styles.confirmModalScroll}
                 contentContainerStyle={styles.confirmSummaryContainer}
                 showsVerticalScrollIndicator={true}
                 bounces={false}
               >
-              <View style={styles.summaryItem}>
-                <View style={styles.summaryIcon}>
-                  <Ionicons name="text" size={20} color="#1976D2" />
+                <View style={styles.summaryItem}>
+                  <View style={styles.summaryIcon}>
+                    <Ionicons name="text" size={20} color="#1976D2" />
+                  </View>
+                  <View style={styles.summaryContent}>
+                    <Text style={styles.summaryLabel}>Title</Text>
+                    <Text style={styles.summaryValue} numberOfLines={2}>
+                      {title.trim()}
+                    </Text>
+                  </View>
                 </View>
-                <View style={styles.summaryContent}>
-                  <Text style={styles.summaryLabel}>Title</Text>
-                  <Text style={styles.summaryValue} numberOfLines={2}>
-                    {title.trim()}
-                  </Text>
-                </View>
-              </View>
 
-              <View style={styles.summaryItem}>
-                <View style={styles.summaryIcon}>
-                  <Ionicons 
-                    name={CATEGORY_OPTIONS.find(c => c.value === category)?.icon as any} 
-                    size={20} 
-                    color="#1976D2" 
-                  />
+                <View style={styles.summaryItem}>
+                  <View style={styles.summaryIcon}>
+                    <Ionicons
+                      name={CATEGORY_OPTIONS.find(c => c.value === category)?.icon as any}
+                      size={20}
+                      color="#1976D2"
+                    />
+                  </View>
+                  <View style={styles.summaryContent}>
+                    <Text style={styles.summaryLabel}>Category</Text>
+                    <Text style={styles.summaryValue}>{getCategoryLabel()}</Text>
+                  </View>
                 </View>
-                <View style={styles.summaryContent}>
-                  <Text style={styles.summaryLabel}>Category</Text>
-                  <Text style={styles.summaryValue}>{getCategoryLabel()}</Text>
-                </View>
-              </View>
 
-              <View style={styles.summaryItem}>
-                <View style={styles.summaryIcon}>
-                  <View
-                    style={[
-                      styles.severityIndicator,
-                      { backgroundColor: getSeverityColor(severity) },
-                    ]}
-                  />
+                <View style={styles.summaryItem}>
+                  <View style={styles.summaryIcon}>
+                    <View
+                      style={[
+                        styles.severityIndicator,
+                        { backgroundColor: getSeverityColor(severity) },
+                      ]}
+                    />
+                  </View>
+                  <View style={styles.summaryContent}>
+                    <Text style={styles.summaryLabel}>Severity</Text>
+                    <Text style={styles.summaryValue}>{getSeverityLabel()}</Text>
+                  </View>
                 </View>
-                <View style={styles.summaryContent}>
-                  <Text style={styles.summaryLabel}>Severity</Text>
-                  <Text style={styles.summaryValue}>{getSeverityLabel()}</Text>
-                </View>
-              </View>
 
-              <View style={styles.summaryItem}>
-                <View style={styles.summaryIcon}>
-                  <Ionicons name="images" size={20} color="#1976D2" />
+                <View style={styles.summaryItem}>
+                  <View style={styles.summaryIcon}>
+                    <Ionicons name="images" size={20} color="#1976D2" />
+                  </View>
+                  <View style={styles.summaryContent}>
+                    <Text style={styles.summaryLabel}>Photos</Text>
+                    <Text style={styles.summaryValue}>{photos.length} attached</Text>
+                  </View>
                 </View>
-                <View style={styles.summaryContent}>
-                  <Text style={styles.summaryLabel}>Photos</Text>
-                  <Text style={styles.summaryValue}>{photos.length} attached</Text>
-                </View>
-              </View>
 
-              <View style={styles.summaryItem}>
-                <View style={styles.summaryIcon}>
-                  <Ionicons name="location" size={20} color="#1976D2" />
+                <View style={styles.summaryItem}>
+                  <View style={styles.summaryIcon}>
+                    <Ionicons name="location" size={20} color="#1976D2" />
+                  </View>
+                  <View style={styles.summaryContent}>
+                    <Text style={styles.summaryLabel}>Location</Text>
+                    <Text style={styles.summaryValue} numberOfLines={2}>
+                      {location?.address}
+                    </Text>
+                  </View>
                 </View>
-                <View style={styles.summaryContent}>
-                  <Text style={styles.summaryLabel}>Location</Text>
-                  <Text style={styles.summaryValue} numberOfLines={2}>
-                    {location?.address}
-                  </Text>
-                </View>
-              </View>
 
                 {/* Status Badge */}
                 <View style={[
                   styles.statusBadge,
                   { backgroundColor: isOnline ? '#E8F5E9' : '#FFF3E0' }
                 ]}>
-                  <Ionicons 
-                    name={isOnline ? "cloud-done" : "cloud-offline"} 
-                    size={18} 
-                    color={isOnline ? "#4CAF50" : "#FF9800"} 
+                  <Ionicons
+                    name={isOnline ? "cloud-done" : "cloud-offline"}
+                    size={18}
+                    color={isOnline ? "#4CAF50" : "#FF9800"}
                   />
                   <Text style={[
                     styles.statusBadgeText,
                     { color: isOnline ? "#2E7D32" : "#E65100" }
                   ]}>
-                    {isOnline 
-                      ? 'Will be submitted immediately' 
+                    {isOnline
+                      ? 'Will be submitted immediately'
                       : 'Will be saved offline and synced later'}
                   </Text>
                 </View>
@@ -766,32 +830,32 @@ export const SubmitReportScreen: React.FC = () => {
                 styles.confirmModalActions,
                 { paddingBottom: Math.max(insets.bottom + 8, 20) }
               ]}>
-              <TouchableOpacity
-                style={styles.confirmCancelButton}
-                activeOpacity={0.7}
-                onPress={() => setShowConfirmModal(false)}
-              >
-                <Text style={styles.confirmCancelButtonText}>Review Again</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.confirmSubmitButton}
-                activeOpacity={0.7}
-                onPress={() => {
-                  setShowConfirmModal(false);
-                  handleSubmit();
-                }}
-              >
-                <LinearGradient
-                  colors={['#4CAF50', '#388E3C']}
-                  style={styles.confirmSubmitButtonGradient}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
+                <TouchableOpacity
+                  style={styles.confirmCancelButton}
+                  activeOpacity={0.7}
+                  onPress={() => setShowConfirmModal(false)}
                 >
-                  <Ionicons name="checkmark-circle" size={22} color="#FFF" />
-                  <Text style={styles.confirmSubmitButtonText}>Submit Now</Text>
-                </LinearGradient>
-              </TouchableOpacity>
+                  <Text style={styles.confirmCancelButtonText}>Review Again</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.confirmSubmitButton}
+                  activeOpacity={0.7}
+                  onPress={() => {
+                    setShowConfirmModal(false);
+                    handleSubmit();
+                  }}
+                >
+                  <LinearGradient
+                    colors={['#4CAF50', '#388E3C']}
+                    style={styles.confirmSubmitButtonGradient}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                  >
+                    <Ionicons name="checkmark-circle" size={22} color="#FFF" />
+                    <Text style={styles.confirmSubmitButtonText}>Submit Now</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
               </View>
             </View>
           </KeyboardAvoidingView>
@@ -1125,7 +1189,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#1976D2',
   },
-  
+
   // Confirmation Modal Styles - Production Ready
   modalKeyboardAvoid: {
     flex: 1,

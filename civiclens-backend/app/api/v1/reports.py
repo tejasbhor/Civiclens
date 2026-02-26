@@ -678,7 +678,7 @@ async def get_map_data(
     return response
 
 
-@router.get("/my-reports", response_model=list[ReportResponse])
+@router.get("/my-reports", response_model=list[ReportWithDetails])
 async def get_my_reports(
     request: Request,
     skip: int = Query(0, ge=0),
@@ -686,7 +686,7 @@ async def get_my_reports(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Get all reports by current user with rate limiting"""
+    """Get all reports by current user with rate limiting and media details"""
     # Rate limit: 30 requests per minute per user
     await rate_limiter.check_rate_limit(
         key=f"my_reports:{current_user.id}",
@@ -695,7 +695,9 @@ async def get_my_reports(
     )
     
     reports = await report_crud.get_by_user(db, current_user.id, skip=skip, limit=limit)
-    return reports
+    
+    # Serialize with details (includes media)
+    return [serialize_report_with_details(report, current_user) for report in reports]
 
 
 @router.get("/bookmarks", response_model=PaginatedResponse[ReportWithDetails])
@@ -795,6 +797,14 @@ class ClassifyReportRequest(BaseModel):
 class AssignDepartmentRequest(BaseModel):
     department_id: int = Field(..., gt=0)
     notes: str | None = None
+
+
+class ApproveResolutionRequest(BaseModel):
+    approval_notes: str | None = None
+
+
+class RejectResolutionRequest(BaseModel):
+    rejection_reason: str = Field(..., description="Mandatory reason for rejection")
 
 
 def is_admin_user(user: User) -> bool:
@@ -1445,7 +1455,7 @@ async def resume_work_from_hold(
 @router.post("/{report_id}/approve-resolution", response_model=ReportResponse)
 async def approve_resolution(
     report_id: int,
-    approval_notes: str = Form(None),
+    req: ApproveResolutionRequest,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
     report_service: ReportService = Depends(get_report_service)
@@ -1470,8 +1480,8 @@ async def approve_resolution(
     
     # Update report status
     notes = f"Work approved by admin"
-    if approval_notes:
-        notes += f": {approval_notes}"
+    if req.approval_notes:
+        notes += f": {req.approval_notes}"
     
     updated = await report_service.update_status(
         report_id=report_id,
@@ -1496,7 +1506,7 @@ async def approve_resolution(
 @router.post("/{report_id}/reject-resolution", response_model=ReportResponse)
 async def reject_resolution(
     report_id: int,
-    rejection_reason: str = Form(..., description="Mandatory reason for rejection"),
+    req: RejectResolutionRequest,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
     report_service: ReportService = Depends(get_report_service)
@@ -1524,7 +1534,7 @@ async def reject_resolution(
         report_id=report_id,
         new_status=ReportStatus.IN_PROGRESS,
         user_id=current_user.id,
-        notes=f"Work rejected by admin. Reason: {rejection_reason}",
+        notes=f"Work rejected by admin. Reason: {req.rejection_reason}",
         skip_validation=False
     )
     
@@ -1533,7 +1543,8 @@ async def reject_resolution(
     task = await task_crud.get_by_report(db, report_id)
     if task:
         task.status = TaskStatus.IN_PROGRESS
-        task.notes = f"{task.notes}\n[REJECTED] {rejection_reason}" if task.notes else f"[REJECTED] {rejection_reason}"
+        # Use req.rejection_reason
+        task.notes = f"{task.notes}\n[REJECTED] {req.rejection_reason}" if task.notes else f"[REJECTED] {req.rejection_reason}"
     
     await db.commit()
     await db.refresh(updated)

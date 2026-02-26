@@ -242,18 +242,14 @@ export const reportsApi = {
 
   // Admin Verification
   approveResolution: async (id: number, approvalNotes?: string): Promise<Report> => {
-    const formData = new FormData();
-    if (approvalNotes) {
-      formData.append('approval_notes', approvalNotes);
-    }
-    const response = await apiClient.post(`/reports/${id}/approve-resolution`, formData);
+    const payload = { approval_notes: approvalNotes };
+    const response = await apiClient.post(`/reports/${id}/approve-resolution`, payload);
     return response.data;
   },
 
   rejectResolution: async (id: number, rejectionReason: string): Promise<Report> => {
-    const formData = new FormData();
-    formData.append('rejection_reason', rejectionReason);
-    const response = await apiClient.post(`/reports/${id}/reject-resolution`, formData);
+    const payload = { rejection_reason: rejectionReason };
+    const response = await apiClient.post(`/reports/${id}/reject-resolution`, payload);
     return response.data;
   },
 

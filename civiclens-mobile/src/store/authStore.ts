@@ -21,7 +21,7 @@ interface AuthState {
   logout: () => Promise<void>;
   initialize: () => Promise<void>;
   refreshUser: () => Promise<void>;
-  
+
   // Biometric actions
   checkBiometricCapabilities: () => Promise<BiometricCapabilities>;
   enableBiometric: (phone: string) => Promise<void>;
@@ -45,33 +45,33 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   setTokens: async (tokens: AuthTokens) => {
     // Set loading state first
     set({ isLoading: true });
-    
+
     try {
       // Store tokens securely first
       await SecureStorage.setAuthToken(tokens.access_token);
       await SecureStorage.setRefreshToken(tokens.refresh_token);
-      
+
       // Fetch user data BEFORE setting isAuthenticated to prevent navigation glitch
       const { authApi } = await import('@shared/services/api/authApi');
       const userData = await authApi.getCurrentUser();
-      
+
       // Now set everything in ONE state update - prevents re-render glitch
-      set({ 
-        tokens, 
-        user: userData, 
+      set({
+        tokens,
+        user: userData,
         isAuthenticated: true,
         isLoading: false,
-        error: null 
+        error: null
       });
     } catch (error) {
       console.error('Failed to complete authentication:', error);
       // Clear auth state on error
-      set({ 
-        tokens: null, 
-        user: null, 
+      set({
+        tokens: null,
+        user: null,
         isAuthenticated: false,
         isLoading: false,
-        error: 'Authentication failed' 
+        error: 'Authentication failed'
       });
       throw error; // Re-throw so login screen can handle it
     }
@@ -109,6 +109,19 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         console.warn('Failed to clear cache:', cacheError);
       }
 
+      // Reset other stores to prevent data leakage
+      try {
+        const { useReportStore } = await import('./reportStore');
+        const { useDashboardStore } = await import('./dashboardStore');
+
+        useReportStore.getState().reset();
+        useDashboardStore.getState().reset();
+
+        console.log('✅ Stores reset successfully');
+      } catch (storeError) {
+        console.error('Failed to reset stores:', storeError);
+      }
+
       // Clear state completely
       set({
         user: null,
@@ -142,8 +155,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       try {
         const capabilities = await BiometricAuth.checkAvailability();
         const isBiometricEnabled = await BiometricAuth.isBiometricEnabled();
-        
-        set({ 
+
+        set({
           biometricCapabilities: capabilities,
           isBiometricEnabled,
         });
@@ -164,7 +177,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           const payload = JSON.parse(atob(accessToken.split('.')[1]));
           const now = Date.now() / 1000;
           const isExpired = payload.exp < now;
-          
+
           if (isExpired) {
             console.log('🔑 Access token expired, will attempt refresh when network available');
             // Don't try to refresh during initialization - do it later when network is available
@@ -182,7 +195,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
               },
               isAuthenticated: true,
             });
-            
+
             console.log('✅ Valid session restored (offline)');
           }
         } catch (tokenError) {
@@ -211,10 +224,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       const { authApi } = await import('@shared/services/api/authApi');
       const userData = await authApi.getCurrentUser();
-      
+
       // Update user in state
       set({ user: userData });
-      
+
       // Update user in secure storage
       await SecureStorage.setUserData(userData);
     } catch (error) {
@@ -234,10 +247,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       // Store phone for biometric login
       await BiometricAuth.storeCredentialsForBiometric(phone);
-      
+
       // Enable biometric
       await BiometricAuth.enableBiometric();
-      
+
       set({ isBiometricEnabled: true });
     } catch (error) {
       console.error('Failed to enable biometric:', error);
@@ -258,7 +271,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   authenticateWithBiometric: async () => {
     try {
       const result = await BiometricAuth.authenticateAndGetCredentials();
-      
+
       if (!result.success) {
         return result;
       }

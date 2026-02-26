@@ -3,7 +3,6 @@ import { create } from 'zustand';
 import {
   Report,
   ReportCreate,
-  ReportFilters,
   ReportListParams,
   NearbyReportsParams,
   ReportStats,
@@ -35,6 +34,7 @@ interface ReportState {
   unsyncedCount: number;
 
   // Actions
+  reset: () => void;
   submitReport: (report: ReportCreate) => Promise<Report>;
   addLocalReport: (report: any) => void;
   updateLocalReport: (localId: string, updates: any) => void;
@@ -78,9 +78,9 @@ export const useReportStore = create<ReportState>((set, get) => ({
         try {
           log.debug('Calling backend API to create report');
           const backendReport = await reportApi.submitReport(reportData);
-          
+
           log.info(`Report created on backend with ID: ${backendReport.id}`);
-          
+
           // Convert backend response to local Report format
           const report: Report = {
             id: backendReport.id,
@@ -122,7 +122,7 @@ export const useReportStore = create<ReportState>((set, get) => ({
 
       // Offline mode or API failed: Save to local database
       log.info('Saving report to local database (offline mode)');
-      
+
       // Generate local ID for offline tracking
       const localId = `local_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       const now = Date.now();
@@ -181,7 +181,7 @@ export const useReportStore = create<ReportState>((set, get) => ({
 
       if (result) {
         const savedReport = parseReportFromDb(result);
-        
+
         // Add to reports list
         set((state) => ({
           reports: [savedReport, ...state.reports],
@@ -194,7 +194,7 @@ export const useReportStore = create<ReportState>((set, get) => ({
         // Try to sync immediately if online
         const { networkService } = await import('@shared/services/network/networkService');
         const networkStatus = networkService.getStatus();
-        
+
         if (networkStatus.isConnected && networkStatus.isInternetReachable !== false) {
           // Trigger sync in background (don't await)
           get().syncOfflineReports().catch(console.error);
@@ -214,8 +214,6 @@ export const useReportStore = create<ReportState>((set, get) => ({
   fetchMyReports: async (params?: ReportListParams) => {
     // Check if database is ready
     if (!database.isReady()) {
-      // Database not ready, return empty array
-      // App will use API data instead
       set({ reports: [], loading: false });
       return;
     }
@@ -226,6 +224,96 @@ export const useReportStore = create<ReportState>((set, get) => ({
       const user = useAuthStore.getState().user;
       if (!user) {
         throw new Error('User not authenticated');
+      }
+
+      // Sync with server if online
+      const isOnline = networkService.isOnline();
+      if (isOnline) {
+        try {
+          const serverReports = await reportApi.getMyReports(params);
+          const db = await database.getDatabase();
+
+          // Upsert server reports to local DB
+          for (const serverReport of serverReports) {
+            // Check if report exists by server ID
+            const existing = await db.getFirstAsync<any>(
+              'SELECT local_id FROM reports WHERE id = ?',
+              [serverReport.id]
+            );
+
+            const photos = serverReport.media?.map(m => m.file_url) || serverReport.photos || [];
+            const videos = serverReport.videos || [];
+
+            if (existing) {
+              // Update existing report
+              await db.runAsync(
+                `UPDATE reports SET 
+                  title = ?, description = ?, category = ?, sub_category = ?, severity = ?,
+                  latitude = ?, longitude = ?, address = ?, landmark = ?, ward_number = ?,
+                  status = ?, photos = ?, videos = ?, is_public = ?, is_sensitive = ?,
+                  updated_at = ?, is_synced = 1
+                WHERE id = ?`,
+                [
+                  serverReport.title,
+                  serverReport.description,
+                  serverReport.category,
+                  serverReport.sub_category || null,
+                  serverReport.severity,
+                  serverReport.latitude,
+                  serverReport.longitude,
+                  serverReport.address,
+                  serverReport.landmark || null,
+                  serverReport.ward_number || null,
+                  serverReport.status,
+                  JSON.stringify(photos),
+                  JSON.stringify(videos),
+                  serverReport.is_public ? 1 : 0,
+                  serverReport.is_sensitive ? 1 : 0,
+                  new Date(serverReport.updated_at).getTime(), // Ensure timestamp format
+                  serverReport.id
+                ]
+              );
+            } else {
+              // Insert new report
+              const localId = `server_${serverReport.id}_${Date.now()}`;
+              await db.runAsync(
+                `INSERT INTO reports (
+                  id, user_id, report_number, title, description, category, sub_category, severity,
+                  latitude, longitude, address, landmark, ward_number, status,
+                  photos, videos, is_public, is_sensitive, is_synced, local_id,
+                  created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                [
+                  serverReport.id,
+                  user.id,
+                  serverReport.report_number,
+                  serverReport.title,
+                  serverReport.description,
+                  serverReport.category,
+                  serverReport.sub_category || null,
+                  serverReport.severity,
+                  serverReport.latitude,
+                  serverReport.longitude,
+                  serverReport.address,
+                  serverReport.landmark || null,
+                  serverReport.ward_number || null,
+                  serverReport.status,
+                  JSON.stringify(photos),
+                  JSON.stringify(videos),
+                  serverReport.is_public ? 1 : 0,
+                  serverReport.is_sensitive ? 1 : 0,
+                  1, // is_synced
+                  localId,
+                  new Date(serverReport.created_at).getTime(),
+                  new Date(serverReport.updated_at).getTime()
+                ]
+              );
+            }
+          }
+        } catch (apiError) {
+          console.warn('Failed to sync reports from server:', apiError);
+          // Continue to load from local DB
+        }
       }
 
       const db = database.getDatabase();
@@ -473,7 +561,7 @@ export const useReportStore = create<ReportState>((set, get) => ({
       for (const dbReport of unsyncedReports) {
         try {
           const report = parseReportFromDb(dbReport);
-          
+
           // Submit to server
           const response = await reportApi.submitReport({
             title: report.title,
@@ -497,19 +585,19 @@ export const useReportStore = create<ReportState>((set, get) => ({
             `UPDATE reports SET 
               id = ?, report_number = ?, is_synced = 1, sync_error = NULL, updated_at = ?
             WHERE local_id = ?`,
-            [response.id, response.report_number, Date.now(), report.local_id]
+            [response.id, response.report_number, Date.now(), report.local_id!]
           );
 
           syncedCount++;
         } catch (error: any) {
           console.error(`Failed to sync report ${dbReport.local_id}:`, error);
-          
+
           // Update error status
           await db.runAsync(
             'UPDATE reports SET sync_error = ? WHERE local_id = ?',
-            [error.message || 'Sync failed', dbReport.local_id]
+            [error.message || 'Sync failed', dbReport.local_id!]
           );
-          
+
           errorCount++;
         }
       }
@@ -520,7 +608,7 @@ export const useReportStore = create<ReportState>((set, get) => ({
       if (errorCount === 0) {
         set({ syncStatus: SyncStatus.SUCCESS });
       } else {
-        set({ 
+        set({
           syncStatus: SyncStatus.ERROR,
           error: `Synced ${syncedCount} reports, ${errorCount} failed`,
         });
@@ -530,7 +618,7 @@ export const useReportStore = create<ReportState>((set, get) => ({
       await get().fetchMyReports();
     } catch (error: any) {
       console.error('Sync offline reports error:', error);
-      set({ 
+      set({
         syncStatus: SyncStatus.ERROR,
         error: error.message || 'Failed to sync reports',
       });
@@ -561,7 +649,7 @@ export const useReportStore = create<ReportState>((set, get) => ({
 
   updateLocalReport: (localId: string, updates: any) => {
     set((state) => ({
-      reports: state.reports.map(report => 
+      reports: state.reports.map(report =>
         String(report.id) === localId || report.local_id === localId
           ? { ...report, ...updates }
           : report
@@ -573,6 +661,17 @@ export const useReportStore = create<ReportState>((set, get) => ({
   clearError: () => set({ error: null }),
   setLoading: (loading: boolean) => set({ loading }),
   setSyncStatus: (status: SyncStatus) => set({ syncStatus: status }),
+
+  reset: () => set({
+    reports: [],
+    currentReport: null,
+    nearbyReports: [],
+    stats: null,
+    loading: false,
+    error: null,
+    syncStatus: SyncStatus.IDLE,
+    unsyncedCount: 0,
+  }),
 }));
 
 // Helper function to parse report from database row

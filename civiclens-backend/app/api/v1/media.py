@@ -161,7 +161,7 @@ async def upload_single_file(
         
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Upload failed: {str(e)}"
+            detail="Upload failed due to an internal server error. Please try again later."
         )
 
 
@@ -278,7 +278,7 @@ async def upload_multiple_files(
         
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Bulk upload failed: {str(e)}"
+            detail="Bulk upload failed due to an internal server error. Please try again later."
         )
 
 
@@ -320,7 +320,7 @@ async def delete_media(
         logger.error(f"Media deletion failed: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Deletion failed: {str(e)}"
+            detail="Deletion failed due to an internal server error. Please try again later."
         )
 
 

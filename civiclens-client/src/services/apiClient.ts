@@ -1,7 +1,12 @@
 import axios, { AxiosInstance, AxiosError, InternalAxiosRequestConfig } from 'axios';
 
 // API Configuration
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
+const IS_PROD = import.meta.env.PROD;
+const API_BASE_URL = import.meta.env.VITE_API_URL || (IS_PROD ? 'https://api.civiclens.com/api/v1' : 'http://localhost:8000/api/v1');
+
+if (IS_PROD && !import.meta.env.VITE_API_URL) {
+  console.warn('⚠️ No VITE_API_URL provided for production, using default: https://api.civiclens.com/api/v1');
+}
 
 // Track if we're currently refreshing token to avoid multiple refresh attempts
 let isRefreshing = false;
@@ -77,7 +82,7 @@ apiClient.interceptors.response.use(
     if (isNetworkError(error)) {
       // Emit custom event for network status
       window.dispatchEvent(new CustomEvent('backend-offline', { detail: { error } }));
-      
+
       // Don't retry on network errors for non-auth endpoints
       if (!originalRequest.url?.includes('/auth/')) {
         return Promise.reject({
@@ -109,7 +114,7 @@ apiClient.interceptors.response.use(
       originalRequest._retry = true;
       isRefreshing = true;
       const refreshToken = localStorage.getItem('refresh_token');
-      
+
       if (refreshToken) {
         try {
           // Try to refresh the token
@@ -118,9 +123,9 @@ apiClient.interceptors.response.use(
             { refresh_token: refreshToken },
             { timeout: 10000 }
           );
-          
+
           const { access_token, refresh_token: newRefreshToken } = response.data;
-          
+
           // Update tokens
           localStorage.setItem('access_token', access_token);
           if (newRefreshToken) {
@@ -129,10 +134,10 @@ apiClient.interceptors.response.use(
 
           // Process queued requests
           processQueue(null, access_token);
-          
+
           // Retry original request with new token
           if (originalRequest.headers) {
-          originalRequest.headers.Authorization = `Bearer ${access_token}`;
+            originalRequest.headers.Authorization = `Bearer ${access_token}`;
           }
           isRefreshing = false;
           return apiClient.request(originalRequest);
@@ -185,7 +190,7 @@ apiClient.interceptors.response.use(
     // Handle other HTTP errors
     if (error.response) {
       const status = error.response.status;
-      
+
       // Emit backend online event on any successful response (even error responses)
       window.dispatchEvent(new CustomEvent('backend-online'));
 

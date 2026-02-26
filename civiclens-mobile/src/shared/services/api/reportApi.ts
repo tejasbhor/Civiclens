@@ -32,6 +32,12 @@ export interface ReportResponse {
   is_sensitive: boolean;
   created_at: string;
   updated_at: string;
+  media?: Array<{
+    id: number;
+    file_url: string;
+    file_type: string;
+    is_primary: boolean;
+  }>;
 }
 
 export interface ReportDetailResponse extends ReportResponse {
@@ -98,7 +104,7 @@ class ReportApi {
         category: params?.filters?.category?.[0],
       },
     });
-    
+
     // Backend returns array directly for my-reports endpoint
     return response || [];
   }

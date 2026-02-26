@@ -67,7 +67,7 @@ const OfficerTaskDetailContent: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [actionLoading, setActionLoading] = useState(false);
-  
+
   // Modal states
   const [showUpdateModal, setShowUpdateModal] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
@@ -89,15 +89,15 @@ const OfficerTaskDetailContent: React.FC = () => {
     try {
       setLoading(true);
       setError(null);
-      
+
       // The taskId is actually the report_id (tasks are embedded in reports)
       // Fetch report directly by ID - much more efficient than fetching all reports
       const reportWithTask = await apiClient.get<any>(`/reports/${taskId}`);
-      
+
       if (!reportWithTask || !reportWithTask.task) {
         throw new Error('Task not found or not assigned to an officer');
       }
-      
+
       // Transform to TaskDetailResponse format
       const taskData: TaskDetailResponse = {
         id: reportWithTask.task.id,
@@ -107,28 +107,28 @@ const OfficerTaskDetailContent: React.FC = () => {
         notes: reportWithTask.task.notes,
         resolution_notes: reportWithTask.task.resolution_notes,
         rejection_reason: reportWithTask.task.rejection_reason,
-        assigned_at: reportWithTask.task.created_at,
+        assigned_at: reportWithTask.task.assigned_at || reportWithTask.task.created_at || reportWithTask.created_at,
         acknowledged_at: reportWithTask.task.acknowledged_at,
         started_at: reportWithTask.task.started_at,
-        resolved_at: reportWithTask.task.completed_at,
+        resolved_at: reportWithTask.task.resolved_at || reportWithTask.task.completed_at,
         rejected_at: reportWithTask.task.rejected_at,
         sla_deadline: reportWithTask.task.sla_deadline,
         sla_violated: reportWithTask.task.sla_violated || 0,
         officer: {
-          id: reportWithTask.task.assigned_to || 0,
-          full_name: reportWithTask.task.assigned_to_user?.full_name || 'Unknown Officer',
-          phone: reportWithTask.task.assigned_to_user?.phone || '',
-          employee_id: reportWithTask.task.assigned_to_user?.employee_id,
+          id: reportWithTask.task.assigned_to || reportWithTask.task.officer?.id || 0,
+          full_name: reportWithTask.task.officer?.full_name || 'Unknown Officer',
+          phone: reportWithTask.task.officer?.phone || '',
+          employee_id: reportWithTask.task.officer?.employee_id,
         },
         report: {
           id: reportWithTask.id,
           report_number: reportWithTask.report_number || `RPT-${reportWithTask.id}`,
-          title: reportWithTask.title,
-          description: reportWithTask.description,
-          category: reportWithTask.category,
+          title: reportWithTask.title || `Report #${reportWithTask.id}`,
+          description: reportWithTask.description || '',
+          category: reportWithTask.category || 'other',
           severity: reportWithTask.severity || 'medium',
           status: reportWithTask.status,
-          address: reportWithTask.location?.address || reportWithTask.address || 'No address',
+          address: reportWithTask.location?.address || reportWithTask.address || 'No address provided',
           landmark: reportWithTask.location?.landmark || reportWithTask.landmark,
           latitude: reportWithTask.location?.latitude || reportWithTask.latitude || 0,
           longitude: reportWithTask.location?.longitude || reportWithTask.longitude || 0,
@@ -137,15 +137,15 @@ const OfficerTaskDetailContent: React.FC = () => {
           media: reportWithTask.media || [],
           user: {
             id: reportWithTask.user?.id || 0,
-            full_name: reportWithTask.user?.full_name || 'Unknown',
+            full_name: reportWithTask.user?.full_name || 'Unknown Citizen',
             phone: reportWithTask.user?.phone || '',
           },
-          department: reportWithTask.department,
+          department: reportWithTask.department || null,
         },
       };
-      
+
       setTask(taskData);
-      
+
       // Try to fetch report history/timeline
       try {
         const historyData = await apiClient.get<any>(`/reports/${taskId}/history`);
@@ -176,7 +176,7 @@ const OfficerTaskDetailContent: React.FC = () => {
   // Task Actions
   const handleAcknowledge = useCallback(async () => {
     if (!task) return;
-    
+
     Alert.alert(
       'Acknowledge Task',
       `You are about to acknowledge this task. The citizen will be notified that you have received their report.\n\nReport: ${task.report.report_number}\n\nAre you sure you want to proceed?`,
@@ -204,7 +204,7 @@ const OfficerTaskDetailContent: React.FC = () => {
 
   const handleStartWork = useCallback(async () => {
     if (!task) return;
-    
+
     Alert.alert(
       'Start Work on This Task?',
       `You are about to start work on this task. The work timer will begin and the citizen will be notified.\n\nMake sure you are at the location before proceeding.\n\nReport: ${task.report.report_number}`,
@@ -234,7 +234,7 @@ const OfficerTaskDetailContent: React.FC = () => {
 
   const handleComplete = useCallback(() => {
     if (!task) return;
-    
+
     navigation.navigate('SubmitVerification', {
       reportId: task.report_id,
       reportNumber: task.report?.report_number || `CL-${task.report_id}`,
@@ -300,15 +300,15 @@ const OfficerTaskDetailContent: React.FC = () => {
 
     try {
       setActionLoading(true);
-      
+
       // Send as FormData to match backend endpoint
       const formData = new FormData();
       formData.append('update_text', updateNotes.trim());
-      
+
       await apiClient.post(`/reports/${task.report_id}/add-update`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
-      
+
       setShowUpdateModal(false);
       setUpdateNotes('');
       await loadTask();
@@ -324,7 +324,7 @@ const OfficerTaskDetailContent: React.FC = () => {
 
   const handleReject = useCallback(() => {
     if (!task) return;
-    
+
     Alert.alert(
       'Reject Assignment',
       `Are you sure you want to reject this assignment?\n\nReport: ${task.report.report_number}\n\nThis assignment will be sent to admin for review. They may reassign it to another officer or reclassify the report.\n\nPlease provide a reason for rejection.`,
@@ -384,14 +384,14 @@ const OfficerTaskDetailContent: React.FC = () => {
     try {
       setActionLoading(true);
       const reason = holdReason === 'other' ? customHoldReason.trim() : holdReason;
-      
+
       // Validate reason length
       if (reason.length < 10) {
         Alert.alert('Invalid Input', 'Reason must be at least 10 characters long');
         setActionLoading(false);
         return;
       }
-      
+
       const formData = new FormData();
       formData.append('reason', reason);
       if (estimatedResumeDate) {
@@ -420,7 +420,7 @@ const OfficerTaskDetailContent: React.FC = () => {
 
   const handleResumeWork = useCallback(() => {
     if (!task) return;
-    
+
     setShowResumeModal(true);
   }, [task]);
 
@@ -521,8 +521,8 @@ const OfficerTaskDetailContent: React.FC = () => {
                               media.upload_source === 'citizen_submission'
                                 ? '#2196F3'
                                 : media.upload_source === 'officer_before_photo'
-                                ? '#FF9800'
-                                : '#4CAF50',
+                                  ? '#FF9800'
+                                  : '#4CAF50',
                           },
                         ]}
                       >
@@ -530,8 +530,8 @@ const OfficerTaskDetailContent: React.FC = () => {
                           {media.upload_source === 'citizen_submission'
                             ? 'Reported'
                             : media.upload_source === 'officer_before_photo'
-                            ? 'Before Work'
-                            : 'After Work'}
+                              ? 'Before Work'
+                              : 'After Work'}
                         </Text>
                       </View>
                     </View>
@@ -732,7 +732,7 @@ const OfficerTaskDetailContent: React.FC = () => {
               </View>
             </View>
           </View>
-          
+
           <TouchableOpacity style={styles.openMapsButton} onPress={handleOpenMap}>
             <Ionicons name="navigate" size={20} color="#FFF" />
             <Text style={styles.openMapsButtonText}>Open in Maps</Text>
@@ -742,7 +742,7 @@ const OfficerTaskDetailContent: React.FC = () => {
         {/* Status History Timeline - Collapsible */}
         {updates.length > 0 && (
           <View style={styles.section}>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.collapsibleHeader}
               onPress={() => setIsHistoryExpanded(!isHistoryExpanded)}
               activeOpacity={0.7}
@@ -754,13 +754,13 @@ const OfficerTaskDetailContent: React.FC = () => {
                   <Text style={styles.historyBadgeText}>{updates.length}</Text>
                 </View>
               </View>
-              <Ionicons 
-                name={isHistoryExpanded ? "chevron-up" : "chevron-down"} 
-                size={20} 
-                color="#64748B" 
+              <Ionicons
+                name={isHistoryExpanded ? "chevron-up" : "chevron-down"}
+                size={20}
+                color="#64748B"
               />
             </TouchableOpacity>
-            
+
             {isHistoryExpanded && (
               <View style={styles.timeline}>
                 {updates.map((historyItem: any, index: number) => (
@@ -1010,7 +1010,7 @@ const OfficerTaskDetailContent: React.FC = () => {
                 <Ionicons name="close" size={24} color="#64748B" />
               </TouchableOpacity>
             </View>
-            
+
             {task && (
               <View style={styles.modalInfo}>
                 <Text style={styles.modalInfoText}>Report: {task.report.report_number}</Text>
@@ -1059,7 +1059,7 @@ const OfficerTaskDetailContent: React.FC = () => {
             >
               <Ionicons name="calendar-outline" size={20} color="#1976D2" />
               <Text style={styles.datePickerButtonText}>
-                {estimatedResumeDate 
+                {estimatedResumeDate
                   ? format(estimatedResumeDate, 'PPP') // e.g., "Dec 31, 2025"
                   : 'Select date (optional)'}
               </Text>

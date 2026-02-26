@@ -20,17 +20,23 @@ class ApiClient {
         if (token) {
           config.headers.Authorization = `Bearer ${token}`;
         }
-        
+
         // Only set Content-Type to application/json if not already set and data is not FormData
-        if (!config.headers['Content-Type'] && !(config.data instanceof FormData)) {
+        const contentType = config.headers['Content-Type'];
+        if (!contentType && !(config.data instanceof FormData)) {
           config.headers['Content-Type'] = 'application/json';
         }
-        
+
         // Remove Content-Type for FormData (axios will set it with boundary)
         if (config.data instanceof FormData) {
-          delete config.headers['Content-Type'];
+          // Handle AxiosHeaders (Axios 1.x) and plain objects
+          if (config.headers && typeof (config.headers as any).delete === 'function') {
+            (config.headers as any).delete('Content-Type');
+          } else {
+            delete config.headers['Content-Type'];
+          }
         }
-        
+
         return config;
       },
       (error: any) => {

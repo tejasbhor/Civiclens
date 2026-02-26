@@ -8,6 +8,7 @@ import { networkService } from '@shared/services/network/networkService';
 import { apiClient } from '@shared/services/api/apiClient';
 import { createLogger } from '@shared/utils/logger';
 import { CompleteReportData, CompressedImage } from '@shared/hooks/useCompleteReportSubmission';
+import { useAuthStore } from '@store/authStore';
 
 const log = createLogger('SubmissionQueue');
 
@@ -22,6 +23,7 @@ export interface QueueItem {
   error?: string;
   lastAttempt?: number;
   localReportId?: string; // Link to local report in store
+  user_id: number; // User who created this item
 }
 
 export interface QueueStatus {
@@ -46,10 +48,10 @@ class SubmissionQueue {
   async initialize(): Promise<void> {
     try {
       log.info('Initializing submission queue');
-      
+
       // Load existing queue from storage
       await this.loadFromStorage();
-      
+
       // Listen for network changes
       networkService.addListener((status) => {
         if (status.isConnected && status.isInternetReachable !== false) {
@@ -60,7 +62,7 @@ class SubmissionQueue {
 
       // Start periodic processing
       this.startPeriodicProcessing();
-      
+
       // Process queue if online
       if (networkService.isOnline()) {
         this.processQueue();
@@ -75,15 +77,21 @@ class SubmissionQueue {
   /**
    * Add item to submission queue
    */
-  async addToQueue(item: Omit<QueueItem, 'id' | 'status' | 'maxRetries'>): Promise<QueueItem> {
+  async addToQueue(item: Omit<QueueItem, 'id' | 'status' | 'maxRetries' | 'user_id'>): Promise<QueueItem> {
+    const user = useAuthStore.getState().user;
+    if (!user) {
+      throw new Error('User must be logged in to queue submissions');
+    }
+
     const queueItem: QueueItem = {
       ...item,
       id: `queue_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       status: 'pending',
       maxRetries: 5,
+      user_id: user.id,
     };
 
-    log.info(`Adding item to queue: ${queueItem.id}`);
+    log.info(`Adding item to queue for user ${user.id}: ${queueItem.id}`);
 
     // Add to memory queue
     this.queue.push(queueItem);
@@ -103,22 +111,31 @@ class SubmissionQueue {
   }
 
   /**
-   * Process all pending items in the queue
+   * Process all pending items in the queue for the current user
    */
   async processQueue(): Promise<void> {
     if (this.isProcessing || !networkService.isOnline()) {
       return;
     }
 
+    const user = useAuthStore.getState().user;
+    if (!user) {
+      log.debug('Skipping queue processing: No user logged in');
+      return;
+    }
+
     this.isProcessing = true;
-    log.info('Starting queue processing');
+    log.info(`Starting queue processing for user ${user.id}`);
 
     try {
-      const pendingItems = this.queue.filter(item => 
-        item.status === 'pending' && this.shouldRetryItem(item)
+      // Only process items belonging to the current user
+      const pendingItems = this.queue.filter(item =>
+        item.status === 'pending' &&
+        item.user_id === user.id &&
+        this.shouldRetryItem(item)
       );
 
-      log.info(`Processing ${pendingItems.length} pending items`);
+      log.info(`Processing ${pendingItems.length} pending items for user ${user.id}`);
 
       for (const item of pendingItems) {
         try {
@@ -150,7 +167,7 @@ class SubmissionQueue {
     try {
       // Create FormData for submission
       const formData = new FormData();
-      
+
       // Add report fields
       const reportData = item.data;
       formData.append('title', reportData.title.trim());
@@ -184,7 +201,7 @@ class SubmissionQueue {
 
       // Handle different response formats
       const responseData = (response as any).data || response;
-      
+
       // Success
       item.status = 'completed';
       item.error = undefined;
@@ -259,7 +276,7 @@ class SubmissionQueue {
 
     const delay = this.retryDelays[item.retryCount] || 30000;
     const timeSinceLastAttempt = Date.now() - item.lastAttempt;
-    
+
     return timeSinceLastAttempt >= delay;
   }
 
@@ -305,9 +322,9 @@ class SubmissionQueue {
    */
   async retryFailedItems(): Promise<void> {
     log.info('Retrying all failed items');
-    
+
     const failedItems = this.queue.filter(item => item.status === 'failed');
-    
+
     for (const item of failedItems) {
       item.status = 'pending';
       item.retryCount = 0;
@@ -328,7 +345,7 @@ class SubmissionQueue {
    */
   async clearCompleted(): Promise<void> {
     log.info('Clearing completed items');
-    
+
     this.queue = this.queue.filter(item => item.status !== 'completed');
     await this.saveToStorage();
     this.notifyListeners();
@@ -385,14 +402,14 @@ class SubmissionQueue {
       const serialized = await AsyncStorage.getItem(this.storageKey);
       if (serialized) {
         this.queue = JSON.parse(serialized);
-        
+
         // Reset processing items to pending (in case app crashed)
         this.queue.forEach(item => {
           if (item.status === 'processing') {
             item.status = 'pending';
           }
         });
-        
+
         log.info(`Loaded ${this.queue.length} items from storage`);
       }
     } catch (error) {
@@ -407,7 +424,7 @@ class SubmissionQueue {
   private async cleanupOldItems(): Promise<void> {
     const oneDayAgo = Date.now() - (24 * 60 * 60 * 1000);
     const initialCount = this.queue.length;
-    
+
     this.queue = this.queue.filter(item => {
       if (item.status === 'completed' && item.timestamp < oneDayAgo) {
         return false; // Remove old completed items

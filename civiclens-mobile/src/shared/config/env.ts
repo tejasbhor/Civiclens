@@ -19,7 +19,7 @@ const CUSTOM_SERVER_URL_KEY = '@civiclens_custom_server_url';
 const EXPO_PUBLIC_API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL;
 const EXPO_PUBLIC_MINIO_URL = process.env.EXPO_PUBLIC_MINIO_URL;
 const EXPO_PUBLIC_GRAPHQL_ENDPOINT = process.env.EXPO_PUBLIC_GRAPHQL_ENDPOINT;
-const EXPO_PUBLIC_ENV = (process.env.EXPO_PUBLIC_ENV as Environment) || 'development';
+const EXPO_PUBLIC_ENV = (process.env.EXPO_PUBLIC_ENV as Environment) || 'production';
 
 // Automatically detect the correct API URL based on environment (Development fallback)
 const getDevApiBaseUrl = (): string => {
@@ -57,15 +57,30 @@ const getDevMinioBaseUrl = (): string => {
 const getEnvConfig = (): EnvConfig => {
   const env = EXPO_PUBLIC_ENV;
   const isDev = env === 'development';
+  const isProd = env === 'production';
 
   // Use environment variables or fallbacks
-  const apiBaseUrl = isDev
-    ? getDevApiBaseUrl()
-    : (EXPO_PUBLIC_API_BASE_URL || 'https://api.civiclens.com/api/v1');
+  let apiBaseUrl = EXPO_PUBLIC_API_BASE_URL;
+  if (!apiBaseUrl) {
+    if (isDev) {
+      apiBaseUrl = getDevApiBaseUrl();
+    } else {
+      // Production/Staging MUST have a URL
+      apiBaseUrl = 'https://api.civiclens.com/api/v1';
+      if (isProd) {
+        console.warn('⚠️ No EXPO_PUBLIC_API_BASE_URL provided for production, using default.');
+      }
+    }
+  }
 
-  const minioBaseUrl = isDev
-    ? getDevMinioBaseUrl()
-    : (EXPO_PUBLIC_MINIO_URL || 'https://minio.civiclens.com');
+  let minioBaseUrl = EXPO_PUBLIC_MINIO_URL;
+  if (!minioBaseUrl) {
+    if (isDev) {
+      minioBaseUrl = getDevMinioBaseUrl();
+    } else {
+      minioBaseUrl = 'https://minio.civiclens.com';
+    }
+  }
 
   const graphqlEndpoint = EXPO_PUBLIC_GRAPHQL_ENDPOINT || apiBaseUrl.replace('/api/v1', '/graphql');
 
@@ -73,7 +88,7 @@ const getEnvConfig = (): EnvConfig => {
     API_BASE_URL: apiBaseUrl,
     MINIO_BASE_URL: minioBaseUrl,
     GRAPHQL_ENDPOINT: graphqlEndpoint,
-    ENABLE_LOGGING: isDev || env === 'staging',
+    ENABLE_LOGGING: isDev, // Strictly only dev for production safety
     ENVIRONMENT: env,
   };
 };

@@ -482,7 +482,7 @@ class FileUploadService:
                 logger.error(f"Failed to upload audio {file.filename}: {e}")
                 # Continue with other files
         
-        await self.db.commit()
+        await self.db.flush()
         
         logger.info(f"Uploaded {len(uploaded_media)} files for report {report_id}")
         

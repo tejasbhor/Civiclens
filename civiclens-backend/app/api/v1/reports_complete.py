@@ -20,7 +20,7 @@ from app.core.audit_logger import audit_logger
 from app.models.audit_log import AuditAction, AuditStatus
 from app.models.user import User
 from app.models.report import Report, ReportStatus, ReportSeverity, ReportCategory
-from app.schemas.report import ReportCreateInternal, ReportResponse
+from app.schemas.report import ReportCreateInternal, ReportResponse, ReportWithDetails
 from app.services.file_upload_service import get_file_upload_service, FileUploadService
 from app.crud.report import report_crud
 from app.core.background_tasks import (
@@ -179,9 +179,17 @@ async def _create_report_with_number(
                 'updated_at': datetime.utcnow(),
             }
             
-            # Create report using CRUD
+            # Create internal schema first
             report_create = ReportCreateInternal(**report_dict)
-            report = await report_crud.create(db, report_create, commit=False)
+            
+            # Manually create Report object to include PostGIS location (which Pydantic doesn't handle)
+            from sqlalchemy import func
+            report = Report(
+                **report_create.model_dump(),
+                location=func.ST_SetSRID(func.ST_MakePoint(report_data['longitude'], report_data['latitude']), 4326)
+            )
+            
+            db.add(report)
             
             # Flush to get ID but don't commit yet (part of larger transaction)
             await db.flush()
@@ -256,7 +264,7 @@ async def _log_complete_submission_audit(
     )
 
 
-@router.post("/submit-complete", response_model=ReportResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/submit-complete", response_model=ReportWithDetails, status_code=status.HTTP_201_CREATED)
 async def submit_complete_report(
     # Dependencies (must come first - no defaults)
     request: Request,
@@ -306,205 +314,76 @@ async def submit_complete_report(
     user_id = current_user.id
     user_email = current_user.email
     
-    logger.info(f"Complete report submission started by user {user_id}")
-    logger.info(f"Submission data: title='{title[:50]}...', category={category}, severity={severity}")
-    logger.info(f"Files: {len(files)} files, location=({latitude}, {longitude})")
+    logger.info(f"Complete report submission started by user {user_id}: {title[:50]}")
     
     try:
         # 1. Comprehensive validation
         await _validate_complete_submission(
-            db=db,
-            user_id=user_id,
-            title=title,
-            description=description,
-            category=category,
-            severity=severity,
-            latitude=latitude,
-            longitude=longitude,
-            files=files,
-            current_user=current_user
+            db=db, user_id=user_id, title=title, description=description,
+            category=category, severity=severity, latitude=latitude, longitude=longitude,
+            files=files, current_user=current_user
         )
         
-        logger.info("Validation passed, starting atomic transaction")
+        # 2. Create report
+        report_data = {
+            'title': title.strip(),
+            'description': description.strip(),
+            'category': category,
+            'severity': severity,
+            'latitude': latitude,
+            'longitude': longitude,
+            'address': address.strip(),
+            'landmark': landmark.strip() if landmark else None,
+            'is_public': is_public,
+            'is_sensitive': is_sensitive,
+        }
         
-        # 2. Process submission without nested transaction
-        try:
-            # 3. Create report with atomic number generation
-            report_data = {
-                'title': title.strip(),
-                'description': description.strip(),
-                'category': category,
-                'severity': severity,  # Keep as string for Pydantic validation
-                'latitude': latitude,
-                'longitude': longitude,
-                'address': address.strip(),
-                'landmark': landmark.strip() if landmark else None,
-                'is_public': is_public,
-                'is_sensitive': is_sensitive,
-            }
-            
-            report = await _create_report_with_number(db, report_data, user_id)
-            
-            # 4. Parse captions if provided
-            parsed_captions = []
-            if captions:
-                try:
-                    parsed_captions = json.loads(captions)
-                    if not isinstance(parsed_captions, list):
-                        parsed_captions = []
-                except (json.JSONDecodeError, TypeError):
-                    logger.warning("Invalid captions JSON format, ignoring captions")
-                    parsed_captions = []
-            
-            # 5. Upload all media files atomically with enhanced validation
-            media_list = []
-            total_file_size = 0
-            
-            if files:
-                logger.info(f"Processing {len(files)} media files for report {report.id}")
-                
-                # Pre-validate all files before uploading
-                for i, file in enumerate(files):
-                    if not file.filename:
-                        raise ValidationException(f"File {i+1}: Filename is required")
-                    
-                    # Check file size before processing
-                    file_size = 0
-                    if hasattr(file, 'size'):
-                        file_size = file.size
-                    else:
-                        # Read content to get size
-                        content = await file.read()
-                        file_size = len(content)
-                        await file.seek(0)  # Reset file pointer
-                    
-                    if file_size > 10 * 1024 * 1024:  # 10MB limit per file
-                        raise ValidationException(f"File {i+1} ({file.filename}): Size {file_size/1024/1024:.1f}MB exceeds 10MB limit")
-                    
-                    total_file_size += file_size
-                
-                # Check total size limit
-                if total_file_size > 50 * 1024 * 1024:  # 50MB total limit
-                    raise ValidationException(f"Total file size {total_file_size/1024/1024:.1f}MB exceeds 50MB limit")
-                
-                logger.info(f"File validation passed. Total size: {total_file_size/1024/1024:.1f}MB")
-                
-                try:
-                    media_list = await upload_service.upload_multiple_files(
-                        files=files,
-                        report_id=report.id,
-                        user_id=user_id,
-                        captions=parsed_captions
-                    )
-                    
-                    actual_total_size = sum(media.file_size or 0 for media in media_list)
-                    logger.info(f"Successfully uploaded {len(media_list)} files, processed size: {actual_total_size} bytes")
-                    
-                except Exception as upload_error:
-                    logger.error(f"Media upload failed for report {report.id}: {upload_error}")
-                    await db.rollback()
-                    
-                    # Provide more specific error messages
-                    error_msg = str(upload_error)
-                    if "too large" in error_msg.lower():
-                        raise ValidationException(f"File size error: {error_msg}")
-                    elif "invalid" in error_msg.lower() or "unsupported" in error_msg.lower():
-                        raise ValidationException(f"File format error: {error_msg}")
-                    else:
-                        raise ValidationException(f"Media upload failed: {error_msg}")
-            
-            # 6. Media count is handled by relationship count, no need to store separately
-            
-            # Commit the transaction
-            await db.commit()
-            
-        except ValidationException as e:
-            logger.error(f"Validation error in complete submission: {str(e)}")
-            await db.rollback()
-            raise
-        except IntegrityError as e:
-            logger.error(f"Database integrity error in complete submission: {str(e)}")
-            await db.rollback()
-            raise ValidationException("Data integrity error. Please check your input and try again.")
-        except Exception as e:
-            logger.error(f"Unexpected error in complete submission: {str(e)} (duration: {time.time() - start_time:.2f}s)")
-            logger.error(f"Error type: {type(e).__name__}")
-            await db.rollback()
-            raise ValidationException(f"An unexpected error occurred: {str(e)}")
+        report = await _create_report_with_number(db, report_data, user_id)
         
-        # Transaction committed successfully at this point
+        # 3. Handle media
+        parsed_captions = []
+        if captions:
+            try:
+                parsed_captions = json.loads(captions)
+            except:
+                parsed_captions = []
+        
+        media_list = await upload_service.upload_multiple_files(
+            files=files, report_id=report.id, user_id=user_id, captions=parsed_captions
+        )
+        
+        # 4. Finalize transaction
+        await db.commit()
+        await db.refresh(report, ['media', 'user', 'department'])
+        
         duration = time.time() - start_time
         logger.info(f"Complete submission successful for report {report.id} in {duration:.2f}s")
         
-        # 7. Background tasks (non-blocking)
+        # 5. Background tasks
+        background_tasks.add_task(queue_report_for_processing_bg, report.id)
+        background_tasks.add_task(update_user_reputation_bg, user_id, 5)
         background_tasks.add_task(
-            queue_report_for_processing_bg,
-            report.id
+            _log_complete_submission_audit, db, request, current_user, report,
+            user_id, user_email, len(media_list), 0, duration
         )
         
-        background_tasks.add_task(
-            update_user_reputation_bg,
-            user_id,
-            5  # 5 points for successful report submission
-        )
-        
-        background_tasks.add_task(
-            _log_complete_submission_audit,
-            db,
-            request,
-            current_user,
-            report,
-            user_id,
-            user_email,
-            len(media_list),
-            total_file_size,
-            duration
-        )
-        
-        # 8. Invalidate map cache (non-blocking)
+        # Invalidate cache
         try:
             redis = await get_redis()
             keys = await redis.keys("map_data:*")
-            if keys:
-                await redis.delete(*keys)
-                logger.info(f"Invalidated {len(keys)} map cache keys")
-        except Exception as e:
-            logger.warning(f"Cache invalidation failed: {e}")
+            if keys: await redis.delete(*keys)
+        except: pass
         
-        # 9. Send notification (non-blocking)
+        # Send notification
         try:
             from app.services.notification_service import NotificationService
-            notification_service = NotificationService(db)
-            await notification_service.notify_report_received(report)
-            logger.info(f"Notification sent for report {report.id}")
-        except Exception as e:
-            logger.warning(f"Notification failed for report {report.id}: {e}")
+            ns = NotificationService(db)
+            await ns.notify_report_received(report)
+        except: pass
         
-        # 10. Prepare response
-        response_data = {
-            "id": report.id,
-            "report_number": report.report_number,
-            "user_id": report.user_id,
-            "department_id": report.department_id,
-            "category": report.category,
-            "sub_category": report.sub_category,
-            "status": report.status,
-            "severity": report.severity,
-            "is_public": bool(report.is_public),
-            "created_at": report.created_at,
-            "updated_at": report.updated_at,
-            "title": report.title,
-            "description": report.description,
-            "latitude": report.latitude,
-            "longitude": report.longitude,
-            "address": report.address,
-            "landmark": report.landmark,
-            "media_count": len(media_list),
-            "submission_type": "complete_atomic"
-        }
-        
-        logger.info(f"Complete report submission finished successfully: {report.id}")
-        return response_data
+        # 6. Response
+        from app.api.v1.reports import serialize_report_with_details
+        return serialize_report_with_details(report, current_user)
         
     except ValidationException as e:
         duration = time.time() - start_time

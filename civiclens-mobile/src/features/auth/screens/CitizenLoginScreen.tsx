@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -10,12 +10,13 @@ import {
   ScrollView,
   ActivityIndicator,
   BackHandler,
+  LayoutAnimation,
+  UIManager,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
 import { colors } from '@shared/theme/colors';
 import { useToast } from '@shared/hooks';
 import { Toast } from '@shared/components';
@@ -34,18 +35,44 @@ import {
   type UserRole,
 } from '@shared/utils/roleValidation';
 
+import { AUTH_GRADIENT } from './RoleSelectionScreen';
+
 type AuthMode = 'select' | 'quick-otp' | 'full-register' | 'password-login';
 type AuthStep = 'phone' | 'otp' | 'register' | 'password';
 
-interface CitizenLoginScreenProps {
-  onBack?: () => void;
+// Enable LayoutAnimation on Android
+if (
+  Platform.OS === 'android' &&
+  UIManager.setLayoutAnimationEnabledExperimental
+) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
-export const CitizenLoginScreen = ({ onBack }: CitizenLoginScreenProps) => {
+/**
+ * Custom spring animation preset for smooth screen transitions.
+ * This mimics the native navigation push/pop feel within the single screen.
+ */
+const TRANSITION_ANIM = LayoutAnimation.create(
+  280,
+  LayoutAnimation.Types.easeInEaseOut,
+  LayoutAnimation.Properties.opacity
+);
+
+/**
+ * CitizenLoginScreen handles multiple authentication flows within a single screen:
+ * - Select mode (choose login method)
+ * - Quick OTP login (phone -> OTP verify)
+ * - Password login (phone + password)
+ * - Full registration (phone + name + email + password -> OTP verify)
+ *
+ * Uses LayoutAnimation to create a smooth transition when switching between modes,
+ * matching the native-stack navigation feel users get when entering this screen.
+ */
+export const CitizenLoginScreen = () => {
   const navigation = useNavigation();
   const [authMode, setAuthMode] = useState<AuthMode>('select');
   const [authStep, setAuthStep] = useState<AuthStep>('phone');
-  
+
   const [phone, setPhone] = useState('');
   const [otp, setOtp] = useState('');
   const [password, setPassword] = useState('');
@@ -54,7 +81,7 @@ export const CitizenLoginScreen = ({ onBack }: CitizenLoginScreenProps) => {
   const [email, setEmail] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  
+
   const [countdown, setCountdown] = useState(300);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
@@ -63,14 +90,25 @@ export const CitizenLoginScreen = ({ onBack }: CitizenLoginScreenProps) => {
   const { setTokens } = useAuthStore();
   const { toast, showSuccess, showError } = useToast();
 
-  const handleBack = () => {
+  /**
+   * Triggers a smooth layout transition before updating authMode/authStep.
+   * Called before every state change that swaps visible UI sections.
+   */
+  const animateTransition = useCallback(() => {
+    LayoutAnimation.configureNext(TRANSITION_ANIM);
+  }, []);
+
+  const handleBack = useCallback(() => {
     if (authStep === 'otp') {
+      animateTransition();
       setAuthStep(authMode === 'full-register' ? 'register' : 'phone');
       return true;
     }
     if (authMode !== 'select') {
+      animateTransition();
       setAuthMode('select');
       setAuthStep('phone');
+      setError('');
       return true;
     }
     if (navigation.canGoBack()) {
@@ -78,16 +116,15 @@ export const CitizenLoginScreen = ({ onBack }: CitizenLoginScreenProps) => {
       return true;
     }
     return false;
-  };
+  }, [authStep, authMode, navigation, animateTransition]);
 
   useEffect(() => {
     const backHandler = BackHandler.addEventListener(
       'hardwareBackPress',
       handleBack
     );
-
     return () => backHandler.remove();
-  }, [authStep, authMode, navigation]);
+  }, [handleBack]);
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -98,6 +135,8 @@ export const CitizenLoginScreen = ({ onBack }: CitizenLoginScreenProps) => {
     }
     return () => clearInterval(interval);
   }, [authStep, countdown]);
+
+  // ---- Auth Handlers ----
 
   const handleRequestOtp = async () => {
     const validation = validatePhone(phone);
@@ -113,15 +152,18 @@ export const CitizenLoginScreen = ({ onBack }: CitizenLoginScreenProps) => {
     try {
       const normalizedPhone = normalizePhone(phone);
       const response = await authApi.requestOTP(normalizedPhone);
-      
+
       if (response.otp) {
         setDevOtp(response.otp);
       }
-      
+
+      animateTransition();
       setAuthStep('otp');
       setCountdown(300);
-      
-      showSuccess(`Verification code sent to ${phone}${response.otp ? ` (Dev OTP: ${response.otp})` : ''}`);
+
+      showSuccess(
+        `Verification code sent to ${phone}${response.otp ? ` (Dev OTP: ${response.otp})` : ''}`
+      );
     } catch (err: any) {
       const errorMsg = err.message || 'Failed to send OTP';
       setError(errorMsg);
@@ -144,7 +186,7 @@ export const CitizenLoginScreen = ({ onBack }: CitizenLoginScreenProps) => {
 
     try {
       const normalizedPhone = normalizePhone(phone);
-      
+
       let response;
       if (authMode === 'quick-otp') {
         response = await authApi.verifyOTP(normalizedPhone, otp);
@@ -153,17 +195,17 @@ export const CitizenLoginScreen = ({ onBack }: CitizenLoginScreenProps) => {
       }
 
       if (response) {
-        // Validate role BEFORE setting tokens to prevent navigation glitch
-        const roleValidation = validateRoleForRoute(response.role as UserRole, 'citizen');
-        
+        const roleValidation = validateRoleForRoute(
+          response.role as UserRole,
+          'citizen'
+        );
+
         if (!roleValidation.isValid) {
-          // Don't set tokens - show error immediately
           setError(roleValidation.error!);
           showError(roleValidation.error!);
           return;
         }
-        
-        // Role is valid - now set tokens and navigate
+
         await setTokens(response);
         showSuccess('Login successful! Welcome to CivicLens');
       }
@@ -184,12 +226,12 @@ export const CitizenLoginScreen = ({ onBack }: CitizenLoginScreenProps) => {
 
     if (!phoneValidation.isValid) {
       setError(phoneValidation.error!);
-      showError('Validation Error', phoneValidation.error!);
+      showError(phoneValidation.error!);
       return;
     }
     if (!nameValidation.isValid) {
       setError(nameValidation.error!);
-      showError('Validation Error', nameValidation.error!);
+      showError(nameValidation.error!);
       return;
     }
     if (!emailValidation.isValid) {
@@ -224,10 +266,13 @@ export const CitizenLoginScreen = ({ onBack }: CitizenLoginScreenProps) => {
         setDevOtp(response.otp);
       }
 
+      animateTransition();
       setAuthStep('otp');
       setCountdown(300);
-      
-      showSuccess(`Verification code sent${response.otp ? ` (Dev OTP: ${response.otp})` : ''}`);
+
+      showSuccess(
+        `Verification code sent${response.otp ? ` (Dev OTP: ${response.otp})` : ''}`
+      );
     } catch (err: any) {
       const errorMsg = err.message || 'Signup failed';
       setError(errorMsg);
@@ -258,18 +303,18 @@ export const CitizenLoginScreen = ({ onBack }: CitizenLoginScreenProps) => {
     try {
       const normalizedPhone = normalizePhone(phone);
       const response = await authApi.login(normalizedPhone, password, 'citizen');
-      
-      // Validate role BEFORE setting tokens to prevent navigation glitch
-      const roleValidation = validateRoleForRoute(response.role as UserRole, 'citizen');
-      
+
+      const roleValidation = validateRoleForRoute(
+        response.role as UserRole,
+        'citizen'
+      );
+
       if (!roleValidation.isValid) {
-        // Don't set tokens - show error immediately
         setError(roleValidation.error!);
         showError(roleValidation.error!);
         return;
       }
-      
-      // Role is valid - now set tokens and navigate
+
       await setTokens(response);
       showSuccess('Login successful! Welcome back');
     } catch (err: any) {
@@ -281,16 +326,83 @@ export const CitizenLoginScreen = ({ onBack }: CitizenLoginScreenProps) => {
     }
   };
 
+  // ---- Shared UI Elements ----
+
+  /**
+   * Consistent back button across all flow stages.
+   */
+  const renderBackButton = (onPress: () => void) => (
+    <TouchableOpacity
+      onPress={onPress}
+      style={styles.backButton}
+      activeOpacity={0.7}
+      accessibilityLabel="Go back"
+      accessibilityRole="button"
+    >
+      <Ionicons name="arrow-back" size={20} color={colors.text} />
+    </TouchableOpacity>
+  );
+
+  /**
+   * Compact gradient hero for form screens.
+   * Shows contextual icon + title/subtitle based on current authMode/authStep.
+   */
+  const renderCompactHero = () => {
+    let title = '';
+    let subtitle = '';
+    let iconName: keyof typeof Ionicons.glyphMap = 'flash';
+
+    if (authMode === 'quick-otp') {
+      iconName = 'flash';
+      title = 'Quick OTP Login';
+      if (authStep === 'phone') subtitle = 'Enter your mobile number to continue';
+      else if (authStep === 'otp') subtitle = 'Enter the verification code sent to your phone';
+    } else if (authMode === 'password-login') {
+      iconName = 'lock-closed';
+      title = 'Password Login';
+      subtitle = 'Sign in with your mobile number and password';
+    } else if (authMode === 'full-register') {
+      iconName = 'person-add';
+      title = 'Create Account';
+      if (authStep === 'register') subtitle = 'Fill in your details to get started';
+      else if (authStep === 'otp') subtitle = 'Verify your phone number to complete registration';
+    }
+
+    return (
+      <LinearGradient
+        colors={AUTH_GRADIENT}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.compactHeroCard}
+      >
+        <View style={styles.compactHeroContent}>
+          <View style={styles.compactLogoBadge}>
+            <Ionicons name={iconName} size={20} color={colors.white} />
+          </View>
+          <View style={styles.compactHeroTextBlock}>
+            <Text style={styles.compactHeroTitle}>{title}</Text>
+            <Text style={styles.compactHeroSubtitle}>{subtitle}</Text>
+          </View>
+        </View>
+      </LinearGradient>
+    );
+  };
+
+  // ---- SELECT SCREEN ----
+
   if (authMode === 'select') {
     return (
       <SafeAreaView style={styles.container}>
-        <View style={styles.selectWrapper}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.heroBackButton}>
-            <Ionicons name="arrow-back" size={22} color={colors.white} />
-          </TouchableOpacity>
+        <ScrollView
+          style={styles.scrollViewFull}
+          contentContainerStyle={styles.selectScrollContent}
+          showsVerticalScrollIndicator={false}
+          bounces={false}
+        >
+          {renderBackButton(() => navigation.goBack())}
 
           <LinearGradient
-            colors={[colors.primary, colors.primaryDark]}
+            colors={AUTH_GRADIENT}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={styles.heroCard}
@@ -301,7 +413,9 @@ export const CitizenLoginScreen = ({ onBack }: CitizenLoginScreenProps) => {
               </View>
               <View style={styles.heroTextBlock}>
                 <Text style={styles.heroTitle}>Welcome to CivicLens</Text>
-                <Text style={styles.heroSubtitle}>Choose how you'd like to continue</Text>
+                <Text style={styles.heroSubtitle}>
+                  Choose how you'd like to continue
+                </Text>
               </View>
             </View>
           </LinearGradient>
@@ -309,9 +423,13 @@ export const CitizenLoginScreen = ({ onBack }: CitizenLoginScreenProps) => {
           <View style={styles.infoBanner}>
             <Text style={styles.infoTitle}>Why citizens prefer CivicLens</Text>
             <View style={styles.infoRow}>
-              {infoPoints.map(point => (
+              {INFO_POINTS.map(point => (
                 <View key={point.title} style={styles.infoPoint}>
-                  <Ionicons name={point.icon as any} size={16} color={colors.primaryDark} />
+                  <Ionicons
+                    name={point.icon as any}
+                    size={14}
+                    color="#0D47A1"
+                  />
                   <Text style={styles.infoPointText}>{point.title}</Text>
                 </View>
               ))}
@@ -319,128 +437,87 @@ export const CitizenLoginScreen = ({ onBack }: CitizenLoginScreenProps) => {
           </View>
 
           <View style={styles.optionList}>
-            <TouchableOpacity
-              style={styles.optionCard}
-              onPress={() => {
-                setAuthMode('quick-otp');
-                setAuthStep('phone');
-              }}
-              activeOpacity={0.85}
-            >
-              <View style={styles.optionIconCircle}>
-                <Ionicons name="flash" size={22} color={colors.primaryDark} />
-              </View>
-              <View style={styles.optionContent}>
-                <Text style={styles.optionTitle}>Quick Login with OTP</Text>
-                <Text style={styles.optionDescription}>Instant access with phone verification</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.optionCard}
-              onPress={() => {
-                setAuthMode('password-login');
-                setAuthStep('password');
-              }}
-              activeOpacity={0.85}
-            >
-              <View style={styles.optionIconCircle}>
-                <Ionicons name="lock-closed" size={22} color={colors.primaryDark} />
-              </View>
-              <View style={styles.optionContent}>
-                <Text style={styles.optionTitle}>Login with Password</Text>
-                <Text style={styles.optionDescription}>Sign in to your existing account</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.optionCard}
-              onPress={() => {
-                setAuthMode('full-register');
-                setAuthStep('register');
-              }}
-              activeOpacity={0.85}
-            >
-              <View style={styles.optionIconCircle}>
-                <Ionicons name="person-add" size={22} color={colors.primaryDark} />
-              </View>
-              <View style={styles.optionContent}>
-                <Text style={styles.optionTitle}>Create New Account</Text>
-                <Text style={styles.optionDescription}>Unlock all features with full profile</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={18} color={colors.textSecondary} />
-            </TouchableOpacity>
+            {OPTION_CARDS.map(option => (
+              <TouchableOpacity
+                key={option.mode}
+                style={styles.optionCard}
+                onPress={() => {
+                  animateTransition();
+                  setAuthMode(option.mode as AuthMode);
+                  setAuthStep(option.step as AuthStep);
+                  setError('');
+                }}
+                activeOpacity={0.7}
+              >
+                <View
+                  style={[
+                    styles.optionIconCircle,
+                    { backgroundColor: option.iconBg },
+                  ]}
+                >
+                  <Ionicons
+                    name={option.icon as any}
+                    size={20}
+                    color={option.iconColor}
+                  />
+                </View>
+                <View style={styles.optionContent}>
+                  <Text style={styles.optionTitle}>{option.title}</Text>
+                  <Text style={styles.optionDescription}>
+                    {option.description}
+                  </Text>
+                </View>
+                <Ionicons
+                  name="chevron-forward"
+                  size={18}
+                  color={colors.textTertiary}
+                />
+              </TouchableOpacity>
+            ))}
           </View>
-        </View>
-        <Toast {...toast} onHide={() => {}} />
+        </ScrollView>
+        <Toast {...toast} onHide={() => { }} />
       </SafeAreaView>
     );
   }
 
+  // ---- FORM SCREENS (OTP, Password, Register) ----
+
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.wrapper}>
-        {/* Back Button */}
-        <TouchableOpacity
-          onPress={handleBack}
-          style={styles.backButton}
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.keyboardView}
+      >
+        <ScrollView
+          style={styles.scrollViewFull}
+          contentContainerStyle={styles.formScrollContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+          bounces={false}
         >
-          <Ionicons name="arrow-back" size={22} color={colors.text} />
-        </TouchableOpacity>
+          {renderBackButton(handleBack)}
+          {renderCompactHero()}
 
-        {/* Hero Card */}
-        <LinearGradient
-          colors={[colors.primary, colors.primaryDark]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.heroCard}
-        >
-          <View style={styles.heroContent}>
-            <View style={styles.logoBadge}>
-              <Text style={styles.logoBadgeText}>CL</Text>
-            </View>
-            <View style={styles.heroTextBlock}>
-              <Text style={styles.heroTitle}>
-                {authMode === 'quick-otp' && 'Quick OTP Login'}
-                {authMode === 'password-login' && 'Password Login'}
-                {authMode === 'full-register' && 'Create Account'}
-              </Text>
-              <Text style={styles.heroSubtitle}>
-                {authMode === 'quick-otp' && authStep === 'phone' && 'Enter your mobile number to continue'}
-                {authMode === 'quick-otp' && authStep === 'otp' && 'Enter the verification code sent to your phone'}
-                {authMode === 'password-login' && 'Sign in with your mobile number and password'}
-                {authMode === 'full-register' && authStep === 'register' && 'Fill in your details to get started'}
-                {authMode === 'full-register' && authStep === 'otp' && 'Verify your phone number to complete registration'}
-              </Text>
-            </View>
-          </View>
-        </LinearGradient>
-
-        {/* Form Card */}
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.keyboardView}
-        >
-          <ScrollView
-            contentContainerStyle={styles.scrollContent}
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}
-          >
-            <View style={styles.formCard}>
+          {/* Form Card */}
+          <View style={styles.formCard}>
             {/* Quick OTP - Phone Input */}
             {authMode === 'quick-otp' && authStep === 'phone' && (
               <>
                 <Text style={styles.label}>Mobile Number</Text>
                 <View style={styles.inputContainer}>
                   <View style={styles.iconCircle}>
-                    <Ionicons name="call-outline" size={16} color={colors.primaryDark} />
+                    <Ionicons
+                      name="call-outline"
+                      size={15}
+                      color="#0D47A1"
+                    />
                   </View>
                   <Text style={styles.countryCode}>+91</Text>
                   <TextInput
                     style={styles.input}
                     placeholder="10-digit number"
+                    placeholderTextColor={colors.textTertiary}
                     keyboardType="phone-pad"
                     maxLength={10}
                     value={phone}
@@ -452,37 +529,49 @@ export const CitizenLoginScreen = ({ onBack }: CitizenLoginScreenProps) => {
                   />
                 </View>
 
-                {error && <Text style={styles.errorText}>{error}</Text>}
+                {error ? (
+                  <Text style={styles.errorText}>{error}</Text>
+                ) : null}
 
                 <TouchableOpacity
                   style={[styles.button, isLoading && styles.buttonDisabled]}
                   onPress={handleRequestOtp}
                   disabled={isLoading}
+                  activeOpacity={0.8}
                 >
                   {isLoading ? (
                     <ActivityIndicator color={colors.white} />
                   ) : (
                     <>
-                      <Ionicons name="send-outline" size={18} color={colors.white} style={{ marginRight: 8 }} />
+                      <Ionicons
+                        name="send-outline"
+                        size={17}
+                        color={colors.white}
+                        style={styles.buttonIcon}
+                      />
                       <Text style={styles.buttonText}>Send OTP</Text>
-                      <Text style={styles.buttonArrow}>→</Text>
                     </>
                   )}
                 </TouchableOpacity>
               </>
             )}
 
-            {/* OTP Input */}
+            {/* OTP Verification */}
             {authStep === 'otp' && (
               <>
                 <Text style={styles.label}>Enter OTP</Text>
                 <View style={styles.inputContainer}>
                   <View style={styles.iconCircle}>
-                    <Ionicons name="shield-checkmark-outline" size={16} color={colors.primaryDark} />
+                    <Ionicons
+                      name="shield-checkmark-outline"
+                      size={15}
+                      color="#0D47A1"
+                    />
                   </View>
                   <TextInput
                     style={styles.input}
                     placeholder="6-digit OTP"
+                    placeholderTextColor={colors.textTertiary}
                     keyboardType="number-pad"
                     maxLength={6}
                     value={otp}
@@ -494,7 +583,9 @@ export const CitizenLoginScreen = ({ onBack }: CitizenLoginScreenProps) => {
                   />
                 </View>
 
-                {error && <Text style={styles.errorText}>{error}</Text>}
+                {error ? (
+                  <Text style={styles.errorText}>{error}</Text>
+                ) : null}
 
                 {devOtp && __DEV__ && (
                   <View style={styles.devOtpContainer}>
@@ -502,9 +593,25 @@ export const CitizenLoginScreen = ({ onBack }: CitizenLoginScreenProps) => {
                   </View>
                 )}
 
-                <Text style={styles.timerText}>
-                  {countdown > 0 ? `Resend OTP in ${Math.floor(countdown / 60)}:${(countdown % 60).toString().padStart(2, '0')}` : 'OTP expired'}
-                </Text>
+                <View style={styles.timerRow}>
+                  <Ionicons
+                    name="time-outline"
+                    size={14}
+                    color={
+                      countdown > 0 ? colors.textSecondary : colors.error
+                    }
+                  />
+                  <Text
+                    style={[
+                      styles.timerText,
+                      countdown === 0 && styles.timerExpired,
+                    ]}
+                  >
+                    {countdown > 0
+                      ? `Resend in ${Math.floor(countdown / 60)}:${(countdown % 60).toString().padStart(2, '0')}`
+                      : 'OTP expired'}
+                  </Text>
+                </View>
 
                 {countdown === 0 && (
                   <TouchableOpacity
@@ -513,7 +620,13 @@ export const CitizenLoginScreen = ({ onBack }: CitizenLoginScreenProps) => {
                       setCountdown(300);
                       handleRequestOtp();
                     }}
+                    activeOpacity={0.7}
                   >
+                    <Ionicons
+                      name="refresh-outline"
+                      size={16}
+                      color="#0D47A1"
+                    />
                     <Text style={styles.resendText}>Resend OTP</Text>
                   </TouchableOpacity>
                 )}
@@ -522,14 +635,19 @@ export const CitizenLoginScreen = ({ onBack }: CitizenLoginScreenProps) => {
                   style={[styles.button, isLoading && styles.buttonDisabled]}
                   onPress={handleVerifyOtp}
                   disabled={isLoading}
+                  activeOpacity={0.8}
                 >
                   {isLoading ? (
                     <ActivityIndicator color={colors.white} />
                   ) : (
                     <>
-                      <Ionicons name="checkmark-circle-outline" size={18} color={colors.white} style={{ marginRight: 8 }} />
+                      <Ionicons
+                        name="checkmark-circle-outline"
+                        size={17}
+                        color={colors.white}
+                        style={styles.buttonIcon}
+                      />
                       <Text style={styles.buttonText}>Verify OTP</Text>
-                      <Text style={styles.buttonArrow}>→</Text>
                     </>
                   )}
                 </TouchableOpacity>
@@ -542,12 +660,17 @@ export const CitizenLoginScreen = ({ onBack }: CitizenLoginScreenProps) => {
                 <Text style={styles.label}>Mobile Number</Text>
                 <View style={styles.inputContainer}>
                   <View style={styles.iconCircle}>
-                    <Ionicons name="call-outline" size={16} color={colors.primaryDark} />
+                    <Ionicons
+                      name="call-outline"
+                      size={15}
+                      color="#0D47A1"
+                    />
                   </View>
                   <Text style={styles.countryCode}>+91</Text>
                   <TextInput
                     style={styles.input}
                     placeholder="10-digit number"
+                    placeholderTextColor={colors.textTertiary}
                     keyboardType="phone-pad"
                     maxLength={10}
                     value={phone}
@@ -562,11 +685,16 @@ export const CitizenLoginScreen = ({ onBack }: CitizenLoginScreenProps) => {
                 <Text style={styles.label}>Password</Text>
                 <View style={styles.inputContainer}>
                   <View style={styles.iconCircle}>
-                    <Ionicons name="lock-closed-outline" size={16} color={colors.primaryDark} />
+                    <Ionicons
+                      name="lock-closed-outline"
+                      size={15}
+                      color="#0D47A1"
+                    />
                   </View>
                   <TextInput
                     style={styles.input}
                     placeholder="Enter password"
+                    placeholderTextColor={colors.textTertiary}
                     secureTextEntry={!showPassword}
                     value={password}
                     onChangeText={text => {
@@ -575,29 +703,41 @@ export const CitizenLoginScreen = ({ onBack }: CitizenLoginScreenProps) => {
                     }}
                     editable={!isLoading}
                   />
-                  <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+                  <TouchableOpacity
+                    onPress={() => setShowPassword(!showPassword)}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  >
                     <Ionicons
-                      name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                      name={
+                        showPassword ? 'eye-off-outline' : 'eye-outline'
+                      }
                       size={20}
                       color={colors.textSecondary}
                     />
                   </TouchableOpacity>
                 </View>
 
-                {error && <Text style={styles.errorText}>{error}</Text>}
+                {error ? (
+                  <Text style={styles.errorText}>{error}</Text>
+                ) : null}
 
                 <TouchableOpacity
                   style={[styles.button, isLoading && styles.buttonDisabled]}
                   onPress={handlePasswordLogin}
                   disabled={isLoading}
+                  activeOpacity={0.8}
                 >
                   {isLoading ? (
                     <ActivityIndicator color={colors.white} />
                   ) : (
                     <>
-                      <Ionicons name="log-in-outline" size={18} color={colors.white} style={{ marginRight: 8 }} />
+                      <Ionicons
+                        name="log-in-outline"
+                        size={17}
+                        color={colors.white}
+                        style={styles.buttonIcon}
+                      />
                       <Text style={styles.buttonText}>Login</Text>
-                      <Text style={styles.buttonArrow}>→</Text>
                     </>
                   )}
                 </TouchableOpacity>
@@ -610,12 +750,17 @@ export const CitizenLoginScreen = ({ onBack }: CitizenLoginScreenProps) => {
                 <Text style={styles.label}>Mobile Number</Text>
                 <View style={styles.inputContainer}>
                   <View style={styles.iconCircle}>
-                    <Ionicons name="call-outline" size={16} color={colors.primaryDark} />
+                    <Ionicons
+                      name="call-outline"
+                      size={15}
+                      color="#0D47A1"
+                    />
                   </View>
                   <Text style={styles.countryCode}>+91</Text>
                   <TextInput
                     style={styles.input}
                     placeholder="10-digit number"
+                    placeholderTextColor={colors.textTertiary}
                     keyboardType="phone-pad"
                     maxLength={10}
                     value={phone}
@@ -630,11 +775,16 @@ export const CitizenLoginScreen = ({ onBack }: CitizenLoginScreenProps) => {
                 <Text style={styles.label}>Full Name</Text>
                 <View style={styles.inputContainer}>
                   <View style={styles.iconCircle}>
-                    <Ionicons name="person-outline" size={16} color={colors.primaryDark} />
+                    <Ionicons
+                      name="person-outline"
+                      size={15}
+                      color="#0D47A1"
+                    />
                   </View>
                   <TextInput
                     style={styles.input}
                     placeholder="Enter your name"
+                    placeholderTextColor={colors.textTertiary}
                     value={name}
                     onChangeText={text => {
                       setName(text);
@@ -647,11 +797,16 @@ export const CitizenLoginScreen = ({ onBack }: CitizenLoginScreenProps) => {
                 <Text style={styles.label}>Email (Optional)</Text>
                 <View style={styles.inputContainer}>
                   <View style={styles.iconCircle}>
-                    <Ionicons name="mail-outline" size={16} color={colors.primaryDark} />
+                    <Ionicons
+                      name="mail-outline"
+                      size={15}
+                      color="#0D47A1"
+                    />
                   </View>
                   <TextInput
                     style={styles.input}
                     placeholder="your@email.com"
+                    placeholderTextColor={colors.textTertiary}
                     keyboardType="email-address"
                     autoCapitalize="none"
                     value={email}
@@ -666,11 +821,16 @@ export const CitizenLoginScreen = ({ onBack }: CitizenLoginScreenProps) => {
                 <Text style={styles.label}>Password</Text>
                 <View style={styles.inputContainer}>
                   <View style={styles.iconCircle}>
-                    <Ionicons name="lock-closed-outline" size={16} color={colors.primaryDark} />
+                    <Ionicons
+                      name="lock-closed-outline"
+                      size={15}
+                      color="#0D47A1"
+                    />
                   </View>
                   <TextInput
                     style={styles.input}
                     placeholder="Min 8 chars, 1 uppercase, 1 digit"
+                    placeholderTextColor={colors.textTertiary}
                     secureTextEntry={!showPassword}
                     value={password}
                     onChangeText={text => {
@@ -679,9 +839,14 @@ export const CitizenLoginScreen = ({ onBack }: CitizenLoginScreenProps) => {
                     }}
                     editable={!isLoading}
                   />
-                  <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+                  <TouchableOpacity
+                    onPress={() => setShowPassword(!showPassword)}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  >
                     <Ionicons
-                      name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                      name={
+                        showPassword ? 'eye-off-outline' : 'eye-outline'
+                      }
                       size={20}
                       color={colors.textSecondary}
                     />
@@ -691,11 +856,16 @@ export const CitizenLoginScreen = ({ onBack }: CitizenLoginScreenProps) => {
                 <Text style={styles.label}>Confirm Password</Text>
                 <View style={styles.inputContainer}>
                   <View style={styles.iconCircle}>
-                    <Ionicons name="lock-closed-outline" size={16} color={colors.primaryDark} />
+                    <Ionicons
+                      name="lock-closed-outline"
+                      size={15}
+                      color="#0D47A1"
+                    />
                   </View>
                   <TextInput
                     style={styles.input}
                     placeholder="Re-enter your password"
+                    placeholderTextColor={colors.textTertiary}
                     secureTextEntry={!showConfirmPassword}
                     value={confirmPassword}
                     onChangeText={text => {
@@ -704,89 +874,167 @@ export const CitizenLoginScreen = ({ onBack }: CitizenLoginScreenProps) => {
                     }}
                     editable={!isLoading}
                   />
-                  <TouchableOpacity onPress={() => setShowConfirmPassword(!showConfirmPassword)}>
+                  <TouchableOpacity
+                    onPress={() =>
+                      setShowConfirmPassword(!showConfirmPassword)
+                    }
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  >
                     <Ionicons
-                      name={showConfirmPassword ? 'eye-off-outline' : 'eye-outline'}
+                      name={
+                        showConfirmPassword
+                          ? 'eye-off-outline'
+                          : 'eye-outline'
+                      }
                       size={20}
                       color={colors.textSecondary}
                     />
                   </TouchableOpacity>
                 </View>
 
-                {error && <Text style={styles.errorText}>{error}</Text>}
+                {error ? (
+                  <Text style={styles.errorText}>{error}</Text>
+                ) : null}
 
                 <TouchableOpacity
                   style={[styles.button, isLoading && styles.buttonDisabled]}
                   onPress={handleSignup}
                   disabled={isLoading}
+                  activeOpacity={0.8}
                 >
                   {isLoading ? (
                     <ActivityIndicator color={colors.white} />
                   ) : (
                     <>
-                      <Ionicons name="person-add-outline" size={18} color={colors.white} style={{ marginRight: 8 }} />
+                      <Ionicons
+                        name="person-add-outline"
+                        size={17}
+                        color={colors.white}
+                        style={styles.buttonIcon}
+                      />
                       <Text style={styles.buttonText}>Create Account</Text>
-                      <Text style={styles.buttonArrow}>→</Text>
                     </>
                   )}
                 </TouchableOpacity>
               </>
             )}
-            </View>
-          </ScrollView>
-        </KeyboardAvoidingView>
-      </View>
-      <Toast {...toast} onHide={() => {}} />
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+      <Toast {...toast} onHide={() => { }} />
     </SafeAreaView>
   );
 };
 
-const infoPoints = [
+// ---- Static Data ----
+
+const INFO_POINTS = [
   { title: 'Offline-first reporting', icon: 'cloud-download-outline' },
   { title: 'Secure OTP in seconds', icon: 'shield-checkmark-outline' },
   { title: 'Track resolutions live', icon: 'pulse-outline' },
 ];
 
+const OPTION_CARDS = [
+  {
+    mode: 'quick-otp',
+    step: 'phone',
+    icon: 'flash',
+    iconBg: 'rgba(13,71,161,0.08)',
+    iconColor: '#0D47A1',
+    title: 'Quick Login with OTP',
+    description: 'Instant access with phone verification',
+  },
+  {
+    mode: 'password-login',
+    step: 'password',
+    icon: 'lock-closed',
+    iconBg: 'rgba(13,71,161,0.06)',
+    iconColor: '#0D47A1',
+    title: 'Login with Password',
+    description: 'Sign in to your existing account',
+  },
+  {
+    mode: 'full-register',
+    step: 'register',
+    icon: 'person-add',
+    iconBg: 'rgba(5,150,105,0.08)',
+    iconColor: colors.secondaryDark,
+    title: 'Create New Account',
+    description: 'Unlock all features with full profile',
+  },
+];
+
+// ---- Styles ----
+
 const styles = StyleSheet.create({
+  // Layout
   container: {
     flex: 1,
     backgroundColor: colors.backgroundSecondary,
   },
-  wrapper: {
+  scrollViewFull: {
     flex: 1,
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 32,
-    gap: 24,
   },
-  selectWrapper: {
-    flex: 1,
+  selectScrollContent: {
     paddingHorizontal: 20,
     paddingTop: 16,
-    paddingBottom: 24,
-    gap: 20,
+    paddingBottom: 32,
   },
-  heroBackButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(15,23,42,0.15)',
+  formScrollContent: {
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 40,
+  },
+  keyboardView: {
+    flex: 1,
+  },
+
+  // Back Button
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: colors.surface,
     justifyContent: 'center',
     alignItems: 'center',
-    alignSelf: 'flex-start',
+    marginBottom: 16,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 2,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
+  },
+
+  // Select Screen Hero
+  heroCard: {
+    borderRadius: 18,
+    paddingVertical: 20,
+    paddingHorizontal: 20,
+    marginBottom: 16,
+    shadowColor: '#0D47A1',
+    shadowOpacity: 0.14,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 8,
+  },
+  heroContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   logoBadge: {
-    width: 60,
-    height: 60,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.18)',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 18,
+    marginRight: 14,
   },
   logoBadgeText: {
     color: colors.white,
-    fontSize: 24,
+    fontSize: 18,
     fontWeight: '700',
     letterSpacing: 1,
   },
@@ -795,28 +1043,73 @@ const styles = StyleSheet.create({
   },
   heroTitle: {
     color: colors.white,
-    fontSize: 26,
+    fontSize: 22,
     fontWeight: '700',
   },
   heroSubtitle: {
     color: 'rgba(255,255,255,0.85)',
-    fontSize: 14,
-    marginTop: 6,
+    fontSize: 13,
+    marginTop: 4,
+    lineHeight: 18,
   },
-  infoBanner: {
-    marginTop: 16,
-    backgroundColor: colors.background,
-    borderRadius: 18,
+
+  // Compact Hero (form screens)
+  compactHeroCard: {
+    borderRadius: 16,
     paddingVertical: 16,
     paddingHorizontal: 18,
-    shadowColor: '#0F172A',
-    shadowOpacity: 0.08,
-    shadowRadius: 10,
+    marginBottom: 16,
+    shadowColor: '#0D47A1',
+    shadowOpacity: 0.10,
+    shadowRadius: 12,
     shadowOffset: { width: 0, height: 6 },
-    elevation: 3,
+    elevation: 6,
+  },
+  compactHeroContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  compactLogoBadge: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  compactHeroTextBlock: {
+    flex: 1,
+  },
+  compactHeroTitle: {
+    color: colors.white,
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  compactHeroSubtitle: {
+    color: 'rgba(255,255,255,0.80)',
+    fontSize: 12,
+    marginTop: 2,
+    lineHeight: 17,
+  },
+
+  // Info Banner
+  infoBanner: {
+    backgroundColor: colors.surface,
+    borderRadius: 14,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    marginBottom: 16,
+    shadowColor: '#0F172A',
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 2,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
   },
   infoTitle: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
     color: colors.text,
     marginBottom: 10,
@@ -824,225 +1117,200 @@ const styles = StyleSheet.create({
   infoRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 10,
+    gap: 8,
   },
   infoPoint: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    paddingVertical: 6,
+    gap: 5,
+    paddingVertical: 5,
     paddingHorizontal: 10,
-    borderRadius: 14,
+    borderRadius: 8,
     backgroundColor: colors.backgroundSecondary,
   },
   infoPointText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
-    color: colors.text,
+    color: colors.textSecondary,
   },
+
+  // Option Cards (select screen)
   optionList: {
-    marginTop: 20,
-    gap: 14,
-  },
-  gradient: {
-    flex: 1,
-    paddingHorizontal: 24,
-  },
-  keyboardView: {
-    flex: 1,
-    marginTop: 8,
-  },
-  scrollContent: {
-    flexGrow: 1,
-  },
-  backButton: {
-    marginBottom: 20,
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: colors.background,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  heroCard: {
-    borderRadius: 24,
-    padding: 28,
-    marginBottom: 20,
-    shadowColor: '#0F172A',
-    shadowOpacity: 0.16,
-    shadowRadius: 20,
-    shadowOffset: { width: 0, height: 12 },
-    elevation: 10,
-  },
-  heroContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  optionsContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    paddingVertical: 20,
+    gap: 10,
   },
   optionCard: {
-    backgroundColor: colors.background,
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 16,
+    backgroundColor: colors.surface,
+    borderRadius: 14,
+    paddingVertical: 16,
+    paddingHorizontal: 16,
     flexDirection: 'row',
     alignItems: 'center',
     shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 3,
-  },
-  optionIconContainer: {
-    marginRight: 16,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
   },
   optionIconCircle: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#EFF6FF',
+    width: 42,
+    height: 42,
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
+    marginRight: 14,
   },
   optionContent: {
     flex: 1,
   },
   optionTitle: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '600',
     color: colors.text,
-    marginBottom: 4,
+    marginBottom: 2,
   },
   optionDescription: {
-    fontSize: 13,
+    fontSize: 12,
     color: colors.textSecondary,
-    lineHeight: 18,
+    lineHeight: 16,
   },
+
+  // Form Card
   formCard: {
-    backgroundColor: colors.background,
-    borderRadius: 20,
-    padding: 28,
-    marginTop: 4,
+    backgroundColor: colors.surface,
+    borderRadius: 16,
+    paddingVertical: 20,
+    paddingHorizontal: 20,
     shadowColor: '#0F172A',
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 4,
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 3,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
   },
   label: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
-    color: colors.text,
-    marginBottom: 10,
-    marginTop: 20,
+    color: colors.textSecondary,
+    marginBottom: 8,
+    marginTop: 14,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 14,
-    paddingHorizontal: 18,
-    height: 58,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    height: 50,
     backgroundColor: colors.backgroundTertiary,
-    marginBottom: 4,
   },
   iconCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: 'rgba(33,150,243,0.12)',
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    backgroundColor: 'rgba(13,71,161,0.08)',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    marginRight: 10,
   },
   countryCode: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '500',
     color: colors.textSecondary,
-    marginRight: 8,
+    marginRight: 6,
   },
   input: {
     flex: 1,
-    fontSize: 16,
+    fontSize: 15,
     color: colors.text,
+    paddingVertical: 0,
   },
   errorText: {
     color: colors.error,
-    fontSize: 13,
-    marginTop: 8,
-    marginBottom: 4,
+    fontSize: 12,
+    marginTop: 6,
     fontWeight: '500',
   },
+
+  // Action Button
   button: {
-    backgroundColor: colors.primaryDark,
-    height: 58,
-    borderRadius: 14,
+    backgroundColor: '#0D47A1',
+    height: 50,
+    borderRadius: 12,
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 28,
-    shadowColor: colors.primaryDark,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
+    marginTop: 22,
+    shadowColor: '#0D47A1',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
     elevation: 4,
   },
   buttonDisabled: {
     backgroundColor: colors.primaryLight,
     opacity: 0.7,
+    shadowOpacity: 0,
+    elevation: 0,
   },
   buttonText: {
     color: colors.white,
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: '600',
-    marginRight: 8,
     letterSpacing: 0.3,
   },
-  buttonArrow: {
-    color: colors.white,
-    fontSize: 22,
+  buttonIcon: {
+    marginRight: 8,
   },
+
+  // OTP specific
   devOtpContainer: {
-    backgroundColor: 'rgba(255,193,7,0.15)',
-    padding: 18,
-    borderRadius: 14,
-    marginTop: 16,
-    marginBottom: 8,
+    backgroundColor: 'rgba(255,193,7,0.12)',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    marginTop: 12,
     borderWidth: 1,
-    borderColor: colors.warning,
+    borderColor: 'rgba(255,193,7,0.30)',
   },
   devOtpText: {
-    fontSize: 15,
-    color: colors.warningText,
+    fontSize: 14,
+    color: '#92400E',
     fontWeight: '600',
     textAlign: 'center',
     letterSpacing: 2,
   },
+  timerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: 14,
+  },
   timerText: {
-    fontSize: 14,
+    fontSize: 13,
     color: colors.textSecondary,
-    textAlign: 'center',
-    marginTop: 12,
-    marginBottom: 8,
     fontWeight: '500',
   },
+  timerExpired: {
+    color: colors.error,
+  },
   resendButton: {
-    marginTop: 20,
+    flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 14,
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: 12,
+    paddingVertical: 10,
   },
   resendText: {
-    fontSize: 16,
-    color: colors.primaryDark,
+    fontSize: 14,
+    color: '#0D47A1',
     fontWeight: '600',
   },
 });

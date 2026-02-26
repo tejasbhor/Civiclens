@@ -15,6 +15,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { apiClient } from '@shared/services/api/apiClient';
 import { TopNavbar } from '@shared/components';
 import { styles } from '@features/officer/styles/submitVerificationStyles';
+import { ENV } from '@shared/config/env';
 
 type RootStackParamList = {
   SubmitVerification: { reportId: number; reportNumber: string; title: string };
@@ -45,17 +46,17 @@ interface MediaItem {
 export default function SubmitVerificationScreen() {
   const route = useRoute<SubmitVerificationRouteProp>();
   const navigation = useNavigation();
-  
+
   const { reportId, reportNumber, title } = route.params;
 
   // State
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  
+
   const [task, setTask] = useState<any>(null);
   const [citizenPhotos, setCitizenPhotos] = useState<MediaItem[]>([]);
   const [beforePhotos, setBeforePhotos] = useState<MediaItem[]>([]);
-  
+
   const [afterPhotos, setAfterPhotos] = useState<PhotoPreview[]>([]);
   const [completionNotes, setCompletionNotes] = useState('');
   const [workDuration, setWorkDuration] = useState('');
@@ -83,10 +84,10 @@ export default function SubmitVerificationScreen() {
       const mediaResponse: any = await apiClient.get(`/media/report/${reportId}`);
       const mediaList = Array.isArray(mediaResponse.data) ? mediaResponse.data : [];
 
-      const citizen = mediaList.filter((m: MediaItem) => 
+      const citizen = mediaList.filter((m: MediaItem) =>
         !m.upload_source || m.upload_source === 'citizen_submission'
       );
-      const before = mediaList.filter((m: MediaItem) => 
+      const before = mediaList.filter((m: MediaItem) =>
         m.upload_source === 'officer_before_photo'
       );
 
@@ -103,15 +104,14 @@ export default function SubmitVerificationScreen() {
   const getMediaUrl = (url: string) => {
     if (!url) return '';
     if (url.startsWith('http')) return url;
-    const API_BASE = process.env.EXPO_PUBLIC_API_BASE_URL || 'http://localhost:8000/api/v1';
-    const baseUrl = API_BASE.replace('/api/v1', '');
+    const baseUrl = ENV.API_BASE_URL.replace('/api/v1', '');
     return `${baseUrl}${url}`;
   };
 
   const requestPermissions = async () => {
     const { status: cameraStatus } = await ImagePicker.requestCameraPermissionsAsync();
     const { status: libraryStatus } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    
+
     if (cameraStatus !== 'granted' || libraryStatus !== 'granted') {
       Alert.alert(
         'Permissions Required',
@@ -257,7 +257,7 @@ export default function SubmitVerificationScreen() {
 
       for (let i = 0; i < afterPhotos.length; i++) {
         const photo = afterPhotos[i];
-        
+
         try {
           const formData = new FormData();
           formData.append('file', {
@@ -272,7 +272,7 @@ export default function SubmitVerificationScreen() {
           await apiClient.post(`/media/upload/${reportId}`, formData, {
             headers: { 'Content-Type': 'multipart/form-data' },
           });
-          
+
           successCount++;
           console.log(`✅ Uploaded photo ${i + 1}/${afterPhotos.length}`);
         } catch (uploadError: any) {
@@ -288,7 +288,7 @@ export default function SubmitVerificationScreen() {
         Alert.alert(
           'Partial Upload',
           `${successCount} photo(s) uploaded, ${failedCount} failed:\n${failedErrors.join('\n')}`,
-          [{ text: 'Continue Anyway', onPress: () => {} }]
+          [{ text: 'Continue Anyway', onPress: () => { } }]
         );
       } else if (successCount === 0 && failedCount > 0) {
         throw new Error(`Failed to upload all photos:\n${failedErrors.join('\n')}`);
@@ -331,7 +331,7 @@ export default function SubmitVerificationScreen() {
   return (
     <View style={styles.container}>
       <TopNavbar title="Submit for Verification" showBack />
-      <ScrollView 
+      <ScrollView
         style={{ flex: 1 }}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
@@ -397,7 +397,7 @@ export default function SubmitVerificationScreen() {
           <Text style={styles.sectionDescription}>
             Upload 1-5 photos showing the completed work. These will serve as proof of work.
           </Text>
-          
+
           {afterPhotos.length > 0 ? (
             <View style={styles.photosGrid}>
               {afterPhotos.map((photo) => (

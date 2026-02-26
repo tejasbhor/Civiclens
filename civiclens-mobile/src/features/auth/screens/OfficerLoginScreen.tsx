@@ -15,7 +15,6 @@ import { useNavigation } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
 import { authApi } from '@shared/services/api/authApi';
 import { useAuthStore } from '@/store/authStore';
 import {
@@ -27,12 +26,9 @@ import { validatePhone, normalizePhone } from '@shared/utils/validation';
 import { colors } from '@shared/theme/colors';
 import { useToast } from '@shared/hooks';
 import { Toast } from '@shared/components';
+import { AUTH_GRADIENT } from './RoleSelectionScreen';
 
-interface OfficerLoginScreenProps {
-  onBack?: () => void;
-}
-
-export const OfficerLoginScreen: React.FC<OfficerLoginScreenProps> = ({ onBack }) => {
+export const OfficerLoginScreen: React.FC = () => {
   const navigation = useNavigation();
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
@@ -57,15 +53,15 @@ export const OfficerLoginScreen: React.FC<OfficerLoginScreenProps> = ({ onBack }
     return () => backHandler.remove();
   }, [navigation]);
 
-  const validatePasswordInternal = (password: string): { valid: boolean; error?: string } => {
-    if (!password || password.trim().length === 0) {
+  const validatePasswordInternal = (pwd: string): { valid: boolean; error?: string } => {
+    if (!pwd || pwd.trim().length === 0) {
       return { valid: false, error: 'Password is required' };
     }
-    
-    if (password.length < 8) {
+
+    if (pwd.length < 8) {
       return { valid: false, error: 'Password must be at least 8 characters' };
     }
-    
+
     return { valid: true };
   };
 
@@ -111,33 +107,32 @@ export const OfficerLoginScreen: React.FC<OfficerLoginScreenProps> = ({ onBack }
 
     try {
       setIsLoading(true);
-      
+
       const response = await authApi.login(normalizedPhone, password, 'officer');
-      
+
       // Validate role BEFORE setting tokens to prevent navigation glitch
       const roleValidation = validateRoleForRoute(response.role as UserRole, 'officer');
-      
+
       if (!roleValidation.isValid) {
-        // Don't set tokens - show error immediately
         setPasswordError(roleValidation.error!);
         showError(roleValidation.error!);
         return;
       }
-      
-      // Role is valid - now set tokens and navigate
+
+      // Role is valid - set tokens and navigate
       await setTokens(response);
       showSuccess(`Welcome ${getRoleName(response.role as UserRole)}!`);
     } catch (error: any) {
       let errorMessage = 'Invalid credentials. Please verify your phone number and password and try again.';
-      
+
       if (error.message) {
         errorMessage = error.message;
       }
-      
+
       if (error.message?.includes('Invalid phone number or password')) {
         setPasswordError(errorMessage);
       }
-      
+
       showError(errorMessage);
     } finally {
       setIsLoading(false);
@@ -146,143 +141,154 @@ export const OfficerLoginScreen: React.FC<OfficerLoginScreenProps> = ({ onBack }
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.wrapper}>
-        {/* Back Button */}
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={22} color={colors.text} />
-        </TouchableOpacity>
-
-        {/* Hero Card */}
-        <LinearGradient
-          colors={[colors.primary, colors.primaryDark]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.heroCard}
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.keyboardView}
+      >
+        <ScrollView
+          style={styles.scrollViewFull}
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+          bounces={false}
         >
-          <View style={styles.heroContent}>
-            <View style={styles.logoBadge}>
-              <Text style={styles.logoBadgeText}>CL</Text>
-            </View>
-            <View style={styles.heroTextBlock}>
-              <Text style={styles.heroTitle}>Officer Portal</Text>
-              <Text style={styles.heroSubtitle}>Sign in to manage tasks and resolve issues</Text>
-            </View>
-          </View>
-        </LinearGradient>
-
-        {/* Form Card */}
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.keyboardView}
-        >
-          <ScrollView
-            contentContainerStyle={styles.scrollContent}
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}
+          {/* Back Button */}
+          <TouchableOpacity
+            onPress={() => navigation.goBack()}
+            style={styles.backButton}
+            activeOpacity={0.7}
+            accessibilityLabel="Go back"
+            accessibilityRole="button"
           >
-            <View style={styles.formCard}>
+            <Ionicons name="arrow-back" size={20} color={colors.text} />
+          </TouchableOpacity>
 
-              <Text style={styles.label}>Mobile Number</Text>
-              <View style={styles.inputContainer}>
-                <View style={styles.iconCircle}>
-                  <Ionicons name="call-outline" size={16} color={colors.primaryDark} />
-                </View>
-                <Text style={styles.countryCode}>+91</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="10-digit number"
-                  keyboardType="phone-pad"
-                  maxLength={10}
-                  value={phone}
-                  onChangeText={text => {
-                    setPhone(text.replace(/\D/g, ''));
-                  }}
-                  editable={!isLoading}
+          {/* Hero Card */}
+          <LinearGradient
+            colors={AUTH_GRADIENT}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.heroCard}
+          >
+            <View style={styles.heroContent}>
+              <View style={styles.logoBadge}>
+                <Ionicons name="shield-checkmark" size={22} color={colors.white} />
+              </View>
+              <View style={styles.heroTextBlock}>
+                <Text style={styles.heroTitle}>Officer Portal</Text>
+                <Text style={styles.heroSubtitle}>Sign in to manage tasks and resolve issues</Text>
+              </View>
+            </View>
+          </LinearGradient>
+
+          {/* Form Card */}
+          <View style={styles.formCard}>
+            <Text style={styles.label}>Mobile Number</Text>
+            <View style={styles.inputContainer}>
+              <View style={styles.iconCircle}>
+                <Ionicons name="call-outline" size={15} color="#0D47A1" />
+              </View>
+              <Text style={styles.countryCode}>+91</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="10-digit number"
+                placeholderTextColor={colors.textTertiary}
+                keyboardType="phone-pad"
+                maxLength={10}
+                value={phone}
+                onChangeText={text => {
+                  setPhone(text.replace(/\D/g, ''));
+                }}
+                editable={!isLoading}
+              />
+            </View>
+            {phoneError ? <Text style={styles.errorText}>{phoneError}</Text> : null}
+
+            <Text style={styles.label}>Password</Text>
+            <View style={styles.inputContainer}>
+              <View style={styles.iconCircle}>
+                <Ionicons name="lock-closed-outline" size={15} color="#0D47A1" />
+              </View>
+              <TextInput
+                style={styles.input}
+                placeholder="Enter your password"
+                placeholderTextColor={colors.textTertiary}
+                secureTextEntry={!showPassword}
+                value={password}
+                onChangeText={setPassword}
+                editable={!isLoading}
+              />
+              <TouchableOpacity
+                onPress={() => setShowPassword(!showPassword)}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Ionicons
+                  name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                  size={20}
+                  color={colors.textSecondary}
                 />
-              </View>
-              {phoneError && <Text style={styles.errorText}>{phoneError}</Text>}
+              </TouchableOpacity>
+            </View>
+            {passwordError ? <Text style={styles.errorText}>{passwordError}</Text> : null}
 
-              <Text style={styles.label}>Password</Text>
-              <View style={styles.inputContainer}>
-                <View style={styles.iconCircle}>
-                  <Ionicons name="lock-closed-outline" size={16} color={colors.primaryDark} />
+            <View style={styles.optionsRow}>
+              <TouchableOpacity
+                style={styles.checkboxContainer}
+                onPress={() => setRememberMe(!rememberMe)}
+                disabled={isLoading}
+              >
+                <View style={[styles.checkbox, rememberMe && styles.checkboxChecked]}>
+                  {rememberMe && <Ionicons name="checkmark" size={12} color={colors.white} />}
                 </View>
-                <TextInput
-                  style={styles.input}
-                  placeholder="Enter your password"
-                  secureTextEntry={!showPassword}
-                  value={password}
-                  onChangeText={setPassword}
-                  editable={!isLoading}
-                />
-                <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
-                  <Ionicons
-                    name={showPassword ? 'eye-off-outline' : 'eye-outline'}
-                    size={20}
-                    color={colors.textSecondary}
-                  />
-                </TouchableOpacity>
-              </View>
-              {passwordError && <Text style={styles.errorText}>{passwordError}</Text>}
-
-              <View style={styles.optionsRow}>
-                <TouchableOpacity
-                  style={styles.checkboxContainer}
-                  onPress={() => setRememberMe(!rememberMe)}
-                  disabled={isLoading}
-                >
-                  <View style={[styles.checkbox, rememberMe && styles.checkboxChecked]}>
-                    {rememberMe && <Ionicons name="checkmark" size={12} color={colors.white} />}
-                  </View>
-                  <Text style={styles.checkboxText}>Remember me</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  onPress={() => {
-                    showError('Please contact your administrator to reset your password');
-                  }}
-                  disabled={isLoading}
-                >
-                  <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
-                </TouchableOpacity>
-              </View>
+                <Text style={styles.checkboxText}>Remember me</Text>
+              </TouchableOpacity>
 
               <TouchableOpacity
-                style={[
-                  styles.button,
-                  (isLoading || !!phoneError || !!passwordError || !phone || !password) &&
-                    styles.buttonDisabled,
-                ]}
-                onPress={handleLogin}
-                disabled={isLoading || !!phoneError || !!passwordError || !phone || !password}
+                onPress={() => {
+                  showError('Please contact your administrator to reset your password');
+                }}
+                disabled={isLoading}
               >
-                {isLoading ? (
-                  <ActivityIndicator color={colors.white} />
-                ) : (
-                  <>
-                    <Ionicons name="shield-checkmark" size={18} color={colors.white} style={{ marginRight: 8 }} />
-                    <Text style={styles.buttonText}>Sign In</Text>
-                    <Text style={styles.buttonArrow}>→</Text>
-                  </>
-                )}
+                <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
               </TouchableOpacity>
             </View>
 
-            <View style={styles.securityNotice}>
-              <View style={styles.securityIcon}>
-                <Ionicons name="shield-checkmark" size={18} color={colors.primaryDark} />
-              </View>
-              <View style={styles.securityTextContainer}>
-                <Text style={styles.securityTitle}>Secure Portal</Text>
-                <Text style={styles.securityText}>
-                  Restricted to authorized government personnel only. All access attempts are logged and monitored.
-                </Text>
-              </View>
+            <TouchableOpacity
+              style={[
+                styles.button,
+                (isLoading || !!phoneError || !!passwordError || !phone || !password) &&
+                styles.buttonDisabled,
+              ]}
+              onPress={handleLogin}
+              disabled={isLoading || !!phoneError || !!passwordError || !phone || !password}
+              activeOpacity={0.8}
+            >
+              {isLoading ? (
+                <ActivityIndicator color={colors.white} />
+              ) : (
+                <>
+                  <Ionicons name="shield-checkmark" size={17} color={colors.white} style={{ marginRight: 8 }} />
+                  <Text style={styles.buttonText}>Sign In</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
+
+          {/* Security Notice */}
+          <View style={styles.securityNotice}>
+            <View style={styles.securityIcon}>
+              <Ionicons name="lock-closed" size={16} color="#0D47A1" />
             </View>
-          </ScrollView>
-        </KeyboardAvoidingView>
-      </View>
-      <Toast {...toast} onHide={() => {}} />
+            <View style={styles.securityTextContainer}>
+              <Text style={styles.securityTitle}>Secure Portal</Text>
+              <Text style={styles.securityText}>
+                Restricted to authorized government personnel only. All access attempts are logged and monitored.
+              </Text>
+            </View>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+      <Toast {...toast} onHide={() => { }} />
     </SafeAreaView>
   );
 };
@@ -292,208 +298,214 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.backgroundSecondary,
   },
-  wrapper: {
+  keyboardView: {
     flex: 1,
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 32,
-    gap: 24,
   },
+  scrollViewFull: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 40,
+  },
+
+  // ---- Back Button (matches CitizenLoginScreen) ----
   backButton: {
     width: 40,
     height: 40,
-    borderRadius: 20,
-    backgroundColor: colors.background,
+    borderRadius: 12,
+    backgroundColor: colors.surface,
     justifyContent: 'center',
     alignItems: 'center',
+    marginBottom: 16,
     shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
     elevation: 2,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
   },
+
+  // ---- Hero ----
   heroCard: {
-    borderRadius: 24,
-    padding: 28,
-    marginBottom: 20,
+    borderRadius: 16,
+    paddingVertical: 16,
+    paddingHorizontal: 18,
+    marginBottom: 16,
     shadowColor: '#0F172A',
-    shadowOpacity: 0.16,
-    shadowRadius: 20,
-    shadowOffset: { width: 0, height: 12 },
-    elevation: 10,
+    shadowOpacity: 0.10,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 6,
   },
   heroContent: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   logoBadge: {
-    width: 60,
-    height: 60,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.18)',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 18,
-  },
-  logoBadgeText: {
-    color: colors.white,
-    fontSize: 24,
-    fontWeight: '700',
-    letterSpacing: 1,
+    marginRight: 12,
   },
   heroTextBlock: {
     flex: 1,
   },
   heroTitle: {
     color: colors.white,
-    fontSize: 26,
+    fontSize: 18,
     fontWeight: '700',
   },
   heroSubtitle: {
-    color: 'rgba(255,255,255,0.85)',
-    fontSize: 14,
-    marginTop: 6,
-    lineHeight: 20,
+    color: 'rgba(255,255,255,0.80)',
+    fontSize: 12,
+    marginTop: 2,
+    lineHeight: 17,
   },
-  keyboardView: {
-    flex: 1,
-    marginTop: 8,
-  },
-  scrollContent: {
-    flexGrow: 1,
-  },
+
+  // ---- Form Card ----
   formCard: {
-    backgroundColor: colors.background,
-    borderRadius: 20,
-    padding: 28,
-    marginTop: 4,
+    backgroundColor: colors.surface,
+    borderRadius: 16,
+    paddingVertical: 20,
+    paddingHorizontal: 20,
     shadowColor: '#0F172A',
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 4,
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 3,
+    borderWidth: 1,
+    borderColor: colors.borderLight,
   },
   label: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
-    color: colors.text,
-    marginBottom: 10,
-    marginTop: 20,
+    color: colors.textSecondary,
+    marginBottom: 8,
+    marginTop: 14,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 14,
-    paddingHorizontal: 18,
-    height: 58,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    height: 50,
     backgroundColor: colors.backgroundTertiary,
-    marginBottom: 4,
   },
   iconCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: 'rgba(33,150,243,0.12)',
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    backgroundColor: 'rgba(13,71,161,0.08)',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 12,
+    marginRight: 10,
   },
   countryCode: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '500',
     color: colors.textSecondary,
-    marginRight: 8,
+    marginRight: 6,
   },
   input: {
     flex: 1,
-    fontSize: 16,
+    fontSize: 15,
     color: colors.text,
+    paddingVertical: 0,
   },
   errorText: {
     color: colors.error,
-    fontSize: 13,
-    marginTop: 8,
-    marginBottom: 4,
+    fontSize: 12,
+    marginTop: 6,
     fontWeight: '500',
   },
   optionsRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 20,
+    marginTop: 18,
   },
   checkboxContainer: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   checkbox: {
-    width: 20,
-    height: 20,
-    borderWidth: 2,
-    borderColor: colors.primaryDark,
+    width: 18,
+    height: 18,
+    borderWidth: 1.5,
+    borderColor: colors.borderDark,
     borderRadius: 4,
     marginRight: 8,
     justifyContent: 'center',
     alignItems: 'center',
   },
   checkboxChecked: {
-    backgroundColor: colors.primaryDark,
+    backgroundColor: '#0D47A1',
+    borderColor: '#0D47A1',
   },
   checkboxText: {
-    fontSize: 14,
+    fontSize: 13,
     color: colors.textSecondary,
   },
   forgotPasswordText: {
-    fontSize: 14,
-    color: colors.primaryDark,
+    fontSize: 13,
+    color: '#0D47A1',
     fontWeight: '600',
   },
+
+  // ---- Action Button ----
   button: {
-    backgroundColor: colors.primaryDark,
-    height: 58,
-    borderRadius: 14,
+    backgroundColor: '#0D47A1',
+    height: 50,
+    borderRadius: 12,
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 28,
-    shadowColor: colors.primaryDark,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
+    marginTop: 22,
+    shadowColor: '#0D47A1',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
     elevation: 4,
   },
   buttonDisabled: {
     backgroundColor: colors.primaryLight,
     opacity: 0.7,
+    shadowOpacity: 0,
+    elevation: 0,
   },
   buttonText: {
     color: colors.white,
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: '600',
-    marginRight: 8,
     letterSpacing: 0.3,
   },
-  buttonArrow: {
-    color: colors.white,
-    fontSize: 22,
-  },
+
+  // ---- Security Notice ----
   securityNotice: {
-    backgroundColor: colors.backgroundSecondary,
+    backgroundColor: colors.surface,
     borderRadius: 14,
-    padding: 18,
-    marginTop: 24,
+    padding: 16,
+    marginTop: 16,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.borderLight,
     flexDirection: 'row',
     alignItems: 'flex-start',
   },
   securityIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(33,150,243,0.12)',
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: 'rgba(13,71,161,0.08)',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
@@ -502,14 +514,14 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   securityTitle: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
     color: colors.text,
-    marginBottom: 4,
+    marginBottom: 3,
   },
   securityText: {
-    fontSize: 12,
+    fontSize: 11,
     color: colors.textSecondary,
-    lineHeight: 18,
+    lineHeight: 16,
   },
 });
