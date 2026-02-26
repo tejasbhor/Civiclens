@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Card } from "@/components/ui/card";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Phone, Shield, Mail, User, Lock } from "lucide-react";
@@ -423,12 +424,13 @@ const CitizenLoginNew = () => {
 
                             <div className="space-y-6">
                                 <div>
-                                    <label className="text-sm font-medium text-foreground mb-2 block">Phone Number *</label>
+                                    <label htmlFor="quick-phone" className="text-sm font-medium text-foreground mb-2 block">Phone Number *</label>
                                     <div className="flex gap-2">
                                         <div className="flex items-center px-3 py-2 bg-muted rounded-lg border text-sm font-medium">
                                             +91
                                         </div>
                                         <Input
+                                            id="quick-phone"
                                             type="tel"
                                             placeholder="Enter 10-digit number"
                                             value={phone}
@@ -463,8 +465,9 @@ const CitizenLoginNew = () => {
 
                             <div className="space-y-6">
                                 <div>
-                                    <label className="text-sm font-medium text-foreground mb-2 block">Enter 6-digit OTP</label>
+                                    <label htmlFor="otp-input" className="text-sm font-medium text-foreground mb-2 block">Enter 6-digit OTP</label>
                                     <Input
+                                        id="otp-input"
                                         type="text"
                                         placeholder="000000"
                                         value={otp}
@@ -513,12 +516,13 @@ const CitizenLoginNew = () => {
 
                             <div className="space-y-4">
                                 <div>
-                                    <label className="text-sm font-medium text-foreground mb-2 block">Phone Number *</label>
+                                    <label htmlFor="reg-phone" className="text-sm font-medium text-foreground mb-2 block">Phone Number *</label>
                                     <div className="flex gap-2">
                                         <div className="flex items-center px-3 py-2 bg-muted rounded-lg border text-sm font-medium">
                                             +91
                                         </div>
                                         <Input
+                                            id="reg-phone"
                                             type="tel"
                                             placeholder="Enter 10-digit number"
                                             value={phone}
@@ -531,8 +535,9 @@ const CitizenLoginNew = () => {
                                 </div>
 
                                 <div>
-                                    <label className="text-sm font-medium text-foreground mb-2 block">Full Name *</label>
+                                    <label htmlFor="reg-name" className="text-sm font-medium text-foreground mb-2 block">Full Name *</label>
                                     <Input
+                                        id="reg-name"
                                         type="text"
                                         placeholder="Enter your full name"
                                         value={name}
@@ -542,11 +547,12 @@ const CitizenLoginNew = () => {
                                 </div>
 
                                 <div>
-                                    <label className="text-sm font-medium text-foreground mb-2 flex items-center gap-2">
+                                    <label htmlFor="reg-email" className="text-sm font-medium text-foreground mb-2 flex items-center gap-2">
                                         <span>Email Address</span>
                                         <span className="text-xs text-muted-foreground font-normal">(Optional)</span>
                                     </label>
                                     <Input
+                                        id="reg-email"
                                         type="email"
                                         placeholder="your.email@example.com"
                                         value={email}
@@ -556,9 +562,9 @@ const CitizenLoginNew = () => {
                                 </div>
 
                                 <div>
-                                    <label className="text-sm font-medium text-foreground mb-2 block">Create Password *</label>
-                                    <Input
-                                        type="password"
+                                    <label htmlFor="reg-password" className="text-sm font-medium text-foreground mb-2 block">Create Password *</label>
+                                    <PasswordInput
+                                        id="reg-password"
                                         placeholder="Minimum 8 characters"
                                         value={password}
                                         onChange={(e) => setPassword(e.target.value)}
@@ -594,12 +600,13 @@ const CitizenLoginNew = () => {
 
                             <div className="space-y-4">
                                 <div>
-                                    <label className="text-sm font-medium text-foreground mb-2 block">Phone Number *</label>
+                                    <label htmlFor="login-phone" className="text-sm font-medium text-foreground mb-2 block">Phone Number *</label>
                                     <div className="flex gap-2">
                                         <div className="flex items-center px-3 py-2 bg-muted rounded-lg border text-sm font-medium">
                                             +91
                                         </div>
                                         <Input
+                                            id="login-phone"
                                             type="tel"
                                             placeholder="Enter 10-digit number"
                                             value={phone}
@@ -612,9 +619,9 @@ const CitizenLoginNew = () => {
                                 </div>
 
                                 <div>
-                                    <label className="text-sm font-medium text-foreground mb-2 block">Password *</label>
-                                    <Input
-                                        type="password"
+                                    <label htmlFor="login-password" className="text-sm font-medium text-foreground mb-2 block">Password *</label>
+                                    <PasswordInput
+                                        id="login-password"
                                         placeholder="Enter your password"
                                         value={password}
                                         onChange={(e) => setPassword(e.target.value)}
