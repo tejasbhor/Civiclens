@@ -1372,36 +1372,114 @@ class ReportService:
             "failed_ids": [],
             "assignments": []
         }
-        
-        for report_id in report_ids:
-            try:
-                updated_report, assignment_info = await self.auto_assign_officer(
-                    report_id=report_id,
-                    assigned_by_id=assigned_by_id,
-                    strategy=strategy,
-                    priority=priority,
-                    notes=notes
-                )
-                
-                results["successful"] += 1
-                results["successful_ids"].append(report_id)
-                results["assignments"].append({
-                    "report_id": report_id,
-                    "officer_id": assignment_info["selected_officer"]["user_id"],
-                    "officer_name": assignment_info["selected_officer"]["full_name"],
-                    "workload_score": assignment_info["workload_score"],
-                    "strategy": strategy
-                })
-                
-            except Exception as e:
+
+        # 1. Fetch all reports
+        try:
+            stmt = select(Report).where(Report.id.in_(report_ids))
+            reports_result = await self.db.execute(stmt)
+            reports = reports_result.scalars().all()
+            reports_map = {r.id: r for r in reports}
+        except Exception as e:
+            logger.error(f"Failed to fetch reports for bulk auto-assignment: {e}")
+            results["failed"] = len(report_ids)
+            results["errors"].append({"error": str(e)})
+            return results
+
+        # 2. Group by department
+        reports_by_dept = {}
+        for rid in report_ids:
+            if rid not in reports_map:
                 results["failed"] += 1
-                results["failed_ids"].append(report_id)
-                results["errors"].append({
-                    "report_id": str(report_id),
-                    "error": str(e)
-                })
-                logger.warning(f"Failed to auto-assign officer for report {report_id}: {str(e)}")
-        
+                results["failed_ids"].append(rid)
+                results["errors"].append({"report_id": str(rid), "error": "Report not found"})
+                continue
+
+            report = reports_map[rid]
+            if not report.department_id:
+                results["failed"] += 1
+                results["failed_ids"].append(rid)
+                results["errors"].append({"report_id": str(rid), "error": "Report not assigned to department"})
+                continue
+                
+            if report.department_id not in reports_by_dept:
+                reports_by_dept[report.department_id] = []
+            reports_by_dept[report.department_id].append(report)
+
+        # 3. Process per department
+        for dept_id, dept_reports in reports_by_dept.items():
+            # Fetch officers once per department
+            try:
+                available_officers = await self.workload_balancer.get_available_officers(dept_id)
+            except Exception as e:
+                # If we fail to get officers, fail all reports for this department
+                error_msg = f"Failed to get available officers for department {dept_id}: {str(e)}"
+                logger.error(error_msg)
+                for r in dept_reports:
+                    results["failed"] += 1
+                    results["failed_ids"].append(r.id)
+                    results["errors"].append({"report_id": str(r.id), "error": error_msg})
+                continue
+
+            if not available_officers:
+                error_msg = "No available officers found in the assigned department."
+                for r in dept_reports:
+                    results["failed"] += 1
+                    results["failed_ids"].append(r.id)
+                    results["errors"].append({"report_id": str(r.id), "error": error_msg})
+                continue
+
+            # Process reports for this department
+            for report in dept_reports:
+                try:
+                    # Select best officer from local list
+                    if strategy == "least_busy":
+                        selected_officer = min(available_officers, key=lambda x: x["active_reports"])
+                    elif strategy == "balanced":
+                        selected_officer = min(available_officers, key=lambda x: x["workload_score"])
+                    elif strategy == "round_robin":
+                         selected_officer = min(available_officers, key=lambda x: x["active_reports"])
+                    else:
+                        selected_officer = min(available_officers, key=lambda x: x["workload_score"])
+
+                    # Assign officer
+                    await self.assign_officer(
+                        report_id=report.id,
+                        officer_id=selected_officer["user_id"],
+                        assigned_by_id=assigned_by_id,
+                        priority=priority,
+                        notes=f"Auto-assigned using {strategy} strategy. {notes or ''}".strip(),
+                        auto_update_status=True,
+                        validate_capacity=False  # Capacity already checked via selection/filtering
+                    )
+
+                    # Update local workload stats
+                    selected_officer["active_reports"] += 1
+
+                    # Recalculate score (simplified approximation or reuse logic)
+                    # workload_score = active_reports + (avg_resolution_time / 7.0) * 2
+                    avg_res = selected_officer["avg_resolution_time_days"]
+                    selected_officer["workload_score"] = selected_officer["active_reports"] + (float(avg_res) / 7.0) * 2
+
+                    # Log result
+                    results["successful"] += 1
+                    results["successful_ids"].append(report.id)
+                    results["assignments"].append({
+                        "report_id": report.id,
+                        "officer_id": selected_officer["user_id"],
+                        "officer_name": selected_officer["full_name"],
+                        "workload_score": round(selected_officer["workload_score"], 2),
+                        "strategy": strategy
+                    })
+
+                except Exception as e:
+                    results["failed"] += 1
+                    results["failed_ids"].append(report.id)
+                    results["errors"].append({
+                        "report_id": str(report.id),
+                        "error": str(e)
+                    })
+                    logger.warning(f"Failed to auto-assign officer for report {report.id}: {str(e)}")
+
         await self.db.commit()
         
         logger.info(
