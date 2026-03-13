@@ -11,6 +11,22 @@
 	# acme_ca https://acme-staging-v02.api.letsencrypt.org/directory
 }
 
+# ---- Testing / IP Access (No SSL) ----
+http://52.55.40.61 {
+	handle /api/* {
+		reverse_proxy backend:8000
+	}
+	handle /health {
+		reverse_proxy backend:8000
+	}
+	handle /admin/* {
+		reverse_proxy admin:3000
+	}
+	handle {
+		reverse_proxy client:80
+	}
+}
+
 # ---- Citizen Portal (main domain) ----
 civiclens.space {
 	reverse_proxy client:80
