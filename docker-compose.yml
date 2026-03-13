@@ -33,6 +33,11 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
     networks:
       - civiclens_net
     volumes:
@@ -69,6 +74,11 @@ services:
         - NEXT_PUBLIC_API_URL=${API_URL:-https://api.civiclens.space/api/v1}
     container_name: civiclens-admin
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3000/ || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
     networks:
       - civiclens_net
 
