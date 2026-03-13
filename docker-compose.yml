@@ -83,6 +83,8 @@ services:
       retries: 3
     networks:
       - civiclens_net
+    ports:
+      - "3000:3000"
 
   # ---- Citizen Portal (React/Vite) ----
   client:
