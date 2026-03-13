@@ -2,6 +2,7 @@
  * Authentication utilities for handling auth state cleanup and validation
  */
 
+import { decode as atob_source } from 'base-64';
 import { SecureStorage } from '@shared/services/storage';
 import { createLogger } from './logger';
 
@@ -52,11 +53,45 @@ export const forceLogout = async (): Promise<void> => {
 };
 
 /**
+ * Base64 decoder for React Native
+ */
+const atobPolyfill = (input: string): string => {
+  try {
+    return atob_source(input);
+  } catch (e) {
+    log.error('atobPolyfill failed:', e);
+    throw e;
+  }
+};
+
+/**
  * Validate if a JWT token is valid and not expired
  */
 export const validateToken = (token: string): { isValid: boolean; isExpired: boolean; payload?: any } => {
   try {
-    const payload = JSON.parse(atob(token.split('.')[1]));
+    if (!token || typeof token !== 'string') return { isValid: false, isExpired: true };
+    
+    const parts = token.split('.');
+    if (parts.length !== 3) return { isValid: false, isExpired: true };
+
+    // Use polyfill if atob is missing (common in React Native)
+    let base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    
+    // Add padding if missing
+    while (base64.length % 4 !== 0) {
+      base64 += '=';
+    }
+
+    let decoded = '';
+    
+    try {
+      decoded = typeof atob !== 'undefined' ? atob(base64) : atobPolyfill(base64);
+    } catch (e) {
+      log.error('Decoding failed:', e);
+      return { isValid: false, isExpired: true };
+    }
+    
+    const payload = JSON.parse(decoded);
     const now = Date.now() / 1000;
     const isExpired = payload.exp < now;
     
@@ -66,6 +101,7 @@ export const validateToken = (token: string): { isValid: boolean; isExpired: boo
       payload,
     };
   } catch (error) {
+    log.error('Token validation failed:', error);
     return {
       isValid: false,
       isExpired: true,

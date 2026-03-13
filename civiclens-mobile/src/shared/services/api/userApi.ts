@@ -37,6 +37,8 @@ export interface VerificationStatus {
 }
 
 export interface UserProfileUpdate {
+  first_name?: string | null;
+  last_name?: string | null;
   full_name?: string | null;
   email?: string | null;
   primary_address?: string | null;

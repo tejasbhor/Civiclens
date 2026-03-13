@@ -89,6 +89,8 @@ class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
         db_obj = User(
             phone=obj_in.phone,
             email=obj_in.email,
+            first_name=obj_in.first_name,
+            last_name=obj_in.last_name,
             full_name=obj_in.full_name,
             role=obj_in.role,
             hashed_password=get_password_hash(obj_in.password) if obj_in.password else None,
@@ -119,6 +121,8 @@ class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
         db_obj = User(
             phone=obj_in.phone,
             email=obj_in.email,
+            first_name=obj_in.first_name,
+            last_name=obj_in.last_name,
             full_name=obj_in.full_name,
             role=obj_in.role,
             hashed_password=get_password_hash(obj_in.password),

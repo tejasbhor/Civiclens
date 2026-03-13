@@ -53,6 +53,8 @@ const CitizenProfile = () => {
   const [emailToken, setEmailToken] = useState("");
   const [phoneOTP, setPhoneOTP] = useState("");
   const [formData, setFormData] = useState({
+    first_name: "",
+    last_name: "",
     full_name: "",
     email: "",
     primary_address: "",
@@ -68,6 +70,8 @@ const CitizenProfile = () => {
     try {
       // Set form data from user
       setFormData({
+        first_name: user.first_name || "",
+        last_name: user.last_name || "",
         full_name: user.full_name || "",
         email: user.email || "",
         primary_address: user.primary_address || "",
@@ -114,8 +118,14 @@ const CitizenProfile = () => {
 
       // Prepare update data - always send the form state if changed
       const updateData: any = {};
-      if (formData.full_name !== user?.full_name) {
-        updateData.full_name = formData.full_name || null;
+      if (formData.first_name !== user?.first_name) {
+        updateData.first_name = formData.first_name || null;
+      }
+      if (formData.last_name !== user?.last_name) {
+        updateData.last_name = formData.last_name || null;
+      }
+      if (formData.first_name !== user?.first_name || formData.last_name !== user?.last_name) {
+        updateData.full_name = `${formData.first_name.trim()} ${formData.last_name.trim()}`;
       }
       if (formData.email !== user?.email) {
         updateData.email = formData.email || null;
@@ -353,18 +363,34 @@ const CitizenProfile = () => {
               <h3 className="text-lg font-semibold text-foreground mb-6">Profile Information</h3>
 
               <div className="space-y-4">
-                <div>
-                  <Label htmlFor="name">Full Name</Label>
-                  <div className="flex items-center gap-2 mt-2">
-                    <User className="w-5 h-5 text-muted-foreground" />
-                    <Input
-                      id="name"
-                      value={formData.full_name}
-                      onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
-                      disabled={!isEditing}
-                      placeholder="Enter your full name"
-                      className="flex-1"
-                    />
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="firstName">First Name</Label>
+                    <div className="flex items-center gap-2 mt-2">
+                      <User className="w-5 h-5 text-muted-foreground" />
+                      <Input
+                        id="firstName"
+                        value={formData.first_name}
+                        onChange={(e) => setFormData({ ...formData, first_name: e.target.value })}
+                        disabled={!isEditing}
+                        placeholder="First Name"
+                        className="flex-1"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <Label htmlFor="lastName">Last Name</Label>
+                    <div className="flex items-center gap-2 mt-2">
+                      <User className="w-5 h-5 text-muted-foreground" />
+                      <Input
+                        id="lastName"
+                        value={formData.last_name}
+                        onChange={(e) => setFormData({ ...formData, last_name: e.target.value })}
+                        disabled={!isEditing}
+                        placeholder="Last Name"
+                        className="flex-1"
+                      />
+                    </div>
                   </div>
                 </div>
 

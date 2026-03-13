@@ -19,10 +19,12 @@ const CitizenLogin = () => {
   const [phone, setPhone] = useState("");
   const [otp, setOtp] = useState("");
   const [password, setPassword] = useState("");
-  const [name, setName] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [countdown, setCountdown] = useState(300);
   const [loading, setLoading] = useState(false);
+  const [demoOtp, setDemoOtp] = useState<string | null>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
   const { login, user, loading: authLoading } = useAuth();
@@ -95,6 +97,7 @@ const CitizenLogin = () => {
       // Normalize phone number before sending
       const normalizedPhone = normalizePhoneNumber(phone);
       const response = await authService.requestOTP(normalizedPhone);
+      if (response.otp) setDemoOtp(response.otp);
       toast({
         title: "OTP Sent!",
         description: response.message + (response.otp ? ` (Demo OTP: ${response.otp})` : ''),
@@ -144,6 +147,7 @@ const CitizenLogin = () => {
     setLoading(true);
     try {
       const response = await authService.requestEmailOTP(email);
+      if (response.otp) setDemoOtp(response.otp);
       toast({
         title: "OTP Sent!",
         description: response.message + (response.otp ? ` (Demo OTP: ${response.otp})` : ''),
@@ -245,10 +249,10 @@ const CitizenLogin = () => {
   };
 
   const handleRegister = async () => {
-    if (!name || !password) {
+    if (!firstName || !lastName || !password) {
       toast({
         title: "Missing Information",
-        description: "Please fill in name and password",
+        description: "Please fill in first name, last name and password",
         variant: "destructive"
       });
       return;
@@ -287,12 +291,15 @@ const CitizenLogin = () => {
       const normalizedPhone = normalizePhoneNumber(phone);
       const response = await authService.signup({
         phone: normalizedPhone,
-        full_name: name,
+        first_name: firstName,
+        last_name: lastName,
+        full_name: `${firstName} ${lastName}`,
         email: email || undefined,
         password
       });
 
       // Show OTP in toast for development
+      if ((response as any).otp) setDemoOtp((response as any).otp);
       const otpMessage = response.message +
         ((response as any).otp ? ` (Demo OTP: ${(response as any).otp})` : '');
 
@@ -400,9 +407,11 @@ const CitizenLogin = () => {
     setPhone("");
     setOtp("");
     setPassword("");
-    setName("");
+    setFirstName("");
+    setLastName("");
     setEmail("");
     setCountdown(300);
+    setDemoOtp(null);
   };
 
   const formatTime = (seconds: number) => {
@@ -587,6 +596,15 @@ const CitizenLogin = () => {
                     <span className="text-muted-foreground">OTP expires in: </span>
                     <span className="font-mono font-semibold text-primary">{formatTime(countdown)}</span>
                   </div>
+                  {demoOtp && (
+                    <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-center gap-3">
+                      <span className="text-amber-600 text-lg">🔑</span>
+                      <div>
+                        <p className="text-xs font-medium text-amber-700 uppercase tracking-wide">Demo Mode — Your OTP</p>
+                        <p className="font-mono text-2xl font-bold text-amber-800 tracking-widest mt-0.5">{demoOtp}</p>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <Button onClick={handleVerifyOtp} className="w-full" size="lg" disabled={loading}>
@@ -679,6 +697,15 @@ const CitizenLogin = () => {
                     <span className="text-muted-foreground">OTP expires in: </span>
                     <span className="font-mono font-semibold text-primary">{formatTime(countdown)}</span>
                   </div>
+                  {demoOtp && (
+                    <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-center gap-3">
+                      <span className="text-amber-600 text-lg">🔑</span>
+                      <div>
+                        <p className="text-xs font-medium text-amber-700 uppercase tracking-wide">Demo Mode — Your OTP</p>
+                        <p className="font-mono text-2xl font-bold text-amber-800 tracking-widest mt-0.5">{demoOtp}</p>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <Button onClick={handleVerifyOtp} className="w-full" size="lg" disabled={loading}>
@@ -732,15 +759,27 @@ const CitizenLogin = () => {
                   </div>
                 </div>
 
-                <div>
-                  <label className="text-sm font-medium text-foreground mb-2 block">Full Name *</label>
-                  <Input
-                    type="text"
-                    placeholder="Enter your full name"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    disabled={loading}
-                  />
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium text-foreground mb-2 block">First Name *</label>
+                    <Input
+                      type="text"
+                      placeholder="First Name"
+                      value={firstName}
+                      onChange={(e) => setFirstName(e.target.value)}
+                      disabled={loading}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-foreground mb-2 block">Last Name *</label>
+                    <Input
+                      type="text"
+                      placeholder="Last Name"
+                      value={lastName}
+                      onChange={(e) => setLastName(e.target.value)}
+                      disabled={loading}
+                    />
+                  </div>
                 </div>
 
                 <div>

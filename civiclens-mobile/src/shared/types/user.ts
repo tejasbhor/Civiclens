@@ -13,6 +13,8 @@ export interface User {
   id: number;
   phone: string;
   email?: string;
+  first_name?: string;
+  last_name?: string;
   full_name?: string;
   role: UserRole;
   phone_verified: boolean;

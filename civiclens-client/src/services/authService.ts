@@ -4,6 +4,8 @@ import apiClient from './apiClient';
 export interface User {
   id: number;
   phone: string;
+  first_name?: string;
+  last_name?: string;
   full_name?: string;
   email?: string;
   bio?: string;
@@ -78,7 +80,9 @@ export const authService = {
    */
   async signup(data: {
     phone: string;
-    full_name: string;
+    first_name?: string;
+    last_name?: string;
+    full_name?: string;
     email?: string;
     password: string;
   }): Promise<SignupResponse> {
@@ -146,6 +150,8 @@ export const authService = {
    * Update user profile
    */
   async updateProfile(data: {
+    first_name?: string;
+    last_name?: string;
     full_name?: string;
     email?: string;
   }): Promise<User> {

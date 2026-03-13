@@ -1,0 +1,28 @@
+cd /opt/civiclens
+
+# 1. Pull latest code
+git pull origin main
+
+# 2. Ensure Demo Mode is active in the .env
+if ! grep -q "ENABLE_DEMO_OTP" .env; then
+    echo "ENABLE_DEMO_OTP=true" >> .env
+else
+    sed -i 's/^ENABLE_DEMO_OTP=.*/ENABLE_DEMO_OTP=true/' .env
+fi
+
+# 3. Stop everything to clear RAM for the build
+sudo docker compose down
+
+# 4. Build THE HEAVY PART (Admin) first with strict memory limits
+# This prevents the server from freezing
+NODE_OPTIONS="--max-old-space-size=1024" sudo docker compose build admin
+
+# 5. Build and Start everything else
+sudo docker compose up -d --build --remove-orphans
+
+# 6. Final Step: Apply database migrations (Fixes "unhealthy" status)
+echo "⌛ Waiting for DB to stabilize..."
+sleep 10
+sudo docker compose exec -T backend alembic upgrade head
+
+echo "✅ ALL DONE! Your platform is live."

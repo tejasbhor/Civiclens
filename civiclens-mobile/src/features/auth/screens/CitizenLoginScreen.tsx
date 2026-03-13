@@ -31,7 +31,6 @@ import {
   validatePhone,
   validateOTP,
   validatePassword,
-  validateFullName,
   validateEmail,
   normalizePhone,
 } from '@shared/utils/validation';
@@ -82,7 +81,8 @@ export const CitizenLoginScreen = () => {
   const [otp, setOtp] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [name, setName] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -260,34 +260,42 @@ export const CitizenLoginScreen = () => {
   };
 
   const handleSignup = async () => {
-    const phoneValidation = validatePhone(phone);
-    const nameValidation = validateFullName(name);
-    const passwordValidation = validatePassword(password);
+    const phoneValid = validatePhone(phone);
+    if (!phoneValid.isValid) {
+      setError(phoneValid.error!);
+      showError(phoneValid.error!);
+      return;
+    }
 
-    if (!phoneValidation.isValid) {
-      setError(phoneValidation.error!);
-      showError(phoneValidation.error!);
+    if (!firstName.trim()) {
+      setError('First name is required');
+      showError('First name is required');
       return;
     }
-    if (!nameValidation.isValid) {
-      setError(nameValidation.error!);
-      showError(nameValidation.error!);
+
+    if (!lastName.trim()) {
+      setError('Last name is required');
+      showError('Last name is required');
       return;
     }
+
     // Email is optional — only validate if provided
     if (email.trim()) {
-      const emailValidation = validateEmail(email);
-      if (!emailValidation.isValid) {
-        setError(emailValidation.error!);
-        showError(emailValidation.error!);
+      const emailValid = validateEmail(email);
+      if (!emailValid.isValid) {
+        setError(emailValid.error!);
+        showError(emailValid.error!);
         return;
       }
     }
-    if (!passwordValidation.isValid) {
-      setError(passwordValidation.error!);
-      showError(passwordValidation.error!);
+
+    const passValid = validatePassword(password);
+    if (!passValid.isValid) {
+      setError(passValid.error!);
+      showError(passValid.error!);
       return;
     }
+
     if (password !== confirmPassword) {
       setError('Passwords do not match');
       showError('Passwords do not match');
@@ -301,7 +309,9 @@ export const CitizenLoginScreen = () => {
       const normalizedPhone = normalizePhone(phone);
       const response = await authApi.signup({
         phone: normalizedPhone,
-        full_name: name.trim(),
+        first_name: firstName.trim(),
+        last_name: lastName.trim(),
+        full_name: `${firstName.trim()} ${lastName.trim()}`,
         email: email.trim() || undefined,
         password,
       });
@@ -821,26 +831,53 @@ export const CitizenLoginScreen = () => {
                   />
                 </View>
 
-                <Text style={styles.label}>Full Name</Text>
-                <View style={styles.inputContainer}>
-                  <View style={styles.iconCircle}>
-                    <Ionicons
-                      name="person-outline"
-                      size={15}
-                      color="#0D47A1"
-                    />
+                <View style={{ flexDirection: 'row', gap: 10 }}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.label}>First Name</Text>
+                    <View style={styles.inputContainer}>
+                      <View style={styles.iconCircle}>
+                        <Ionicons
+                          name="person-outline"
+                          size={15}
+                          color="#0D47A1"
+                        />
+                      </View>
+                      <TextInput
+                        style={styles.input}
+                        placeholder="First Name"
+                        placeholderTextColor={colors.textTertiary}
+                        value={firstName}
+                        onChangeText={text => {
+                          setFirstName(text);
+                          setError('');
+                        }}
+                        editable={!isLoading}
+                      />
+                    </View>
                   </View>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Enter your name"
-                    placeholderTextColor={colors.textTertiary}
-                    value={name}
-                    onChangeText={text => {
-                      setName(text);
-                      setError('');
-                    }}
-                    editable={!isLoading}
-                  />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.label}>Last Name</Text>
+                    <View style={styles.inputContainer}>
+                      <View style={styles.iconCircle}>
+                        <Ionicons
+                          name="person-outline"
+                          size={15}
+                          color="#0D47A1"
+                        />
+                      </View>
+                      <TextInput
+                        style={styles.input}
+                        placeholder="Last Name"
+                        placeholderTextColor={colors.textTertiary}
+                        value={lastName}
+                        onChangeText={text => {
+                          setLastName(text);
+                          setError('');
+                        }}
+                        editable={!isLoading}
+                      />
+                    </View>
+                  </View>
                 </View>
 
                 <Text style={styles.label}>Email (Optional)</Text>

@@ -32,6 +32,8 @@ export const EditProfileScreen: React.FC = () => {
 
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
+    first_name: '',
+    last_name: '',
     full_name: '',
     email: '',
     primary_address: '',
@@ -42,6 +44,8 @@ export const EditProfileScreen: React.FC = () => {
   useEffect(() => {
     if (user) {
       setFormData({
+        first_name: user.first_name || '',
+        last_name: user.last_name || '',
         full_name: user.full_name || '',
         email: user.email || '',
         primary_address: user.primary_address || '',
@@ -53,11 +57,12 @@ export const EditProfileScreen: React.FC = () => {
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
 
-    // Validate full name
-    if (!formData.full_name.trim()) {
-      newErrors.full_name = 'Full name is required';
-    } else if (formData.full_name.trim().length < 2) {
-      newErrors.full_name = 'Full name must be at least 2 characters';
+    // Validate names
+    if (!formData.first_name.trim()) {
+      newErrors.first_name = 'First name is required';
+    }
+    if (!formData.last_name.trim()) {
+      newErrors.last_name = 'Last name is required';
     }
 
     // Validate email if provided
@@ -88,8 +93,14 @@ export const EditProfileScreen: React.FC = () => {
       // Prepare update data (only send changed fields)
       const updateData: UserProfileUpdate = {};
 
-      if (formData.full_name !== user?.full_name) {
-        updateData.full_name = formData.full_name || null;
+      if (formData.first_name !== user?.first_name) {
+        updateData.first_name = formData.first_name || null;
+      }
+      if (formData.last_name !== user?.last_name) {
+        updateData.last_name = formData.last_name || null;
+      }
+      if (formData.first_name !== user?.first_name || formData.last_name !== user?.last_name) {
+        updateData.full_name = `${formData.first_name.trim()} ${formData.last_name.trim()}`;
       }
       if (formData.email !== user?.email) {
         updateData.email = formData.email || null;
@@ -179,32 +190,55 @@ export const EditProfileScreen: React.FC = () => {
 
           {/* Form Fields */}
           <View style={styles.formSection}>
-            {/* Full Name */}
-            <View style={styles.fieldContainer}>
-              <Text style={styles.label}>
-                Full Name <Text style={styles.required}>*</Text>
-              </Text>
-              <View style={[styles.inputWrapper, errors.full_name && styles.inputError]}>
-                <View style={[styles.inputIcon, { backgroundColor: '#EFF6FF' }]}>
-                  <Ionicons name="person-outline" size={20} color="#2563EB" />
+            {/* Name Fields */}
+            <View style={{ flexDirection: 'row', gap: 12 }}>
+              <View style={[styles.fieldContainer, { flex: 1 }]}>
+                <Text style={styles.label}>
+                  First Name <Text style={styles.required}>*</Text>
+                </Text>
+                <View style={[styles.inputWrapper, errors.first_name && styles.inputError]}>
+                  <TextInput
+                    style={styles.input}
+                    value={formData.first_name}
+                    onChangeText={(text) => {
+                      setFormData({ ...formData, first_name: text });
+                      if (errors.first_name) {
+                        setErrors({ ...errors, first_name: '' });
+                      }
+                    }}
+                    placeholder="First Name"
+                    placeholderTextColor="#94A3B8"
+                    editable={!loading}
+                  />
                 </View>
-                <TextInput
-                  style={styles.input}
-                  value={formData.full_name}
-                  onChangeText={(text) => {
-                    setFormData({ ...formData, full_name: text });
-                    if (errors.full_name) {
-                      setErrors({ ...errors, full_name: '' });
-                    }
-                  }}
-                  placeholder="Enter your full name"
-                  placeholderTextColor="#94A3B8"
-                  editable={!loading}
-                />
+                {errors.first_name ? (
+                  <Text style={styles.errorText}>{errors.first_name}</Text>
+                ) : null}
               </View>
-              {errors.full_name ? (
-                <Text style={styles.errorText}>{errors.full_name}</Text>
-              ) : null}
+
+              <View style={[styles.fieldContainer, { flex: 1 }]}>
+                <Text style={styles.label}>
+                  Last Name <Text style={styles.required}>*</Text>
+                </Text>
+                <View style={[styles.inputWrapper, errors.last_name && styles.inputError]}>
+                  <TextInput
+                    style={styles.input}
+                    value={formData.last_name}
+                    onChangeText={(text) => {
+                      setFormData({ ...formData, last_name: text });
+                      if (errors.last_name) {
+                        setErrors({ ...errors, last_name: '' });
+                      }
+                    }}
+                    placeholder="Last Name"
+                    placeholderTextColor="#94A3B8"
+                    editable={!loading}
+                  />
+                </View>
+                {errors.last_name ? (
+                  <Text style={styles.errorText}>{errors.last_name}</Text>
+                ) : null}
+              </View>
             </View>
 
             {/* Phone (Read-only) */}

@@ -14,6 +14,8 @@ class UserCreate(BaseModel):
     """Full user creation schema"""
     phone: str = Field(..., pattern=r'^\+?[1-9]\d{9,14}$')
     email: Optional[EmailStr] = None
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
     full_name: Optional[str] = None
     password: Optional[str] = Field(None, min_length=8)
     role: UserRole = UserRole.CITIZEN
@@ -22,6 +24,8 @@ class UserCreate(BaseModel):
 class UserUpdate(BaseModel):
     """User update schema"""
     email: Optional[EmailStr] = None
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
     full_name: Optional[str] = None
     is_active: Optional[bool] = None
 
@@ -29,6 +33,8 @@ class UserUpdate(BaseModel):
 # ============ Profile Completion ============
 class UserProfileUpdate(BaseModel):
     """User can progressively complete their profile"""
+    first_name: Optional[str] = Field(None, min_length=1, max_length=100)
+    last_name: Optional[str] = Field(None, min_length=1, max_length=100)
     full_name: Optional[str] = Field(None, min_length=2, max_length=255)
     email: Optional[EmailStr] = None
     primary_address: Optional[str] = None
@@ -48,6 +54,8 @@ class OfficerCreate(BaseModel):
     """Create officer/admin with credentials"""
     phone: str = Field(..., pattern=r'^\+?[1-9]\d{9,14}$')
     email: EmailStr
+    first_name: Optional[str] = Field(None, min_length=1, max_length=100)
+    last_name: Optional[str] = Field(None, min_length=1, max_length=100)
     full_name: str = Field(..., min_length=2, max_length=255)
     password: str = Field(..., min_length=8)
     role: UserRole
@@ -93,6 +101,8 @@ class UserResponse(BaseModel):
     id: int
     phone: str
     email: Optional[str]
+    first_name: Optional[str]
+    last_name: Optional[str]
     full_name: Optional[str]
     role: UserRole
     profile_completion: ProfileCompletionLevel

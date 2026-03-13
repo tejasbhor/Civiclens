@@ -26,7 +26,9 @@ class EmailOTPVerify(BaseModel):
 class CitizenSignupRequest(BaseModel):
     """Full citizen registration with password"""
     phone: str = Field(..., pattern=r'^\+?[1-9]\d{1,14}$')
-    full_name: str = Field(..., min_length=2, max_length=255)
+    first_name: Optional[str] = Field(None, min_length=1, max_length=100)
+    last_name: Optional[str] = Field(None, min_length=1, max_length=100)
+    full_name: Optional[str] = Field(None, min_length=2, max_length=255)
     email: Optional[EmailStr] = None
     password: str = Field(..., min_length=8)
     

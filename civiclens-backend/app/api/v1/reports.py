@@ -224,6 +224,10 @@ async def create_report(
         user_id = current_user.id  # Pre-capture to avoid MissingGreenlet after rollback
         report_dict = report_data.model_dump()
         report_dict['user_id'] = user_id
+        
+        # Extract media fields before creating Report object
+        photos = report_dict.pop('photos', [])
+        videos = report_dict.pop('videos', [])
         # Validate coordinates are within valid global bounds
         lat, lng = report_dict['latitude'], report_dict['longitude']
         
@@ -302,6 +306,8 @@ async def create_report(
                 
                 db.add(new_report)
                 await db.flush()
+                
+                await db.flush()
                 report = new_report
                 # If we're here, the report_number was accepted
                 break
@@ -347,6 +353,33 @@ async def create_report(
         
         if report is None:
             raise ValidationException("Failed to create report. Please try again.")
+
+        # Add media records for photos and videos (pre-uploaded via storage)
+        from app.models.media import Media, MediaType, UploadSource
+        
+        if photos:
+            for i, photo_url in enumerate(photos):
+                media = Media(
+                    report_id=report.id,
+                    file_url=photo_url,
+                    file_type=MediaType.IMAGE,
+                    upload_source=UploadSource.CITIZEN_SUBMISSION,
+                    is_primary=(i == 0)
+                )
+                db.add(media)
+        
+        if videos:
+            for video_url in videos:
+                media = Media(
+                    report_id=report.id,
+                    file_url=video_url,
+                    file_type=MediaType.VIDEO,
+                    upload_source=UploadSource.CITIZEN_SUBMISSION
+                )
+                db.add(media)
+        
+        if photos or videos:
+            await db.flush()
 
         # Queue for processing in background (non-blocking)
         background_tasks.add_task(

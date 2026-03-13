@@ -189,7 +189,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         // Validate token before setting authenticated state
         try {
           // Check if token is expired (local validation - no network required)
-          const payload = JSON.parse(atob(accessToken.split('.')[1]));
+          const { validateToken } = await import('@shared/utils/authUtils');
+          const validation = validateToken(accessToken);
+          
+          if (!validation.isValid || validation.isExpired) {
+            throw new Error(validation.isExpired ? 'Token expired' : 'Invalid token');
+          }
+
+          const payload = validation.payload;
           const now = Date.now() / 1000;
           const isExpired = payload.exp < now;
 

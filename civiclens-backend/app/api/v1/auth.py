@@ -338,9 +338,26 @@ async def citizen_signup(
     from app.schemas.user import UserCreate
     from app.models.user import UserRole, ProfileCompletionLevel
     
+    # Handle name fields: construct full_name if not provided, or vice versa
+    full_name = request.full_name
+    first_name = request.first_name
+    last_name = request.last_name
+    
+    if not full_name and (first_name or last_name):
+        full_name = f"{first_name or ''} {last_name or ''}".strip()
+    elif full_name and not (first_name and last_name):
+        # Optional: split full_name into first/last if needed
+        parts = full_name.split(maxsplit=1)
+        if len(parts) > 0 and not first_name:
+            first_name = parts[0]
+        if len(parts) > 1 and not last_name:
+            last_name = parts[1]
+
     user_data = UserCreate(
         phone=request.phone,
-        full_name=request.full_name,
+        first_name=first_name,
+        last_name=last_name,
+        full_name=full_name,
         email=request.email,
         password=request.password,
         role=UserRole.CITIZEN
@@ -559,6 +576,16 @@ async def create_officer(
     existing_email = await user_crud.get_by_email(db, officer_data.email)
     if existing_email:
         raise ValidationException("Email already registered")
+
+    # Handle name fields
+    if not officer_data.full_name and (officer_data.first_name or officer_data.last_name):
+        officer_data.full_name = f"{officer_data.first_name or ''} {officer_data.last_name or ''}".strip()
+    elif officer_data.full_name and not (officer_data.first_name and officer_data.last_name):
+        parts = officer_data.full_name.split(maxsplit=1)
+        if len(parts) > 0 and not officer_data.first_name:
+            officer_data.first_name = parts[0]
+        if len(parts) > 1 and not officer_data.last_name:
+            officer_data.last_name = parts[1]
 
     # Create officer
     officer = await user_crud.create_officer(db, officer_data)

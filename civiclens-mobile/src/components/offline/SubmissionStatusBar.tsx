@@ -21,14 +21,14 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import NetInfo from '@react-native-netinfo/netinfo';
+import NetInfo from '@react-native-community/netinfo';
 
 import {
   offlineReportService,
   SubmissionStatus,
   SubmissionProgress,
   QueuedSubmission,
-} from '@services/offline/OfflineReportService';
+} from '@/services/offline/OfflineReportService';
 import { createLogger } from '@shared/utils/logger';
 
 const log = createLogger('SubmissionStatusBar');

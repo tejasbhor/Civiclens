@@ -17,7 +17,6 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle } from 'react-native-svg';
-import MapView, { Marker, PROVIDER_DEFAULT } from 'react-native-maps';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -26,7 +25,7 @@ import React, { useEffect, useMemo, useState, useRef } from 'react';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useOfficerDashboard } from '../../../shared/hooks/useOfficerDashboard';
 import { useOfficerTasks } from '../../../shared/hooks/useOfficerTasks';
-import { OfflineIndicator, SyncStatusIndicator, TopNavbar } from '../../../shared/components';
+import { OfflineIndicator, SyncStatusIndicator, TopNavbar, NativeMap, NativeMapRef } from '../../../shared/components';
 import { RoleGuard } from '../../../shared/components/RoleGuard';
 import { networkService } from '../../../shared/services/network/networkService';
 import { colors } from '../../../shared/theme/colors';
@@ -65,7 +64,7 @@ const OfficerDashboardContent: React.FC = () => {
   const [showQuickActionsModal, setShowQuickActionsModal] = useState(false);
   const [isOnline, setIsOnline] = useState(networkService.isOnline());
   const [displayLocation, setDisplayLocation] = useState('Detecting zone...');
-  const mapRef = useRef<MapView>(null);
+  const mapRef = useRef<NativeMapRef>(null);
 
   let hookResult;
   try {
@@ -184,10 +183,10 @@ const OfficerDashboardContent: React.FC = () => {
   };
 
   const handleZoom = async (type: 'in' | 'out') => {
-    const camera = await mapRef.current?.getCamera();
-    if (camera && camera.zoom !== undefined) {
-      camera.zoom += type === 'in' ? 1 : -1;
-      mapRef.current?.animateCamera(camera, { duration: 300 });
+    if (type === 'in') {
+      mapRef.current?.zoomIn();
+    } else {
+      mapRef.current?.zoomOut();
     }
   };
 
@@ -243,39 +242,25 @@ const OfficerDashboardContent: React.FC = () => {
       <SyncStatusIndicator />
 
       {/* Interactive Map */}
-      <MapView
+      <NativeMap
         ref={mapRef}
-        style={styles.mapContainer}
-        provider={PROVIDER_DEFAULT}
         initialRegion={{
           latitude: userLocation?.latitude || 19.0263,
           longitude: userLocation?.longitude || 73.0645,
           latitudeDelta: 0.05,
           longitudeDelta: 0.05,
         }}
-        showsUserLocation={true}
-      >
-        {/* Render real tasks as markers with search filtering */}
-        {tasks.filter((t: any) => !searchQuery || (t.report && t.report.title.toLowerCase().includes(searchQuery.toLowerCase()))).map((task: any) => {
-          const rep = task.report;
-          if (rep && typeof rep.latitude === 'number' && typeof rep.longitude === 'number') {
-            return (
-              <Marker
-                key={`task-${task.id}`}
-                coordinate={{ latitude: rep.latitude, longitude: rep.longitude }}
-                title={rep.title}
-                description={rep.description}
-                pinColor={
-                  rep.severity === 'critical' || rep.severity === 'high' ? '#D32F2F' :
-                    rep.severity === 'medium' ? '#FBC02D' :
-                      '#388E3C'
-                }
-              />
-            );
-          }
-          return null;
-        })}
-      </MapView>
+        markers={tasks
+          .filter((t: any) => !searchQuery || (t.report && t.report.title.toLowerCase().includes(searchQuery.toLowerCase())))
+          .map((task: any) => ({
+            id: task.id || Math.random(),
+            latitude: task.report?.latitude || 0,
+            longitude: task.report?.longitude || 0,
+            title: task.report?.title || task.title,
+            description: task.report?.description || task.description,
+            type: task.status === 'COMPLETED' ? 'resolved' : 'issue'
+          })) as any}
+      />
 
       {/* Map Controls (Zoom & Locate) */}
       <View style={[styles.mapControls, { bottom: bottomSheetBottom + 160 }]}>

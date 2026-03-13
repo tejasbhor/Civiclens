@@ -62,9 +62,9 @@ export const AppNavigator: React.FC = () => {
         ) : (
           // Authenticated Stack - Route based on user role
           <>
-            {user?.role === UserRole.CITIZEN ? (
+            {user?.role?.toLowerCase() === UserRole.CITIZEN ? (
               <Stack.Screen name="CitizenApp" component={CitizenTabNavigator} />
-            ) : user?.role === UserRole.NODAL_OFFICER ? (
+            ) : [UserRole.NODAL_OFFICER, UserRole.ADMIN, UserRole.AUDITOR].includes(user?.role?.toLowerCase() as UserRole) ? (
               <Stack.Screen name="OfficerApp" component={OfficerTabNavigator} />
             ) : (
               <Stack.Screen name="CitizenApp" component={CitizenTabNavigator} />

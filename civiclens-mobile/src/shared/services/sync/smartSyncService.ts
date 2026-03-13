@@ -59,7 +59,7 @@ class SmartSyncService {
     this.setupSyncStrategies();
 
     // Listen to app state changes
-    AppState.addEventListener('change', this.handleAppStateChange);
+    this.appStateSubscription = AppState.addEventListener('change', this.handleAppStateChange);
 
     // Listen to network changes
     networkService.addListener(this.handleNetworkChange);
@@ -69,6 +69,8 @@ class SmartSyncService {
 
     log.info('Smart Sync Service initialized');
   }
+
+  private appStateSubscription: { remove: () => void } | null = null;
 
   /**
    * Setup different sync strategies for different data types
@@ -465,7 +467,10 @@ class SmartSyncService {
     this.syncIntervals.clear();
 
     // Remove listeners
-    AppState.removeEventListener('change', this.handleAppStateChange);
+    if (this.appStateSubscription) {
+      this.appStateSubscription.remove();
+      this.appStateSubscription = null;
+    }
   }
 }
 

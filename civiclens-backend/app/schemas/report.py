@@ -17,6 +17,12 @@ class ReportCreate(ReportBase):
     """Schema for creating a report (from API)"""
     category: Optional[str] = Field(None, description="Report category - must be one of the valid categories")
     sub_category: Optional[str] = None
+    landmark: Optional[str] = None
+    ward_number: Optional[str] = None
+    is_public: bool = True
+    is_sensitive: bool = False
+    photos: Optional[List[str]] = Field(default_factory=list)
+    videos: Optional[List[str]] = Field(default_factory=list)
     
     @field_validator('category')
     @classmethod

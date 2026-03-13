@@ -18,7 +18,6 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle } from 'react-native-svg';
-import MapView, { Marker, PROVIDER_DEFAULT } from 'react-native-maps';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -28,7 +27,7 @@ import { useDashboard } from '@shared/hooks';
 import { APP_CONFIG } from '@/config/appConfig';
 import { useReportStore } from '@/store/reportStore';
 import { useNotifications } from '@shared/hooks/useNotifications';
-import { OfflineIndicator, SyncStatusIndicator, TopNavbar } from '@shared/components';
+import { OfflineIndicator, SyncStatusIndicator, TopNavbar, NativeMap, NativeMapRef } from '@shared/components';
 import { networkService } from '@shared/services/network/networkService';
 import { colors } from '@shared/theme/colors';
 import { getTabBarHeight } from '@shared/utils/screenPadding';
@@ -53,7 +52,7 @@ export const CitizenHomeScreen: React.FC = () => {
     setUserLocation,
   } = useDashboard();
 
-  const mapRef = useRef<MapView>(null);
+  const mapRef = useRef<NativeMapRef>(null);
   const { reports, fetchMyReports } = useReportStore();
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
@@ -166,10 +165,10 @@ export const CitizenHomeScreen: React.FC = () => {
   };
 
   const handleZoom = async (type: 'in' | 'out') => {
-    const camera = await mapRef.current?.getCamera();
-    if (camera && camera.zoom !== undefined) {
-      camera.zoom += type === 'in' ? 1 : -1;
-      mapRef.current?.animateCamera(camera, { duration: 300 });
+    if (type === 'in') {
+      mapRef.current?.zoomIn();
+    } else {
+      mapRef.current?.zoomOut();
     }
   };
 
@@ -249,35 +248,25 @@ export const CitizenHomeScreen: React.FC = () => {
       <SyncStatusIndicator />
 
       {/* Interactive Map */}
-      <MapView
+      <NativeMap
         ref={mapRef}
-        style={styles.mapContainer}
-        provider={PROVIDER_DEFAULT}
         initialRegion={{
           latitude: userLocation?.latitude || 19.0263,
-          longitude: userLocation?.longitude || 73.0645, // Navi Mumbai Kharghar roughly
+          longitude: userLocation?.longitude || 73.0645,
           latitudeDelta: 0.05,
           longitudeDelta: 0.05,
         }}
-        showsUserLocation={true}
-        showsMyLocationButton={false}
-      >
-        {reports.filter((r) => !searchQuery || r.title.toLowerCase().includes(searchQuery.toLowerCase()) || r.description.toLowerCase().includes(searchQuery.toLowerCase()) || (typeof r.address === 'string' && r.address.toLowerCase().includes(searchQuery.toLowerCase()))).map((report) => (
-          typeof report.latitude === 'number' && typeof report.longitude === 'number' ? (
-            <Marker
-              key={`report-${report.id}`}
-              coordinate={{ latitude: report.latitude, longitude: report.longitude }}
-              title={report.title}
-              description={report.description}
-              pinColor={
-                report.severity === 'critical' || report.severity === 'high' ? '#D32F2F' :
-                  report.severity === 'medium' ? '#FBC02D' :
-                    '#388E3C'
-              }
-            />
-          ) : null
-        ))}
-      </MapView>
+        markers={reports
+          .filter((r) => !searchQuery || r.title.toLowerCase().includes(searchQuery.toLowerCase()) || r.description.toLowerCase().includes(searchQuery.toLowerCase()) || (typeof r.address === 'string' && r.address.toLowerCase().includes(searchQuery.toLowerCase())))
+          .map((report) => ({
+            id: report.id || Math.random(),
+            latitude: report.latitude || 0,
+            longitude: report.longitude || 0,
+            title: report.title,
+            description: report.description,
+            type: report.status?.toString().toUpperCase() === 'RESOLVED' ? 'resolved' : 'issue'
+          })) as any}
+      />
 
       {/* Map Controls (Zoom & Locate) */}
       <View style={[styles.mapControls, { bottom: bottomSheetBottom + 160 }]}>
