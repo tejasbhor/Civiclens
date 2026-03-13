@@ -87,7 +87,7 @@ services:
   # ---- Infrastructure Services ----
   postgres:
     platform: linux/arm64
-    image: postgis/postgis:15-3.3
+    image: postgis/postgis:15-3.5
     container_name: civiclens-postgres
     restart: unless-stopped
     env_file: .env
