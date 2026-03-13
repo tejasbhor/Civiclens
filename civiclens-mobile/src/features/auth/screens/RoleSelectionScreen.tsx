@@ -7,6 +7,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { APP_CONFIG } from '@/config/appConfig';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -67,7 +68,7 @@ export const RoleSelectionScreen = ({ navigation, onSelectRole }: RoleSelectionS
               <Text style={styles.logoBadgeText}>CL</Text>
             </View>
             <View style={styles.heroTextBlock}>
-              <Text style={styles.heroTitle}>CivicLens</Text>
+              <Text style={styles.heroTitle}>{APP_CONFIG.appName}</Text>
               <Text style={styles.heroSubtitle}>
                 One platform for citizens & officers to collaborate on civic issues.
               </Text>
@@ -124,7 +125,7 @@ export const RoleSelectionScreen = ({ navigation, onSelectRole }: RoleSelectionS
 
         {/* Footer */}
         <Text style={styles.footerText}>
-          Offline-first  •  Secure  •  Available in 6 languages
+          Offline-first  •  Secure  •  Available 24/7
         </Text>
       </ScrollView>
     </SafeAreaView>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,8 @@ import {
   Platform,
   ScrollView,
   BackHandler,
+  LayoutAnimation,
+  UIManager,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -24,12 +26,33 @@ import {
 } from '@shared/utils/roleValidation';
 import { validatePhone, normalizePhone } from '@shared/utils/validation';
 import { colors } from '@shared/theme/colors';
+import { ENV } from '@shared/config/env';
 import { useToast } from '@shared/hooks';
 import { Toast } from '@shared/components';
 import { AUTH_GRADIENT } from './RoleSelectionScreen';
 
+/** Dev OTP visibility flag — only true when EXPO_PUBLIC_ENV=development */
+const IS_DEV = ENV.ENVIRONMENT === 'development';
+
+// Enable LayoutAnimation on Android
+if (
+  Platform.OS === 'android' &&
+  UIManager.setLayoutAnimationEnabledExperimental
+) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
+
+const TRANSITION_ANIM = LayoutAnimation.create(
+  280,
+  LayoutAnimation.Types.easeInEaseOut,
+  LayoutAnimation.Properties.opacity
+);
+
+type OfficerStep = 'credentials' | 'email-otp';
+
 export const OfficerLoginScreen: React.FC = () => {
   const navigation = useNavigation();
+  const [step, setStep] = useState<OfficerStep>('credentials');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -38,12 +61,33 @@ export const OfficerLoginScreen: React.FC = () => {
   const [phoneError, setPhoneError] = useState<string | null>(null);
   const [passwordError, setPasswordError] = useState<string | null>(null);
 
+  // Email OTP state
+  const [otp, setOtp] = useState('');
+  const [devOtp, setDevOtp] = useState('');
+  const [otpError, setOtpError] = useState('');
+  const [countdown, setCountdown] = useState(300);
+  const [pendingTokens, setPendingTokens] = useState<any>(null);
+  const [officerEmail, setOfficerEmail] = useState('');
+
   const { setTokens } = useAuthStore();
   const { toast, showSuccess, showError } = useToast();
+
+  const animateTransition = useCallback(() => {
+    LayoutAnimation.configureNext(TRANSITION_ANIM);
+  }, []);
 
   // Handle hardware back button
   useEffect(() => {
     const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (step === 'email-otp') {
+        animateTransition();
+        setStep('credentials');
+        setOtp('');
+        setDevOtp('');
+        setOtpError('');
+        setPendingTokens(null);
+        return true;
+      }
       if (navigation.canGoBack()) {
         navigation.goBack();
         return true;
@@ -51,7 +95,18 @@ export const OfficerLoginScreen: React.FC = () => {
       return false;
     });
     return () => backHandler.remove();
-  }, [navigation]);
+  }, [navigation, step, animateTransition]);
+
+  // OTP countdown timer
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (step === 'email-otp' && countdown > 0) {
+      interval = setInterval(() => {
+        setCountdown(prev => prev - 1);
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [step, countdown]);
 
   const validatePasswordInternal = (pwd: string): { valid: boolean; error?: string } => {
     if (!pwd || pwd.trim().length === 0) {
@@ -110,7 +165,7 @@ export const OfficerLoginScreen: React.FC = () => {
 
       const response = await authApi.login(normalizedPhone, password, 'officer');
 
-      // Validate role BEFORE setting tokens to prevent navigation glitch
+      // Validate role BEFORE proceeding
       const roleValidation = validateRoleForRoute(response.role as UserRole, 'officer');
 
       if (!roleValidation.isValid) {
@@ -119,9 +174,36 @@ export const OfficerLoginScreen: React.FC = () => {
         return;
       }
 
-      // Role is valid - set tokens and navigate
-      await setTokens(response);
-      showSuccess(`Welcome ${getRoleName(response.role as UserRole)}!`);
+      // Stash the tokens — we'll set them AFTER email OTP verification
+      setPendingTokens(response);
+
+      // Fetch user profile to get email for OTP
+      try {
+        const userProfile = await authApi.getCurrentUser();
+        if (userProfile.email) {
+          setOfficerEmail(userProfile.email);
+          // Request email OTP
+          const otpResponse = await authApi.requestEmailOTP(userProfile.email);
+          if (otpResponse.otp) {
+            setDevOtp(otpResponse.otp);
+          }
+          animateTransition();
+          setStep('email-otp');
+          setCountdown(300);
+          showSuccess(
+            `Verification code sent to ${userProfile.email}${IS_DEV && otpResponse.otp ? ` (Dev OTP: ${otpResponse.otp})` : ''}`
+          );
+        } else {
+          // No email on file — skip 2FA and complete login
+          await setTokens(response);
+          showSuccess(`Welcome ${getRoleName(response.role as UserRole)}!`);
+        }
+      } catch (profileError: any) {
+        console.error('Failed to fetch profile for 2FA:', profileError);
+        // Fallback: complete login without 2FA
+        await setTokens(response);
+        showSuccess(`Welcome ${getRoleName(response.role as UserRole)}!`);
+      }
     } catch (error: any) {
       let errorMessage = 'Invalid credentials. Please verify your phone number and password and try again.';
 
@@ -139,6 +221,203 @@ export const OfficerLoginScreen: React.FC = () => {
     }
   };
 
+  const handleVerifyEmailOtp = async () => {
+    if (otp.length !== 6) {
+      setOtpError('Please enter a valid 6-digit code');
+      showError('Please enter a valid 6-digit code');
+      return;
+    }
+
+    setIsLoading(true);
+    setOtpError('');
+
+    try {
+      // Verify the email OTP
+      await authApi.verifyEmailOTP(officerEmail, otp);
+
+      // OTP verified — set the original tokens
+      if (pendingTokens) {
+        await setTokens(pendingTokens);
+        showSuccess(`Welcome ${getRoleName(pendingTokens.role as UserRole)}!`);
+      }
+    } catch (err: any) {
+      const errorMsg = err.message || 'Invalid or expired verification code';
+      setOtpError(errorMsg);
+      showError(errorMsg);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleResendOtp = async () => {
+    if (!officerEmail) return;
+    setIsLoading(true);
+    try {
+      const otpResponse = await authApi.requestEmailOTP(officerEmail);
+      if (otpResponse.otp) {
+        setDevOtp(otpResponse.otp);
+      }
+      setCountdown(300);
+      showSuccess(
+        `Verification code resent${IS_DEV && otpResponse.otp ? ` (Dev OTP: ${otpResponse.otp})` : ''}`
+      );
+    } catch (err: any) {
+      showError(err.message || 'Failed to resend code');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // ---- Render Email OTP Step ----
+  if (step === 'email-otp') {
+    return (
+      <SafeAreaView style={styles.container}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.keyboardView}
+        >
+          <ScrollView
+            style={styles.scrollViewFull}
+            contentContainerStyle={styles.scrollContent}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+            bounces={false}
+          >
+            {/* Back Button */}
+            <TouchableOpacity
+              onPress={() => {
+                animateTransition();
+                setStep('credentials');
+                setOtp('');
+                setDevOtp('');
+                setOtpError('');
+                setPendingTokens(null);
+              }}
+              style={styles.backButton}
+              activeOpacity={0.7}
+              accessibilityLabel="Go back"
+              accessibilityRole="button"
+            >
+              <Ionicons name="arrow-back" size={20} color={colors.text} />
+            </TouchableOpacity>
+
+            {/* Hero Card */}
+            <LinearGradient
+              colors={AUTH_GRADIENT}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.heroCard}
+            >
+              <View style={styles.heroContent}>
+                <View style={styles.logoBadge}>
+                  <Ionicons name="mail" size={22} color={colors.white} />
+                </View>
+                <View style={styles.heroTextBlock}>
+                  <Text style={styles.heroTitle}>Email Verification</Text>
+                  <Text style={styles.heroSubtitle}>Enter the code sent to {officerEmail}</Text>
+                </View>
+              </View>
+            </LinearGradient>
+
+            {/* OTP Form Card */}
+            <View style={styles.formCard}>
+              <Text style={styles.label}>Verification Code</Text>
+              <View style={styles.inputContainer}>
+                <View style={styles.iconCircle}>
+                  <Ionicons name="shield-checkmark-outline" size={15} color="#0D47A1" />
+                </View>
+                <TextInput
+                  style={styles.input}
+                  placeholder="6-digit code"
+                  placeholderTextColor={colors.textTertiary}
+                  keyboardType="number-pad"
+                  maxLength={6}
+                  value={otp}
+                  onChangeText={text => {
+                    setOtp(text.replace(/\D/g, ''));
+                    setOtpError('');
+                  }}
+                  editable={!isLoading}
+                />
+              </View>
+
+              {otpError ? <Text style={styles.errorText}>{otpError}</Text> : null}
+
+              {devOtp && IS_DEV && (
+                <View style={styles.devOtpContainer}>
+                  <Text style={styles.devOtpText}>Dev OTP: {devOtp}</Text>
+                </View>
+              )}
+
+              <View style={styles.timerRow}>
+                <Ionicons
+                  name="time-outline"
+                  size={14}
+                  color={countdown > 0 ? colors.textSecondary : colors.error}
+                />
+                <Text
+                  style={[
+                    styles.timerText,
+                    countdown === 0 && styles.timerExpired,
+                  ]}
+                >
+                  {countdown > 0
+                    ? `Resend in ${Math.floor(countdown / 60)}:${(countdown % 60).toString().padStart(2, '0')}`
+                    : 'Code expired'}
+                </Text>
+              </View>
+
+              {countdown === 0 && (
+                <TouchableOpacity
+                  style={styles.resendButton}
+                  onPress={handleResendOtp}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="refresh-outline" size={16} color="#0D47A1" />
+                  <Text style={styles.resendButtonText}>Resend Code</Text>
+                </TouchableOpacity>
+              )}
+
+              <TouchableOpacity
+                style={[
+                  styles.button,
+                  (isLoading || otp.length !== 6) && styles.buttonDisabled,
+                ]}
+                onPress={handleVerifyEmailOtp}
+                disabled={isLoading || otp.length !== 6}
+                activeOpacity={0.8}
+              >
+                {isLoading ? (
+                  <ActivityIndicator color={colors.white} />
+                ) : (
+                  <>
+                    <Ionicons name="checkmark-circle" size={17} color={colors.white} style={{ marginRight: 8 }} />
+                    <Text style={styles.buttonText}>Verify & Sign In</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+
+            {/* Security Notice */}
+            <View style={styles.securityNotice}>
+              <View style={styles.securityIcon}>
+                <Ionicons name="shield-checkmark" size={16} color="#0D47A1" />
+              </View>
+              <View style={styles.securityTextContainer}>
+                <Text style={styles.securityTitle}>Two-Factor Authentication</Text>
+                <Text style={styles.securityText}>
+                  An OTP code has been sent to your registered email for enhanced security. This adds an extra layer of protection to your account.
+                </Text>
+              </View>
+            </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
+        <Toast {...toast} onHide={() => { }} />
+      </SafeAreaView>
+    );
+  }
+
+  // ---- Render Credentials Step ----
   return (
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView
@@ -523,5 +802,51 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: colors.textSecondary,
     lineHeight: 16,
+  },
+
+  // ---- Dev OTP & Timer (Email OTP step) ----
+  devOtpContainer: {
+    backgroundColor: '#FFF3E0',
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: '#FFE0B2',
+  },
+  devOtpText: {
+    fontSize: 13,
+    color: '#E65100',
+    fontWeight: '700',
+    letterSpacing: 1,
+    textAlign: 'center',
+  },
+  timerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 14,
+    gap: 6,
+  },
+  timerText: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    fontWeight: '500',
+  },
+  timerExpired: {
+    color: colors.error,
+    fontWeight: '600',
+  },
+  resendButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 10,
+    gap: 6,
+  },
+  resendButtonText: {
+    fontSize: 14,
+    color: '#0D47A1',
+    fontWeight: '600',
   },
 });

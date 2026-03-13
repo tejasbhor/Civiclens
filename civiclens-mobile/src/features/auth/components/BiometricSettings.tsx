@@ -8,7 +8,9 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '@/store/authStore';
+import { APP_CONFIG } from '@/config/appConfig';
 import { BiometricAuth } from '@shared/services/biometric';
 
 interface BiometricSettingsProps {
@@ -17,8 +19,6 @@ interface BiometricSettingsProps {
 
 export const BiometricSettings: React.FC<BiometricSettingsProps> = ({ phone }) => {
   const [isLoading, setIsLoading] = useState(false);
-  const [biometricType, setBiometricType] = useState<string>('Biometric');
-  
   const {
     biometricCapabilities,
     isBiometricEnabled,
@@ -31,15 +31,6 @@ export const BiometricSettings: React.FC<BiometricSettingsProps> = ({ phone }) =
     checkBiometricCapabilities();
   }, []);
 
-  useEffect(() => {
-    if (biometricCapabilities?.supportedTypes) {
-      const typeName = BiometricAuth.getBiometricTypeName(
-        biometricCapabilities.supportedTypes
-      );
-      setBiometricType(typeName);
-    }
-  }, [biometricCapabilities]);
-
   const handleToggleBiometric = async (value: boolean) => {
     setIsLoading(true);
 
@@ -47,7 +38,7 @@ export const BiometricSettings: React.FC<BiometricSettingsProps> = ({ phone }) =
       if (value) {
         // Enable biometric - first authenticate
         const authResult = await BiometricAuth.authenticate(
-          `Enable ${biometricType} for login`
+          `Enable biometric for login`
         );
 
         if (!authResult.success) {
@@ -64,14 +55,14 @@ export const BiometricSettings: React.FC<BiometricSettingsProps> = ({ phone }) =
 
         Alert.alert(
           'Success',
-          `${biometricType} app lock has been enabled. The app will require ${biometricType.toLowerCase()} to unlock when you open it next time.`,
+          `Biometric app lock has been enabled. The app will require biometric to unlock when you open it next time.`,
           [{ text: 'OK' }]
         );
       } else {
         // Disable biometric - confirm first
         Alert.alert(
           'Disable App Lock',
-          `Are you sure you want to disable ${biometricType} app lock? The app will no longer require ${biometricType.toLowerCase()} to unlock.`,
+          `Are you sure you want to disable biometric app lock? The app will no longer require biometric to unlock.`,
           [
             {
               text: 'Cancel',
@@ -84,7 +75,7 @@ export const BiometricSettings: React.FC<BiometricSettingsProps> = ({ phone }) =
                 await disableBiometric();
                 Alert.alert(
                   'Disabled',
-                  `${biometricType} app lock has been disabled`,
+                  `Biometric app lock has been disabled`,
                   [{ text: 'OK' }]
                 );
               },
@@ -108,13 +99,13 @@ export const BiometricSettings: React.FC<BiometricSettingsProps> = ({ phone }) =
 
     try {
       const result = await BiometricAuth.authenticate(
-        `Test ${biometricType} authentication`
+        `Test biometric authentication`
       );
 
       if (result.success) {
         Alert.alert(
           'Success',
-          `${biometricType} authentication successful!`,
+          `Biometric authentication successful!`,
           [{ text: 'OK' }]
         );
       } else {
@@ -140,7 +131,7 @@ export const BiometricSettings: React.FC<BiometricSettingsProps> = ({ phone }) =
     return (
       <View style={styles.container}>
         <View style={styles.unavailableContainer}>
-          <Text style={styles.unavailableIcon}>⚠️</Text>
+          <Ionicons name="warning-outline" size={48} color="#94A3B8" style={{ marginBottom: 12 }} />
           <Text style={styles.unavailableTitle}>Biometric Not Available</Text>
           <Text style={styles.unavailableText}>
             {!biometricCapabilities?.hasHardware
@@ -156,21 +147,21 @@ export const BiometricSettings: React.FC<BiometricSettingsProps> = ({ phone }) =
     <View style={styles.container}>
       <View style={styles.header}>
         <View style={styles.iconContainer}>
-          <Text style={styles.icon}>🔐</Text>
+          <Ionicons name="lock-closed" size={24} color="#2563EB" />
         </View>
         <View style={styles.headerText}>
-          <Text style={styles.title}>{biometricType} App Lock</Text>
+          <Text style={styles.title}>Biometric App Lock</Text>
           <Text style={styles.subtitle}>
-            Unlock CivicLens with {biometricType.toLowerCase()} when opening the app
+            Unlock {APP_CONFIG.appName} with your biometric when opening the app
           </Text>
         </View>
       </View>
 
       <View style={styles.settingRow}>
         <View style={styles.settingInfo}>
-          <Text style={styles.settingLabel}>Enable {biometricType}</Text>
+          <Text style={styles.settingLabel}>Enable Biometric Lock</Text>
           <Text style={styles.settingDescription}>
-            App will require {biometricType.toLowerCase()} to unlock after closing
+            App will require biometric to unlock after closing
           </Text>
         </View>
         {isLoading ? (
@@ -191,7 +182,7 @@ export const BiometricSettings: React.FC<BiometricSettingsProps> = ({ phone }) =
           onPress={handleTestBiometric}
           disabled={isLoading}
         >
-          <Text style={styles.testButtonText}>Test {biometricType}</Text>
+          <Text style={styles.testButtonText}>Test Biometric</Text>
         </TouchableOpacity>
       )}
     </View>

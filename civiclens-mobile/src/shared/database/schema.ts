@@ -1,5 +1,5 @@
-// Database schema for CivicLens Mobile App
-// Using expo-sqlite with encryption support
+// Database schema for Civic Issue Reporting Mobile App
+// Defines tables, columns, and sync structures for SQLitesupport
 
 export const DATABASE_NAME = 'civiclens.db';
 export const DATABASE_VERSION = 1;
@@ -96,13 +96,13 @@ export const CREATE_INDEXES = {
   reports_is_synced: 'CREATE INDEX IF NOT EXISTS idx_reports_is_synced ON reports(is_synced);',
   reports_status: 'CREATE INDEX IF NOT EXISTS idx_reports_status ON reports(status);',
   reports_created_at: 'CREATE INDEX IF NOT EXISTS idx_reports_created_at ON reports(created_at);',
-  
+
   tasks_assigned_to: 'CREATE INDEX IF NOT EXISTS idx_tasks_assigned_to ON tasks(assigned_to);',
   tasks_is_synced: 'CREATE INDEX IF NOT EXISTS idx_tasks_is_synced ON tasks(is_synced);',
   tasks_status: 'CREATE INDEX IF NOT EXISTS idx_tasks_status ON tasks(status);',
-  
+
   sync_queue_item_type: 'CREATE INDEX IF NOT EXISTS idx_sync_queue_item_type ON sync_queue(item_type);',
-  
+
   cache_data_expires_at: 'CREATE INDEX IF NOT EXISTS idx_cache_data_expires_at ON cache_data(expires_at);',
 };
 
@@ -115,6 +115,9 @@ export enum ReportCategory {
   STREETLIGHT = 'streetlight',
   DRAINAGE = 'drainage',
   PUBLIC_PROPERTY = 'public_property',
+  PUBLIC_SAFETY = 'public_safety',
+  ENVIRONMENT = 'environment',
+  INFRASTRUCTURE = 'infrastructure',
   OTHER = 'other',
 }
 

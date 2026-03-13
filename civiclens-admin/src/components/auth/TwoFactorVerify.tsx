@@ -5,6 +5,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Shield, AlertCircle } from 'lucide-react';
+import { APP_CONFIG } from '@/lib/config/appConfig';
 
 interface TwoFactorVerifyProps {
   onVerify: (code: string) => Promise<void>;
@@ -89,7 +90,7 @@ export function TwoFactorVerify({ onVerify, onCancel, loading = false }: TwoFact
 
           <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-800">
             <p className="font-semibold mb-1">💡 Tip</p>
-            <p>Open your authenticator app (Google Authenticator, Authy, etc.) and enter the 6-digit code shown for CivicLens.</p>
+            <p>Open your authenticator app (Google Authenticator, Authy, etc.) and enter the 6-digit code shown for {APP_CONFIG.appName}.</p>
           </div>
         </div>
       </CardContent>

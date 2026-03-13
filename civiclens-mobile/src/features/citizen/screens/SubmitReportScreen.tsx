@@ -20,6 +20,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
+import { APP_CONFIG } from '@/config/appConfig';
 import * as Location from 'expo-location';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
@@ -37,9 +38,12 @@ const CATEGORY_OPTIONS = [
   { value: ReportCategory.WATER, label: 'Water Supply', icon: 'water' },
   { value: ReportCategory.SANITATION, label: 'Sanitation', icon: 'trash' },
   { value: ReportCategory.ELECTRICITY, label: 'Electricity', icon: 'flash' },
-  { value: ReportCategory.STREETLIGHT, label: 'Street Light', icon: 'bulb' },
+  { value: ReportCategory.STREETLIGHT, label: 'Streetlight', icon: 'bulb' },
   { value: ReportCategory.DRAINAGE, label: 'Drainage', icon: 'water-outline' },
   { value: ReportCategory.PUBLIC_PROPERTY, label: 'Public Property', icon: 'business' },
+  { value: ReportCategory.PUBLIC_SAFETY, label: 'Public Safety', icon: 'shield-checkmark' },
+  { value: ReportCategory.ENVIRONMENT, label: 'Environment', icon: 'leaf' },
+  { value: ReportCategory.INFRASTRUCTURE, label: 'Infrastructure', icon: 'construct' },
   { value: ReportCategory.OTHER, label: 'Other', icon: 'ellipsis-horizontal' },
 ];
 
@@ -97,7 +101,7 @@ export const SubmitReportScreen: React.FC = () => {
             `https://nominatim.openstreetmap.org/reverse?format=json&lat=${loc.coords.latitude}&lon=${loc.coords.longitude}&zoom=19&addressdetails=1&extratags=1&namedetails=1`,
             {
               headers: {
-                'User-Agent': 'CivicLensMobile/1.0',
+                'User-Agent': `${APP_CONFIG.appName}/1.0`,
                 'Accept-Language': 'en' // Get results in English
               },
               signal: controller.signal

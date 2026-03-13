@@ -1,7 +1,7 @@
 import { toast } from 'sonner';
 
 /**
- * Centralized toast notification utility for CivicLens Citizen Portal
+ * Centralized toast notification utility for CivicLens Web Portal
  * Uses sonner for consistent, modern toast notifications
  * 
  * @example

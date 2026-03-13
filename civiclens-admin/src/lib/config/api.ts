@@ -3,10 +3,10 @@
  */
 
 const IS_PROD = process.env.NODE_ENV === 'production';
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || (IS_PROD ? 'https://api.civiclens.com/api/v1' : 'http://localhost:8000/api/v1');
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || (IS_PROD ? 'https://api.civiclens.space/api/v1' : 'http://localhost:8000/api/v1');
 
 if (IS_PROD && !process.env.NEXT_PUBLIC_API_URL) {
-  console.warn('⚠️ No NEXT_PUBLIC_API_URL provided for production, using default: https://api.civiclens.com/api/v1');
+  console.warn('⚠️ No NEXT_PUBLIC_API_URL provided for production, using default: https://api.civiclens.space/api/v1');
 }
 
 /**

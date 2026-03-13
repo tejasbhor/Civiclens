@@ -1,5 +1,6 @@
 import axios, { AxiosInstance, AxiosError, InternalAxiosRequestConfig } from 'axios';
 import { toast } from 'sonner';
+import { AUTH_LOGOUT_EVENT } from '../store/authStore';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
 
@@ -99,10 +100,30 @@ class ApiClient {
         case 401:
           toast.error('Session expired. Please login again.');
           this.removeToken();
-          window.location.href = '/auth/login';
+          localStorage.removeItem('auth_token');
+          localStorage.removeItem('refresh_token');
+          localStorage.removeItem('user_role');
+          localStorage.removeItem('user_id');
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new Event(AUTH_LOGOUT_EVENT));
+            window.location.href = '/auth/login';
+          }
           break;
         case 403:
-          toast.error('You do not have permission to perform this action.');
+          if (data && data.detail === 'Not authenticated') {
+            toast.error('Session expired or invalid. Please login again.');
+            this.removeToken();
+            localStorage.removeItem('auth_token');
+            localStorage.removeItem('refresh_token');
+            localStorage.removeItem('user_role');
+            localStorage.removeItem('user_id');
+            if (typeof window !== 'undefined') {
+              window.dispatchEvent(new Event(AUTH_LOGOUT_EVENT));
+              window.location.href = '/auth/login';
+            }
+          } else {
+            toast.error('You do not have permission to perform this action.');
+          }
           break;
         case 404:
           toast.error('Resource not found.');
@@ -131,7 +152,7 @@ class ApiClient {
           toast.error('Server error. Please try again later.');
           break;
         default:
-          toast.error(data.detail || 'An error occurred.');
+          toast.error(data?.detail || 'An error occurred.');
       }
     } else if (error.request) {
       toast.error('Network error. Please check your connection.');
@@ -165,24 +186,24 @@ class ApiClient {
   }
 
   // Expose HTTP methods
-  public get(url: string, config?: any) {
-    return this.client.get(url, config);
+  public get<T = any>(url: string, config?: any) {
+    return this.client.get<T>(url, config);
   }
 
-  public post(url: string, data?: any, config?: any) {
-    return this.client.post(url, data, config);
+  public post<T = any>(url: string, data?: any, config?: any) {
+    return this.client.post<T>(url, data, config);
   }
 
-  public put(url: string, data?: any, config?: any) {
-    return this.client.put(url, data, config);
+  public put<T = any>(url: string, data?: any, config?: any) {
+    return this.client.put<T>(url, data, config);
   }
 
-  public delete(url: string, config?: any) {
-    return this.client.delete(url, config);
+  public delete<T = any>(url: string, config?: any) {
+    return this.client.delete<T>(url, config);
   }
 
-  public patch(url: string, data?: any, config?: any) {
-    return this.client.patch(url, data, config);
+  public patch<T = any>(url: string, data?: any, config?: any) {
+    return this.client.patch<T>(url, data, config);
   }
 }
 

@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { Report } from '@/types';
 import { X, AlertCircle, Mail, Phone, MessageSquare } from 'lucide-react';
+import { APP_CONFIG, fallbackReportNumber } from '@/lib/config/appConfig';
 
 interface ContactCitizenModalProps {
   report: Report;
@@ -33,8 +34,8 @@ export function ContactCitizenModal({ report, onClose }: ContactCitizenModalProp
 
   const handleSendEmail = () => {
     if (citizenEmail !== 'N/A') {
-      const subject = `Regarding Report: ${report.report_number || `CL-${report.id}`}`;
-      const body = message || `Dear ${citizenName},\n\nRegarding your report "${report.title}"...\n\nBest regards,\nCivicLens Team`;
+      const subject = `Regarding Report: ${report.report_number || fallbackReportNumber(report.id)}`;
+      const body = message || `Dear ${citizenName},\n\nRegarding your report "${report.title}"...\n\nBest regards,\n${APP_CONFIG.appName} Team`;
       window.location.href = `mailto:${citizenEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
     }
   };
@@ -51,7 +52,7 @@ export function ContactCitizenModal({ report, onClose }: ContactCitizenModalProp
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
           <div>
             <h2 className="text-2xl font-bold text-gray-900">Contact Citizen</h2>
-            <p className="text-sm text-gray-600 mt-1">{report.report_number || `CL-${report.id}`}</p>
+            <p className="text-sm text-gray-600 mt-1">{report.report_number || fallbackReportNumber(report.id)}</p>
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
             <X className="w-6 h-6" />
@@ -107,11 +108,10 @@ export function ContactCitizenModal({ report, onClose }: ContactCitizenModalProp
                 type="button"
                 onClick={() => setSelectedMethod('email')}
                 disabled={citizenEmail === 'N/A'}
-                className={`p-4 rounded-lg border-2 transition-all ${
-                  selectedMethod === 'email'
+                className={`p-4 rounded-lg border-2 transition-all ${selectedMethod === 'email'
                     ? 'border-blue-600 bg-blue-50'
                     : 'border-gray-200 hover:border-gray-300'
-                } ${citizenEmail === 'N/A' ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  } ${citizenEmail === 'N/A' ? 'opacity-50 cursor-not-allowed' : ''}`}
               >
                 <Mail className="w-6 h-6 mx-auto mb-2 text-blue-600" />
                 <span className="text-sm font-medium text-gray-900">Email</span>
@@ -121,11 +121,10 @@ export function ContactCitizenModal({ report, onClose }: ContactCitizenModalProp
                 type="button"
                 onClick={() => setSelectedMethod('phone')}
                 disabled={citizenPhone === 'N/A'}
-                className={`p-4 rounded-lg border-2 transition-all ${
-                  selectedMethod === 'phone'
+                className={`p-4 rounded-lg border-2 transition-all ${selectedMethod === 'phone'
                     ? 'border-green-600 bg-green-50'
                     : 'border-gray-200 hover:border-gray-300'
-                } ${citizenPhone === 'N/A' ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  } ${citizenPhone === 'N/A' ? 'opacity-50 cursor-not-allowed' : ''}`}
               >
                 <Phone className="w-6 h-6 mx-auto mb-2 text-green-600" />
                 <span className="text-sm font-medium text-gray-900">Phone</span>
@@ -135,11 +134,10 @@ export function ContactCitizenModal({ report, onClose }: ContactCitizenModalProp
                 type="button"
                 onClick={() => setSelectedMethod('sms')}
                 disabled={citizenPhone === 'N/A'}
-                className={`p-4 rounded-lg border-2 transition-all ${
-                  selectedMethod === 'sms'
+                className={`p-4 rounded-lg border-2 transition-all ${selectedMethod === 'sms'
                     ? 'border-purple-600 bg-purple-50'
                     : 'border-gray-200 hover:border-gray-300'
-                } ${citizenPhone === 'N/A' ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  } ${citizenPhone === 'N/A' ? 'opacity-50 cursor-not-allowed' : ''}`}
               >
                 <MessageSquare className="w-6 h-6 mx-auto mb-2 text-purple-600" />
                 <span className="text-sm font-medium text-gray-900">SMS</span>
@@ -157,7 +155,7 @@ export function ContactCitizenModal({ report, onClose }: ContactCitizenModalProp
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
                 rows={6}
-                placeholder={`Dear ${citizenName},\n\nRegarding your report "${report.title}"...\n\nBest regards,\nCivicLens Team`}
+                placeholder={`Dear ${citizenName},\n\nRegarding your report "${report.title}"...\n\nBest regards,\n${APP_CONFIG.appName} Team`}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 resize-none"
               />
             </div>

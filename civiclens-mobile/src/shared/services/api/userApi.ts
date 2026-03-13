@@ -37,10 +37,11 @@ export interface VerificationStatus {
 }
 
 export interface UserProfileUpdate {
-  full_name?: string;
-  email?: string;
-  primary_address?: string;
-  bio?: string;
+  full_name?: string | null;
+  email?: string | null;
+  primary_address?: string | null;
+  bio?: string | null;
+  preferred_language?: string | null;
 }
 
 export const userApi = {
@@ -122,6 +123,17 @@ export const userApi = {
     const response = await apiClient.post<{ message: string }>(
       '/users/me/verification/phone/verify',
       { otp }
+    );
+    return response;
+  },
+
+  /**
+   * Register device token for push notifications
+   */
+  async registerDeviceToken(token: string): Promise<{ message: string }> {
+    const response = await apiClient.post<{ message: string }>(
+      '/users/me/device-token',
+      { device_token: token }
     );
     return response;
   },

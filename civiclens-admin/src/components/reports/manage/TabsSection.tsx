@@ -1,7 +1,5 @@
 import React, { useState } from 'react';
-import { Report, ReportStatus } from '@/types/report';
-import { User } from '@/types/user';
-import { Task } from '@/types/task';
+import { Report, ReportStatus, User, Task } from '@/types';
 import { formatDistanceToNow } from 'date-fns';
 import { getMediaUrl } from '@/lib/utils/media';
 import { StatusHistoryResponse } from '@/lib/api/reports';
@@ -253,9 +251,9 @@ export function TabsSection({ report, history, onUpdate }: TabsSectionProps) {
                     <div className="flex-1">
                       <h5 className="font-medium text-green-900 mb-2">{report.task.officer.full_name}</h5>
                       <div className="space-y-2 text-sm text-green-800">
-                        {report.task.officer.employee_id && (
+                        {(report.task.officer as any).employee_id && (
                           <div>
-                            <span className="font-medium">Employee ID:</span> {report.task.officer.employee_id}
+                            <span className="font-medium">Employee ID:</span> {(report.task.officer as any).employee_id}
                           </div>
                         )}
                         {report.task.officer.email && (

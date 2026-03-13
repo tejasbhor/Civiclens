@@ -6,14 +6,28 @@ from functools import lru_cache
 
 class Settings(BaseSettings):
     # Application
-    APP_NAME: str = "CivicLens API"
+    APP_NAME: str = "CivicLens"
     APP_VERSION: str = "1.0.0"
     DEBUG: bool = False
     ENVIRONMENT: str = "production"
-    CITY_CODE: str = "NMC"
+    CITY_CODE: str = "MC"
     APP_BASE_URL: Optional[str] = None
+
+    # Organization/Tenant Branding (customize per deployment)
+    ORG_NAME: str = "Municipal Corporation"  # Full organization name
+    ORG_SHORT_NAME: str = "MC"  # Short code for the organization
+    ORG_SUPPORT_EMAIL: str = ""  # Public support email shown in emails/UI
+    ORG_WEBSITE_URL: str = ""  # Organization website URL
+    REPORT_NUMBER_PREFIX: str = "CL"  # Prefix for report numbers (e.g., CL-2026-MC-00001)
+    DEFAULT_TIMEZONE: str = "Asia/Kolkata"  # Deployment timezone
+
+    # Error Tracking
+    SENTRY_DSN: Optional[str] = None
     
     # Database
+    DB_USER: Optional[str] = None
+    DB_PASSWORD: Optional[str] = None
+    DB_NAME: Optional[str] = None
     DATABASE_URL: str
     DATABASE_POOL_SIZE: int = 20
     DATABASE_MAX_OVERFLOW: int = 10
@@ -148,7 +162,7 @@ class Settings(BaseSettings):
     
     # 2FA Settings
     TWO_FA_ENABLED: bool = True  # Enable 2FA for super admins
-    TWO_FA_ISSUER: str = "CivicLens"  # Shown in authenticator app
+    TWO_FA_ISSUER: str = ""  # Shown in authenticator app; falls back to APP_NAME if empty
     TWO_FA_REQUIRED_FOR_ROLES: str = "super_admin"  # Comma-separated roles
     
     @property
@@ -198,6 +212,7 @@ class Settings(BaseSettings):
     class Config:
         env_file = ".env"
         case_sensitive = True
+        extra = "ignore"
 
 
 @lru_cache()

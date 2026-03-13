@@ -8,7 +8,7 @@ import logging
 from datetime import datetime, timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_, or_
-from app.db.session import AsyncSessionLocal
+from app.core.database import AsyncSessionLocal
 from app.models.task import Task, TaskStatus
 from app.models.report import Report, ReportSeverity
 from app.services.notification_service import NotificationService

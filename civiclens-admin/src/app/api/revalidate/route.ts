@@ -41,6 +41,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    // @ts-ignore: Next.js types might incorrectly expect 2 arguments
     revalidateTag(tag);
     return NextResponse.json({
       revalidated: true,

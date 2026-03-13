@@ -350,7 +350,7 @@ export const CityMap: React.FC<CityMapProps> = ({
         
         {/* Auto-fit bounds to show all reports */}
         {reports.length > 0 && (
-          <AutoFitBounds reports={reports} padding={[50, 50, 50, 50]} />
+          <AutoFitBounds reports={reports} padding={[50, 50]} />
         )}
         
         {isHeatMap ? (

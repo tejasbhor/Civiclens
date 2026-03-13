@@ -39,12 +39,13 @@ class AIProcessingPipeline:
         self._system_user_id = None
         
     async def _warmup_models(self):
-        """Warmup models to ensure they are loaded on GPU"""
+        """Warmup models to ensure they are loaded on the correct device"""
         try:
-            logger.info("Warming up AI models on GPU...")
-            # Simple dummy inference to trigger model loading and CUDA kernel compilation
+            device_name = "GPU" if self.category_classifier.gpu_manager.should_use_gpu() else "CPU"
+            logger.info(f"Warming up AI models on {device_name}...")
+            # Simple dummy inference to trigger model loading
             await self.category_classifier.classify("Test", "Test description")
-            self.urgency_scorer.score_urgency("Test", "Test description")
+            await self.urgency_scorer.score_urgency("Test", "Test description", "roads")
             logger.info("Models warmed up and ready")
         except Exception as e:
             logger.warning(f"Model warmup failed (non-critical): {e}")
@@ -331,8 +332,9 @@ class AIProcessingPipeline:
             if overall_confidence < AIConfig.MIN_CLASSIFICATION_CONFIDENCE:
                 update_data.needs_review = True
                 update_data.status = ReportStatus.PENDING_CLASSIFICATION
+                update_data.department_id = None  # Remove generic mapping for gibberish or unidentifiable data
                 logger.info(
-                    f"Low confidence ({overall_confidence:.2f}) - marking for review"
+                    f"Low confidence ({overall_confidence:.2f}) - marking for review and removing generic department assignment"
                 )
             
             # Apply updates (don't commit yet, we'll commit at the end)
@@ -608,6 +610,10 @@ class AIProcessingPipeline:
         category_conf = category_result.get("confidence", 0.5)
         severity_conf = severity_result.get("confidence", 0.5)
         dept_conf = dept_result.get("confidence", 0.5)
+        
+        # Ensure department score doesn't artificially inflate confidence if Category itself is uncertain
+        if category_conf < AIConfig.MIN_CLASSIFICATION_CONFIDENCE:
+            dept_conf = min(dept_conf, category_conf)
         
         # Weighted average using configured weights
         weights = AIConfig.CONFIDENCE_WEIGHTS

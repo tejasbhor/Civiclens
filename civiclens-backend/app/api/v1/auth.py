@@ -22,6 +22,8 @@ from app.models.audit_log import AuditAction, AuditStatus
 from app.schemas.auth import (
     OTPRequest,
     OTPVerify,
+    EmailOTPRequest,
+    EmailOTPVerify,
     CitizenSignupRequest,
     PhoneVerifyRequest,
     LoginRequest,
@@ -38,10 +40,118 @@ from app.models.user import UserRole
 from app.config import settings
 from app.core.background_tasks import (
     send_otp_sms_bg,
+    send_otp_email_bg,
     update_login_stats_bg
 )
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
+
+
+@router.post("/request-email-otp", status_code=status.HTTP_200_OK)
+async def request_email_otp(
+    request: EmailOTPRequest,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db)
+):
+    """Request OTP for email address with rate limiting"""
+    # Assuming same rate limit rules for email
+    await rate_limiter.check_otp_rate_limit(request.email)
+    
+    redis_client = await get_redis()
+
+    # Generate OTP
+    otp = generate_otp()
+    redis_key = f"email_otp:{request.email}"
+
+    # Store OTP in Redis with expiry
+    await redis_client.setex(
+        redis_key,
+        settings.OTP_EXPIRY_MINUTES * 60,
+        otp
+    )
+
+    # Send OTP via Email in background (non-blocking)
+    background_tasks.add_task(
+        send_otp_email_bg,
+        request.email,
+        otp
+    )
+
+    return {
+        "message": "OTP sent successfully to email",
+        "otp": otp if settings.DEBUG else None,
+        "expires_in_minutes": settings.OTP_EXPIRY_MINUTES
+    }
+
+
+@router.post("/verify-email-otp", response_model=Token)
+async def verify_email_otp(
+    request: EmailOTPVerify,
+    http_request: Request,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db)
+):
+    """Verify email OTP and return tokens"""
+    redis_client = await get_redis()
+    redis_key = f"email_otp:{request.email}"
+
+    # Get stored OTP
+    stored_otp = await redis_client.get(redis_key)
+
+    if not stored_otp or stored_otp != request.otp:
+        raise UnauthorizedException("Invalid or expired OTP")
+
+    # Get or create user
+    user = await user_crud.get_by_email(db, request.email)
+    if not user:
+        # Currently, minimal user creation is purely by phone. We create a minimal email user or block
+        # For full open source best practice, we can create a user based on email.
+        # But wait, create_minimal_user takes phone. Let's make an ad-hoc logic or adjust.
+        # Assuming we need to support creating a minimal email user or require signup for email users:
+        raise UnauthorizedException("User with this email not found. Please sign up or login with Phone.")
+
+    # Delete OTP from Redis
+    await redis_client.delete(redis_key)
+    
+    # Update login stats in background (non-blocking)
+    background_tasks.add_task(
+        update_login_stats_bg,
+        user.id
+    )
+    
+    # Log successful OTP login
+    await audit_logger.log_login_success(db, user, http_request, "email_otp")
+
+    # Generate JTIs for session tracking
+    access_jti = generate_jti()
+    refresh_jti = generate_jti()
+
+    # Create tokens
+    access_token = create_access_token(
+        data={"user_id": user.id, "role": user.role.value, "jti": access_jti}
+    )
+    refresh_token = create_refresh_token(
+        data={"user_id": user.id, "jti": refresh_jti}
+    )
+
+    # Create session
+    await session_manager.create_session(
+        db=db,
+        user_id=user.id,
+        access_token_jti=access_jti,
+        refresh_token_jti=refresh_jti,
+        ip_address=http_request.client.host if http_request.client else None,
+        user_agent=http_request.headers.get("user-agent"),
+        login_method="email_otp",
+        request=http_request
+    )
+
+    return Token(
+        access_token=access_token,
+        refresh_token=refresh_token,
+        user_id=user.id,
+        role=user.role
+    )
 
 
 # Helper function for portal type validation
@@ -117,6 +227,15 @@ async def request_otp(
         request.phone,
         otp
     )
+
+    # Also send OTP via email if user has email on file (tests SMTP in dev)
+    user = await user_crud.get_by_phone(db, request.phone)
+    if user and user.email:
+        background_tasks.add_task(
+            send_otp_email_bg,
+            user.email,
+            otp
+        )
 
     return {
         "message": "OTP sent successfully",
@@ -194,6 +313,7 @@ async def verify_otp(
 @router.post("/signup", status_code=status.HTTP_201_CREATED)
 async def citizen_signup(
     request: CitizenSignupRequest,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db)
 ):
     """Full citizen registration with password"""
@@ -240,7 +360,13 @@ async def citizen_signup(
         otp
     )
     
-    # TODO: Send OTP via SMS gateway in production
+    # Send OTP via SMS in background (non-blocking)
+    background_tasks.add_task(send_otp_sms_bg, request.phone, otp)
+    
+    # Also send OTP via email if the user provided one (verifies SMTP works)
+    if request.email:
+        background_tasks.add_task(send_otp_email_bg, request.email, otp)
+    
     return {
         "message": "Account created successfully. Please verify your phone number.",
         "user_id": user.id,

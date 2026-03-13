@@ -51,7 +51,7 @@ class CRUDReport(CRUDBase[Report, ReportCreate, ReportUpdate]):
             skip=skip,
             limit=limit,
             filters={'user_id': user_id},
-            relationships=['department', 'media', 'task']
+            relationships=['user', 'department', 'media', 'task']
         )
     
     async def get_by_department(

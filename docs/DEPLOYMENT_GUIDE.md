@@ -196,22 +196,18 @@ sudo systemctl enable redis
 ```bash
 cd civiclens-backend
 
-# Create virtual environment
-python3.11 -m venv .venv
-source .venv/bin/activate
-
-# Install dependencies
-pip install -r requirements.txt
+# Install dependencies using UV (automatically creates venv)
+uv sync
 
 # Configure environment
 cp .env.example .env
 nano .env
 
 # Run migrations
-alembic upgrade head
+uv run alembic upgrade head
 
 # Create super admin
-python create_super_admin.py
+uv run python create_super_admin.py
 
 # Create systemd service
 sudo nano /etc/systemd/system/civiclens-backend.service
@@ -228,8 +224,7 @@ After=network.target postgresql.service redis.service
 Type=simple
 User=civiclens
 WorkingDirectory=/opt/civiclens/civiclens-backend
-Environment="PATH=/opt/civiclens/civiclens-backend/.venv/bin"
-ExecStart=/opt/civiclens/civiclens-backend/.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000
+ExecStart=/usr/local/bin/uv run uvicorn app.main:app --host 0.0.0.0 --port 8000
 Restart=always
 RestartSec=10
 

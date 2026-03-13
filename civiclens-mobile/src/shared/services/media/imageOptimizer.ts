@@ -51,7 +51,7 @@ class ImageOptimizerService {
       } = options;
 
       // Get original image info
-      const fileInfo = await FileSystem.getInfoAsync(uri);
+      const fileInfo: any = await FileSystem.getInfoAsync(uri);
       if (!fileInfo.exists) {
         throw new Error('Image file not found');
       }
@@ -92,7 +92,7 @@ class ImageOptimizerService {
           }
         );
 
-        const resultInfo = await FileSystem.getInfoAsync(result.uri);
+        const resultInfo: any = await FileSystem.getInfoAsync(result.uri);
         const resultSizeKB = resultInfo.size / 1024;
 
         if (resultSizeKB <= targetSizeKB || currentQuality <= 0.3) {
@@ -112,7 +112,7 @@ class ImageOptimizerService {
       }
 
       // Return best attempt
-      const finalInfo = await FileSystem.getInfoAsync(compressedUri);
+      const finalInfo: any = await FileSystem.getInfoAsync(compressedUri);
       const imageInfo = await this.getImageDimensions(compressedUri);
 
       return {
@@ -157,7 +157,7 @@ class ImageOptimizerService {
         }
       );
 
-      const fileInfo = await FileSystem.getInfoAsync(result.uri);
+      const fileInfo: any = await FileSystem.getInfoAsync(result.uri);
 
       return {
         uri: result.uri,
@@ -264,7 +264,7 @@ class ImageOptimizerService {
 
     for (const uri of uris) {
       try {
-        const fileInfo = await FileSystem.getInfoAsync(uri);
+        const fileInfo: any = await FileSystem.getInfoAsync(uri);
         if (fileInfo.exists) {
           totalSizeKB += fileInfo.size / 1024;
         }
@@ -307,16 +307,16 @@ class ImageOptimizerService {
     try {
       const directory = `${FileSystem.documentDirectory}images/`;
       const dirInfo = await FileSystem.getInfoAsync(directory);
-      
+
       if (!dirInfo.exists) {
         await FileSystem.makeDirectoryAsync(directory, { intermediates: true });
       }
 
       const fileUri = `${directory}${filename}`;
-      
+
       // Remove data:image/jpeg;base64, prefix if present
       const base64Data = base64.replace(/^data:image\/\w+;base64,/, '');
-      
+
       await FileSystem.writeAsStringAsync(fileUri, base64Data, {
         encoding: FileSystem.EncodingType.Base64,
       });

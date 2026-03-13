@@ -2,10 +2,10 @@ import axios, { AxiosInstance, AxiosError, InternalAxiosRequestConfig } from 'ax
 
 // API Configuration
 const IS_PROD = import.meta.env.PROD;
-const API_BASE_URL = import.meta.env.VITE_API_URL || (IS_PROD ? 'https://api.civiclens.com/api/v1' : 'http://localhost:8000/api/v1');
+const API_BASE_URL = import.meta.env.VITE_API_URL || (IS_PROD ? 'https://api.civiclens.space/api/v1' : 'http://localhost:8000/api/v1');
 
 if (IS_PROD && !import.meta.env.VITE_API_URL) {
-  console.warn('⚠️ No VITE_API_URL provided for production, using default: https://api.civiclens.com/api/v1');
+  console.warn('⚠️ No VITE_API_URL provided for production, using default: https://api.civiclens.space/api/v1');
 }
 
 // Track if we're currently refreshing token to avoid multiple refresh attempts

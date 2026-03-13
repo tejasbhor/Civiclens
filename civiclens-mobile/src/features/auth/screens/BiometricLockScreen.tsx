@@ -10,7 +10,10 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { BiometricAuth } from '@shared/services/biometric';
+import { APP_CONFIG } from '@/config/appConfig';
 import { useAuthStore } from '@/store/authStore';
+import { colors } from '@shared/theme/colors';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface BiometricLockScreenProps {
   onUnlock: () => void;
@@ -20,6 +23,7 @@ export const BiometricLockScreen: React.FC<BiometricLockScreenProps> = ({ onUnlo
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [failedAttempts, setFailedAttempts] = useState(0);
   const { user, logout, biometricCapabilities } = useAuthStore();
+  const insets = useSafeAreaInsets();
 
   // Automatically trigger biometric on mount
   useEffect(() => {
@@ -33,7 +37,7 @@ export const BiometricLockScreen: React.FC<BiometricLockScreenProps> = ({ onUnlo
 
     try {
       const result = await BiometricAuth.authenticate(
-        'Unlock CivicLens',
+        `Unlock ${APP_CONFIG.appName}`,
         'Cancel'
       );
 
@@ -85,7 +89,7 @@ export const BiometricLockScreen: React.FC<BiometricLockScreenProps> = ({ onUnlo
 
   const getBiometricIcon = () => {
     if (!biometricCapabilities) return 'finger-print';
-    
+
     const types = biometricCapabilities.supportedTypes;
     if (types.includes(1)) return 'scan'; // Face recognition
     if (types.includes(2)) return 'scan'; // Iris
@@ -99,78 +103,83 @@ export const BiometricLockScreen: React.FC<BiometricLockScreenProps> = ({ onUnlo
 
   return (
     <LinearGradient
-      colors={['#1E3A8A', '#3B82F6', '#60A5FA']}
+      colors={[colors.primary, colors.primaryDark]}
       style={styles.container}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
     >
-      {/* Lock Icon */}
-      <View style={styles.lockContainer}>
-        <View style={styles.lockIconWrapper}>
-          <Ionicons name="lock-closed" size={64} color="#FFF" />
+      <View
+        style={[
+          styles.content,
+          {
+            paddingTop: insets.top + 20,
+            paddingBottom: insets.bottom + 20
+          }
+        ]}
+      >
+        {/* Top Section */}
+        <View style={styles.headerContainer}>
+          <View style={styles.lockIconWrapper}>
+            <Ionicons name="lock-closed" size={38} color="#FFF" />
+          </View>
+          <Text style={styles.lockTitle}>{APP_CONFIG.appName} Locked</Text>
+          <Text style={styles.lockSubtitle}>
+            Unlock with {getBiometricName().toLowerCase()} to continue
+          </Text>
         </View>
-        <Text style={styles.lockTitle}>CivicLens is Locked</Text>
-        <Text style={styles.lockSubtitle}>
-          Unlock with {getBiometricName().toLowerCase()} to continue
-        </Text>
-      </View>
 
-      {/* User Info */}
-      {user && (
-        <View style={styles.userInfo}>
-          <View style={styles.userAvatar}>
-            <Text style={styles.userAvatarText}>
-              {user.full_name?.charAt(0).toUpperCase() || 'U'}
+        {/* Middle Section: User Info */}
+        <View style={styles.middleContainer}>
+          {user ? (
+            <View style={styles.userInfo}>
+              <View style={styles.userAvatar}>
+                <Text style={styles.userAvatarText}>
+                  {user.full_name?.charAt(0).toUpperCase() || 'U'}
+                </Text>
+              </View>
+              <Text style={styles.userName}>{user.full_name || 'User'}</Text>
+              <Text style={styles.userPhone}>{user.phone}</Text>
+            </View>
+          ) : (
+            <View />
+          )}
+        </View>
+
+        {/* Bottom Section: Biometric Button & Actions */}
+        <View style={styles.actionContainer}>
+          <TouchableOpacity
+            style={[styles.biometricButton, isAuthenticating && styles.biometricButtonDisabled]}
+            onPress={handleBiometricAuth}
+            disabled={isAuthenticating}
+            activeOpacity={0.8}
+          >
+            <View style={styles.biometricIconWrapper}>
+              {isAuthenticating ? (
+                <ActivityIndicator size="small" color={colors.primary} />
+              ) : (
+                <Ionicons name={getBiometricIcon()} size={28} color={colors.primary} />
+              )}
+            </View>
+            <Text style={styles.biometricButtonText}>
+              {isAuthenticating ? 'Authenticating...' : `Unlock with ${getBiometricName()}`}
             </Text>
-          </View>
-          <Text style={styles.userName}>{user.full_name || 'User'}</Text>
-          <Text style={styles.userPhone}>{user.phone}</Text>
+          </TouchableOpacity>
+
+          {failedAttempts > 0 && (
+            <Text style={styles.failedText}>
+              Failed attempts: {failedAttempts}
+            </Text>
+          )}
+
+          <TouchableOpacity
+            style={styles.logoutButton}
+            onPress={handleLogout}
+            disabled={isAuthenticating}
+          >
+            <Ionicons name="log-out-outline" size={18} color="rgba(255,255,255,0.8)" />
+            <Text style={styles.logoutText}>Switch Account</Text>
+          </TouchableOpacity>
         </View>
-      )}
-
-      {/* Biometric Button */}
-      <View style={styles.actionContainer}>
-        <TouchableOpacity
-          style={[styles.biometricButton, isAuthenticating && styles.biometricButtonDisabled]}
-          onPress={handleBiometricAuth}
-          disabled={isAuthenticating}
-          activeOpacity={0.8}
-        >
-          <View style={styles.biometricIconWrapper}>
-            {isAuthenticating ? (
-              <ActivityIndicator size="large" color="#2196F3" />
-            ) : (
-              <Ionicons name={getBiometricIcon()} size={48} color="#2196F3" />
-            )}
-          </View>
-          <Text style={styles.biometricButtonText}>
-            {isAuthenticating ? 'Authenticating...' : `Unlock with ${getBiometricName()}`}
-          </Text>
-        </TouchableOpacity>
-
-        {failedAttempts > 0 && (
-          <Text style={styles.failedText}>
-            Failed attempts: {failedAttempts}
-          </Text>
-        )}
-
-        {/* Logout Option */}
-        <TouchableOpacity
-          style={styles.logoutButton}
-          onPress={handleLogout}
-          disabled={isAuthenticating}
-        >
-          <Ionicons name="log-out-outline" size={20} color="#FFF" />
-          <Text style={styles.logoutText}>Logout</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Help Text */}
-      <View style={styles.helpContainer}>
-        <Ionicons name="information-circle-outline" size={16} color="rgba(255,255,255,0.7)" />
-        <Text style={styles.helpText}>
-          Having trouble? Use the logout option and login again
-        </Text>
       </View>
     </LinearGradient>
   );
@@ -179,104 +188,125 @@ export const BiometricLockScreen: React.FC<BiometricLockScreenProps> = ({ onUnlo
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
   },
-  lockContainer: {
+  content: {
+    flex: 1,
+    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 48,
+    paddingHorizontal: 24,
+  },
+  headerContainer: {
+    alignItems: 'center',
+    marginTop: 24,
   },
   lockIconWrapper: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 24,
-    borderWidth: 3,
+    marginBottom: 20,
+    borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.3)',
   },
   lockTitle: {
-    fontSize: 28,
+    fontSize: 26,
     fontWeight: '700',
     color: '#FFF',
     marginBottom: 8,
     textAlign: 'center',
+    letterSpacing: 0.5,
   },
   lockSubtitle: {
-    fontSize: 16,
-    color: 'rgba(255, 255, 255, 0.9)',
+    fontSize: 15,
+    color: 'rgba(255, 255, 255, 0.85)',
     textAlign: 'center',
+    paddingHorizontal: 20,
+    lineHeight: 22,
+  },
+  middleContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   userInfo: {
     alignItems: 'center',
-    marginBottom: 48,
   },
   userAvatar: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 12,
-    borderWidth: 3,
-    borderColor: '#FFF',
+    marginBottom: 16,
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.8)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
   },
   userAvatarText: {
-    fontSize: 32,
+    fontSize: 36,
     fontWeight: '700',
     color: '#FFF',
   },
   userName: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: '600',
     color: '#FFF',
     marginBottom: 4,
+    letterSpacing: 0.3,
   },
   userPhone: {
-    fontSize: 14,
+    fontSize: 15,
     color: 'rgba(255, 255, 255, 0.8)',
+    fontWeight: '500',
   },
   actionContainer: {
     width: '100%',
     alignItems: 'center',
+    marginBottom: 12,
   },
   biometricButton: {
+    flexDirection: 'row',
     width: '100%',
     backgroundColor: '#FFF',
-    borderRadius: 16,
-    padding: 24,
+    borderRadius: 100,
+    paddingVertical: 16,
+    paddingHorizontal: 24,
     alignItems: 'center',
+    justifyContent: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
     elevation: 8,
   },
   biometricButtonDisabled: {
     opacity: 0.7,
   },
   biometricIconWrapper: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: '#EFF6FF',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.backgroundSecondary,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 16,
+    marginRight: 16,
   },
   biometricButtonText: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '600',
-    color: '#1E293B',
+    color: colors.primaryDark,
   },
   failedText: {
     fontSize: 14,
     color: '#FEE2E2',
-    marginTop: 12,
+    marginTop: 16,
     fontWeight: '500',
   },
   logoutButton: {
@@ -285,26 +315,14 @@ const styles = StyleSheet.create({
     marginTop: 24,
     paddingVertical: 12,
     paddingHorizontal: 24,
-    borderRadius: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderRadius: 24,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
     gap: 8,
   },
   logoutText: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '600',
     color: '#FFF',
   },
-  helpContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 32,
-    paddingHorizontal: 16,
-    gap: 8,
-  },
-  helpText: {
-    fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.7)',
-    textAlign: 'center',
-    flex: 1,
-  },
 });
+

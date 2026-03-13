@@ -36,7 +36,18 @@ const nextConfig: NextConfig = {
           },
           {
             key: 'Content-Security-Policy',
-            value: "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: blob:; font-src 'self' data:; connect-src 'self' https:;"
+            value: [
+              "default-src 'self'",
+              "script-src 'self' 'unsafe-eval' 'unsafe-inline'",
+              "style-src 'self' 'unsafe-inline'",
+              "img-src 'self' data: https: blob: http://localhost:*",
+              "font-src 'self' data:",
+              // Allow API calls to local backend (dev) and any https origin (prod)
+              "connect-src 'self' http://localhost:* ws://localhost:* https: https://*.mapmyindia.com https://*.mappls.com",
+              "media-src 'self' blob: http://localhost:*",
+              // Allow map embeds
+              "frame-src 'self' https://*.google.com https://www.google.com https://*.openstreetmap.org https://*.mapmyindia.com https://*.mappls.com https://mapmyindia.com https://mappls.com https://*.maptiler.com",
+            ].join('; ')
           }
         ]
       }

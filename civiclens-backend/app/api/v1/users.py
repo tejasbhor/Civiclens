@@ -49,6 +49,21 @@ async def update_my_profile(
 
     return updated_user
 
+class DeviceTokenUpdate(BaseModel):
+    device_token: str
+
+@router.post("/me/device-token")
+async def update_device_token(
+    data: DeviceTokenUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Register device token for push notifications"""
+    current_user.device_token = data.device_token
+    db.add(current_user)
+    await db.commit()
+    return {"message": "Device token registered successfully"}
+
 
 # =============================
 # Officer Profile Management
@@ -159,7 +174,7 @@ async def get_my_officer_profile(
         employee_id=current_user.employee_id,
         department=dept_name,
         designation="Field Officer",  # Default for now
-        zone_assigned="Zone A - Central Navi Mumbai",  # Default for now
+        zone_assigned=f"Zone A - {settings.ORG_NAME}",  # Default for now
         bio=bio,
         preferred_language=preferred_language,
         notification_preferences=notification_preferences,
@@ -265,16 +280,12 @@ async def get_officer_location(
         )
     
     try:
-        # Get officer's zone assignment from profile
-        from app.crud import user as user_crud
-        
-        # For now, return default Navi Mumbailocation
-        # In production, this would be based on officer's actual zone assignment
+        # For now, return default location
         return {
-            "latitude": 23.3441,
-            "longitude": 85.3096,
-            "address": "Navi Mumbai, Kharghar",
-            "zone_name": "Zone A - Central Navi Mumbai"
+            "latitude": None,
+            "longitude": None,
+            "address": f"{settings.ORG_NAME}",
+            "zone_name": f"Zone A - {settings.ORG_NAME}"
         }
         
     except Exception as e:
@@ -586,7 +597,7 @@ async def get_all_officers_stats(
         officer_stats.append(OfficerStatsResponse(
             user_id=officer.id,
             full_name=officer.full_name,
-            email=officer.email or f"officer{officer.id}@Navi Mumbai.gov.in",  # Ensure email is not None
+            email=officer.email or f"officer{officer.id}@{settings.ORG_SHORT_NAME.lower()}.gov.in",  # Ensure email is not None
             phone=officer.phone,
             employee_id=officer.employee_id,
             department_id=officer.department_id,
@@ -642,7 +653,7 @@ async def get_user_stats_detailed(
     return OfficerStatsResponse(
         user_id=user.id,
         full_name=user.full_name,
-        email=user.email or f"officer{user.id}@Navi Mumbai.gov.in",  # Ensure email is not None
+        email=user.email or f"officer{user.id}@{settings.ORG_SHORT_NAME.lower()}.gov.in",  # Ensure email is not None
         phone=user.phone,
         employee_id=user.employee_id,
         department_id=user.department_id,
@@ -775,22 +786,48 @@ async def get_my_verification_status(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Return email/phone verification status using Redis flags, non-authoritative for now."""
+    """Return email/phone verification status.
+    
+    Source of truth:
+    - phone_verified: DB column (set authoritatively during OTP login flow)
+    - email_verified: DB column OR Redis flag (Redis used for email token flow in dev)
+    Both DB and Redis are checked; DB takes precedence.
+    """
     redis = await get_redis()
-    email_verified = await redis.get(f"verify:email:verified:{current_user.id}")
-    phone_verified = await redis.get(f"verify:phone:verified:{current_user.id}")
+    
+    # Phone: DB is authoritative (set at OTP verification time)
+    phone_verified_db = bool(current_user.phone_verified)
+    
+    # Also sync the Redis key if DB says verified (ensures consistency)
+    if phone_verified_db:
+        await redis.set(f"verify:phone:verified:{current_user.id}", "1")
+    
+    # Email: Check DB first, fall back to Redis flag
+    email_verified_db = bool(getattr(current_user, 'email_verified', False))
+    email_verified_redis = bool(await redis.get(f"verify:email:verified:{current_user.id}"))
+    email_verified = email_verified_db or email_verified_redis
+    
+    # If email was verified via Redis token, persist to DB for consistency
+    if email_verified_redis and not email_verified_db and current_user.email:
+        try:
+            current_user.email_verified = True
+            await db.commit()
+        except Exception:
+            pass  # Non-fatal: Redis flag still works
+    
     last_email_sent = await redis.get(f"verify:email:sent:{current_user.id}")
     last_phone_sent = await redis.get(f"verify:phone:sent:{current_user.id}")
+    
     return {
         "email": {
             "value": current_user.email,
-            "verified": bool(email_verified),
-            "last_sent_at": last_email_sent if last_email_sent else None,
+            "verified": email_verified,
+            "last_sent_at": last_email_sent.decode() if isinstance(last_email_sent, bytes) else last_email_sent,
         },
         "phone": {
             "value": current_user.phone,
-            "verified": bool(phone_verified),
-            "last_sent_at": last_phone_sent if last_phone_sent else None,
+            "verified": phone_verified_db,
+            "last_sent_at": last_phone_sent.decode() if isinstance(last_phone_sent, bytes) else last_phone_sent,
         },
     }
 
@@ -820,7 +857,7 @@ async def send_email_verification(
     smtp_port = getattr(settings, "SMTP_PORT", None) or 587
     smtp_user = getattr(settings, "SMTP_USERNAME", None)
     smtp_pass = getattr(settings, "SMTP_PASSWORD", None)
-    smtp_from = getattr(settings, "SMTP_FROM", None) or (smtp_user or "no-reply@civiclens.local")
+    smtp_from = getattr(settings, "SMTP_FROM", None) or (smtp_user or f"no-reply@{settings.ORG_SHORT_NAME.lower()}.local")
     app_base_url = getattr(settings, "APP_BASE_URL", None) or "http://localhost:3000"
     verify_link = f"{app_base_url}/auth/verify-email?token={token}"
     
@@ -832,7 +869,7 @@ async def send_email_verification(
             "password": smtp_pass,
             "from_email": smtp_from
         }
-        email_body = f"Hello,\n\nPlease verify your email by clicking the link below:\n{verify_link}\n\nThis link expires in 15 minutes.\n\nRegards,\nCivicLens"
+        email_body = f"Hello,\n\nPlease verify your email by clicking the link below:\n{verify_link}\n\nThis link expires in 15 minutes.\n\nRegards,\n{settings.APP_NAME}"
         
         background_tasks.add_task(
             send_email_notification_bg,
@@ -857,14 +894,37 @@ async def verify_email(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Verify email with token. Marks verified flag in Redis."""
+    """Verify email with token.
+    
+    Checks token in Redis, then persistently marks email_verified=True in DB.
+    Redis flag is also set for caching, but DB is the source of truth.
+    """
     redis = await get_redis()
     stored = await redis.get(f"verify:email:token:{current_user.id}")
-    if not stored or stored != payload.token:
+    
+    # stored may be bytes or string depending on Redis client decode setting
+    stored_str = stored.decode() if isinstance(stored, bytes) else stored
+    token_str = payload.token.strip()
+    
+    if not stored_str or stored_str != token_str:
         raise ValidationException("Invalid or expired verification token")
+    
+    # Persist to DB — this is the authoritative record
+    try:
+        current_user.email_verified = True
+        await db.commit()
+        await db.refresh(current_user)
+    except Exception as e:
+        await db.rollback()
+        logger.error(f"Failed to persist email_verified for user {current_user.id}: {e}")
+        raise HTTPException(status_code=500, detail="Verification failed to save. Please retry.")
+    
+    # Also set Redis cache for fast reads
     await redis.set(f"verify:email:verified:{current_user.id}", "1")
     await redis.delete(f"verify:email:token:{current_user.id}")
-    return {"message": "Email verified"}
+    
+    logger.info(f"Email verified for user {current_user.id}: {current_user.email}")
+    return {"message": "Email verified successfully"}
 
 
 @router.post("/me/verification/phone/send")
@@ -900,14 +960,37 @@ async def verify_phone(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Verify phone with OTP. Marks verified flag in Redis."""
+    """Verify phone with OTP.
+    
+    Checks OTP in Redis, then persistently marks phone_verified=True in DB.
+    Redis flag is also set for caching, but DB is the source of truth.
+    """
     redis = await get_redis()
     stored = await redis.get(f"verify:phone:otp:{current_user.id}")
-    if not stored or stored != payload.otp:
+    
+    # stored may be bytes or string depending on Redis client decode setting
+    stored_str = stored.decode() if isinstance(stored, bytes) else stored
+    otp_str = payload.otp.strip()
+    
+    if not stored_str or stored_str != otp_str:
         raise ValidationException("Invalid or expired OTP")
+    
+    # Persist to DB — this is the authoritative record
+    try:
+        current_user.phone_verified = True
+        await db.commit()
+        await db.refresh(current_user)
+    except Exception as e:
+        await db.rollback()
+        logger.error(f"Failed to persist phone_verified for user {current_user.id}: {e}")
+        raise HTTPException(status_code=500, detail="Verification failed to save. Please retry.")
+    
+    # Also set Redis cache for fast reads
     await redis.set(f"verify:phone:verified:{current_user.id}", "1")
     await redis.delete(f"verify:phone:otp:{current_user.id}")
-    return {"message": "Phone verified"}
+    
+    logger.info(f"Phone verified for user {current_user.id}: {current_user.phone}")
+    return {"message": "Phone verified successfully"}
 
 
 # =============================

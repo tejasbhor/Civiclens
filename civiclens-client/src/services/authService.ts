@@ -6,6 +6,8 @@ export interface User {
   phone: string;
   full_name?: string;
   email?: string;
+  bio?: string;
+  primary_address?: string;
   role: 'citizen' | 'contributor' | 'moderator' | 'nodal_officer' | 'auditor' | 'admin' | 'super_admin';
   profile_completion: 'minimal' | 'basic' | 'complete';
   account_created_via: 'otp' | 'password' | 'admin_seed' | 'government_sso' | 'system_seed';
@@ -56,6 +58,22 @@ export const authService = {
   },
 
   /**
+   * Request OTP for email address (Email Login Path)
+   */
+  async requestEmailOTP(email: string): Promise<OTPResponse> {
+    const response = await apiClient.post('/auth/request-email-otp', { email });
+    return response.data;
+  },
+
+  /**
+   * Verify email OTP and login
+   */
+  async verifyEmailOTP(email: string, otp: string): Promise<AuthResponse> {
+    const response = await apiClient.post('/auth/verify-email-otp', { email, otp });
+    return response.data;
+  },
+
+  /**
    * Full Signup with password (Full Registration Path)
    */
   async signup(data: {
@@ -80,10 +98,10 @@ export const authService = {
    * Login with password (for existing full accounts)
    */
   async login(phone: string, password: string, portalType: 'citizen' | 'officer' = 'citizen'): Promise<AuthResponse> {
-    const response = await apiClient.post('/auth/login', { 
-      phone, 
+    const response = await apiClient.post('/auth/login', {
+      phone,
       password,
-      portal_type: portalType 
+      portal_type: portalType
     });
     return response.data;
   },

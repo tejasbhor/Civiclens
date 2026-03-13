@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useState } from "react";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
+import { APP_CONFIG } from "@/config/appConfig";
 
 /**
  * Professional header component for Citizen Portal
@@ -25,12 +26,12 @@ export const CitizenHeader = () => {
         <div className="flex items-center justify-between">
           {/* Logo and Branding */}
           <div className="flex items-center gap-3">
-            <div 
+            <div
               className="w-10 h-10 rounded-lg bg-gradient-to-br from-primary to-accent flex items-center justify-center cursor-pointer transition-transform hover:scale-105"
               onClick={() => navigate('/citizen/dashboard')}
               role="button"
               tabIndex={0}
-              aria-label="CivicLens Citizen Portal Home"
+              aria-label={`${APP_CONFIG.appName} Citizen Portal Home`}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' || e.key === ' ') {
                   navigate('/citizen/dashboard');
@@ -40,7 +41,7 @@ export const CitizenHeader = () => {
               <span className="text-lg font-bold text-primary-foreground">CL</span>
             </div>
             <div>
-              <h1 className="text-lg font-bold text-foreground">CivicLens</h1>
+              <h1 className="text-lg font-bold text-foreground">{APP_CONFIG.appName}</h1>
               <p className="text-xs text-muted-foreground hidden sm:block">Citizen Portal</p>
             </div>
           </div>

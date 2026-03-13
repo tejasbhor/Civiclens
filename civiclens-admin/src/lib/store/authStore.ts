@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useCallback, useMemo } from 'react';
+import React, { createContext, useContext, useCallback, useMemo, useEffect } from 'react';
 
 export interface User {
   id: number;
@@ -23,6 +23,9 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
+// Global logout event - allows non-React code (API client) to trigger logout
+export const AUTH_LOGOUT_EVENT = 'civiclens:auth:logout';
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = React.useState<{
     user: User | null;
@@ -33,12 +36,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (typeof window === 'undefined') {
       return { user: null, token: null, refreshToken: null, isLoading: true };
     }
-    
+
     const token = localStorage.getItem('auth_token');
     const refreshToken = localStorage.getItem('refresh_token');
     const userRole = localStorage.getItem('user_role');
     const userId = localStorage.getItem('user_id');
-    
+
     if (token && userRole && userId) {
       return {
         user: { id: parseInt(userId), role: userRole, phone: '' },
@@ -47,13 +50,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isLoading: false,
       };
     }
-    
+
     return { user: null, token: null, refreshToken: null, isLoading: false };
   });
 
   const setAuth = useCallback((token: string, refreshToken: string, user: User) => {
     localStorage.setItem('auth_token', token);
-    localStorage.setItem('refresh_token', refreshToken);
+    if (refreshToken) {
+      localStorage.setItem('refresh_token', refreshToken);
+    }
     localStorage.setItem('user_role', user.role);
     localStorage.setItem('user_id', String(user.id));
     setState({ user, token, refreshToken, isLoading: false });
@@ -70,6 +75,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const setLoading = useCallback((loading: boolean) => {
     setState(prev => ({ ...prev, isLoading: loading }));
   }, []);
+
+  // Listen for global logout events dispatched by the API client
+  useEffect(() => {
+    const handleLogoutEvent = () => {
+      clearAuth();
+    };
+    window.addEventListener(AUTH_LOGOUT_EVENT, handleLogoutEvent);
+    return () => window.removeEventListener(AUTH_LOGOUT_EVENT, handleLogoutEvent);
+  }, [clearAuth]);
 
   const value = useMemo(() => ({
     ...state,

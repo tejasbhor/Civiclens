@@ -23,12 +23,13 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useAuthStore } from '@store/authStore';
 import { userApi, type UserProfileUpdate } from '@shared/services/api/userApi';
 import { TopNavbar } from '@shared/components';
+import { getContentContainerStyle } from '@shared/utils/screenPadding';
 
 export const EditProfileScreen: React.FC = () => {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
   const { user, refreshUser } = useAuthStore();
-  
+
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     full_name: '',
@@ -86,23 +87,23 @@ export const EditProfileScreen: React.FC = () => {
 
       // Prepare update data (only send changed fields)
       const updateData: UserProfileUpdate = {};
-      
-      if (formData.full_name && formData.full_name !== user?.full_name) {
-        updateData.full_name = formData.full_name;
+
+      if (formData.full_name !== user?.full_name) {
+        updateData.full_name = formData.full_name || null;
       }
-      if (formData.email && formData.email !== user?.email) {
-        updateData.email = formData.email;
+      if (formData.email !== user?.email) {
+        updateData.email = formData.email || null;
       }
-      if (formData.primary_address && formData.primary_address.trim()) {
-        updateData.primary_address = formData.primary_address;
+      if (formData.primary_address !== (user?.primary_address || '')) {
+        updateData.primary_address = formData.primary_address || null;
       }
-      if (formData.bio && formData.bio.trim()) {
-        updateData.bio = formData.bio;
+      if (formData.bio !== (user?.bio || '')) {
+        updateData.bio = formData.bio || null;
       }
 
       // Update profile
       await userApi.updateProfile(updateData);
-      
+
       // Refresh user data
       await refreshUser();
 
@@ -157,10 +158,7 @@ export const EditProfileScreen: React.FC = () => {
       >
         <ScrollView
           style={styles.scrollView}
-          contentContainerStyle={[
-            styles.scrollContent,
-            { paddingBottom: Math.max(insets.bottom + 80, 120) } // Tab bar + safe area
-          ]}
+          contentContainerStyle={getContentContainerStyle(insets, styles.scrollContent, 20)}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >

@@ -17,7 +17,7 @@ interface AutoFitBoundsProps {
  */
 export const AutoFitBounds: React.FC<AutoFitBoundsProps> = ({ 
   reports, 
-  padding = [50, 50, 50, 50] 
+  padding = [50, 50] 
 }) => {
   const map = useMap();
 

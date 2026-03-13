@@ -9,7 +9,6 @@ import { imageOptimizer } from '@shared/services/media/imageOptimizer';
 import { useNetwork } from './useNetwork';
 import { submissionQueue } from '@shared/services/queue/submissionQueue';
 import { createLogger } from '@shared/utils/logger';
-import { apiClient } from '@shared/services/api/apiClient';
 
 const log = createLogger('CompleteReportSubmission');
 
@@ -71,10 +70,10 @@ export const useCompleteReportSubmission = () => {
       throw new Error('Description cannot exceed 2000 characters');
     }
 
-    // Category validation - Must match backend enum exactly
     const validCategories = [
-      'roads', 'water', 'sanitation', 'electricity', 
-      'public_safety', 'environment', 'infrastructure', 'other'
+      'roads', 'water', 'sanitation', 'electricity', 'streetlight',
+      'drainage', 'public_property', 'public_safety', 'environment',
+      'infrastructure', 'other'
     ];
     if (!data.category || !validCategories.includes(data.category)) {
       throw new Error(`Category is required. Must be one of: ${validCategories.join(', ')}`);
@@ -113,7 +112,7 @@ export const useCompleteReportSubmission = () => {
       if (!photoUri || typeof photoUri !== 'string') {
         throw new Error(`Photo ${i + 1} is invalid or missing`);
       }
-      
+
       // Check if photo exists (basic validation)
       if (!photoUri.startsWith('file://') && !photoUri.startsWith('content://') && !photoUri.startsWith('ph://')) {
         throw new Error(`Photo ${i + 1} has invalid format. Please select photos from your device.`);
@@ -126,9 +125,9 @@ export const useCompleteReportSubmission = () => {
 
   const compressImages = async (photos: string[]): Promise<CompressedImage[]> => {
     const compressedImages: CompressedImage[] = [];
-    
+
     log.info(`Starting compression of ${photos.length} images`);
-    
+
     for (let i = 0; i < photos.length; i++) {
       setProgress({
         stage: 'compressing',
@@ -140,7 +139,7 @@ export const useCompleteReportSubmission = () => {
 
       try {
         log.debug(`Compressing image ${i + 1}: ${photos[i]}`);
-        
+
         const compressed = await imageOptimizer.compressImage(photos[i], {
           quality: 0.85, // Slightly higher quality for better results
           maxWidth: 2048,
@@ -163,149 +162,6 @@ export const useCompleteReportSubmission = () => {
     }
 
     return compressedImages;
-  };
-
-  const createFormData = (reportData: CompleteReportData, compressedPhotos: CompressedImage[]): FormData => {
-    const formData = new FormData();
-
-    // Add report fields with validation
-    formData.append('title', reportData.title.trim());
-    formData.append('description', reportData.description.trim());
-    formData.append('category', reportData.category);
-    formData.append('severity', reportData.severity);
-    formData.append('latitude', reportData.latitude.toString());
-    formData.append('longitude', reportData.longitude.toString());
-    formData.append('address', reportData.address.trim());
-    formData.append('is_public', reportData.is_public.toString());
-    formData.append('is_sensitive', reportData.is_sensitive.toString());
-
-    if (reportData.landmark) {
-      formData.append('landmark', reportData.landmark.trim());
-    }
-
-    // Add compressed images with proper file structure
-    compressedPhotos.forEach((photo, index) => {
-      // Create proper file object for React Native
-      const fileObject = {
-        uri: photo.uri,
-        type: 'image/jpeg',
-        name: `photo_${index}.jpg`,
-        size: photo.size, // Include file size
-      };
-      
-      formData.append('files', fileObject as any);
-      log.debug(`Added file ${index + 1} to FormData: ${fileObject.name} (${photo.size} bytes)`);
-    });
-
-    // Add captions array if needed (for future enhancement)
-    const captions = compressedPhotos.map((_, index) => `Image ${index + 1}`);
-    formData.append('captions', JSON.stringify(captions));
-
-    log.info(`FormData created with ${compressedPhotos.length} files, total size: ${compressedPhotos.reduce((sum, p) => sum + p.size, 0)} bytes`);
-    
-    return formData;
-  };
-
-  const submitOnline = async (
-    reportData: CompleteReportData,
-    compressedPhotos: CompressedImage[]
-  ): Promise<SubmissionResult> => {
-    setProgress({
-      stage: 'submitting',
-      message: 'Submitting report to server...',
-    });
-
-    const formData = createFormData(reportData, compressedPhotos);
-
-    try {
-      // Log FormData contents for debugging
-      log.debug('Submitting FormData with fields:');
-      const formDataEntries: any = {};
-      for (const [key, value] of (formData as any).entries()) {
-        if (typeof value === 'object' && value.uri) {
-          formDataEntries[key] = `File: ${value.name} (${value.type})`;
-        } else {
-          formDataEntries[key] = value;
-        }
-      }
-      log.debug('FormData entries:', formDataEntries);
-
-      const response = await apiClient.post('/reports/submit-complete', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-        timeout: 120000, // 2 minute timeout for large files
-        onUploadProgress: (progressEvent) => {
-          if (progressEvent.total) {
-            const percentage = Math.round(
-              (progressEvent.loaded * 100) / progressEvent.total
-            );
-            const uploadedMB = (progressEvent.loaded / 1024 / 1024).toFixed(1);
-            const totalMB = (progressEvent.total / 1024 / 1024).toFixed(1);
-            
-            setProgress({
-              stage: 'uploading',
-              message: `Uploading ${uploadedMB}MB / ${totalMB}MB (${percentage}%)`,
-              percentage,
-            });
-          }
-        },
-      });
-
-      // Handle different response formats
-      const responseData = (response as any).data || response;
-      log.info('Report submitted successfully. Raw response:', response);
-      log.info('Parsed response data:', responseData);
-
-      if (!responseData || !responseData.id) {
-        log.error('Invalid response format. Response:', response);
-        log.error('ResponseData:', responseData);
-        throw new Error(`Invalid response format: missing report ID. Got: ${JSON.stringify(responseData)}`);
-      }
-
-      return {
-        id: responseData.id,
-        report_number: responseData.report_number,
-        offline: false,
-      };
-    } catch (error: any) {
-      log.error('Online submission failed:', error);
-      
-      // Enhanced error handling for different error types
-      if (error.response?.status === 422) {
-        log.error('Validation error details:', error.response?.data);
-        const validationErrors = error.response?.data?.detail || [];
-        if (Array.isArray(validationErrors)) {
-          validationErrors.forEach((err: any, index: number) => {
-            log.error(`Validation error ${index + 1}:`, err);
-          });
-        }
-        
-        // Check for specific image-related errors
-        const errorMessage = error.response?.data?.detail || error.message;
-        if (typeof errorMessage === 'string') {
-          if (errorMessage.includes('file size') || errorMessage.includes('too large')) {
-            throw new Error('One or more images are too large. Please use smaller images (max 10MB each).');
-          }
-          if (errorMessage.includes('file format') || errorMessage.includes('unsupported') || errorMessage.includes('invalid')) {
-            throw new Error('Invalid image format. Please use JPEG, PNG, or WebP images only.');
-          }
-          if (errorMessage.includes('maximum') && errorMessage.includes('images')) {
-            throw new Error('Too many images. Maximum 5 images allowed per report.');
-          }
-        }
-      } else if (error.response?.status === 413) {
-        throw new Error('Files are too large. Please reduce image sizes and try again.');
-      } else if (error.response?.status === 415) {
-        throw new Error('Unsupported file type. Please use JPEG, PNG, or WebP images only.');
-      } else if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
-        throw new Error('Upload timed out. Please check your connection and try again.');
-      } else if (error.code === 'NETWORK_ERROR' || !error.response) {
-        throw new Error('Network error. Please check your internet connection.');
-      }
-      
-      throw error;
-    }
   };
 
   const submitOffline = async (
@@ -395,38 +251,25 @@ export const useCompleteReportSubmission = () => {
 
       // 2. Compress images
       const compressedPhotos = await compressImages(reportData.photos);
-      
-      const totalSize = compressedPhotos.reduce((sum, photo) => sum + photo.size, 0);
+
+      const totalSize = compressedPhotos.reduce((sum: number, photo: CompressedImage) => sum + photo.size, 0);
       log.info(`Images compressed: ${compressedPhotos.length} files, ${totalSize} bytes total`);
 
-      // 3. Submit based on connectivity
-      let result: SubmissionResult;
+      // 3. True Offline-First Submission
+      // Always save locally and queue it immediately so the UI is responsive.
+      const result = await submitOffline(reportData, compressedPhotos);
 
-      if (isOnline) {
-        try {
-          result = await submitOnline(reportData, compressedPhotos);
-          setProgress({
-            stage: 'complete',
-            message: 'Report submitted successfully!',
-          });
-        } catch (error) {
-          log.warn('Online submission failed, falling back to offline mode:', error);
-          // Fallback to offline mode
-          result = await submitOffline(reportData, compressedPhotos);
-          setProgress({
-            stage: 'queued',
-            message: 'Saved offline. Will sync when connection is restored.',
-          });
-        }
-      } else {
-        result = await submitOffline(reportData, compressedPhotos);
-        setProgress({
-          stage: 'queued',
-          message: 'Saved offline. Will sync when online.',
-        });
-      }
+      // Trigger background sync silently outside of the main thread
+      submissionQueue.processQueue().catch(e => {
+        log.warn('Background sync trigger failed:', e);
+      });
 
-      log.info('Complete submission finished:', result);
+      setProgress({
+        stage: 'complete',
+        message: 'Report saved locally! It will be synced automatically.',
+      });
+
+      log.info('Complete submission finished locally:', result);
       return result;
 
     } catch (error) {

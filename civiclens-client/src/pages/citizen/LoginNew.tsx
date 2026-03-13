@@ -10,6 +10,7 @@ import { authService } from "@/services/authService";
 import { useAuth } from "@/contexts/AuthContext";
 import { isCitizen } from "@/utils/authHelpers";
 import { useAuthNavigation, getScreenTitle, getScreenSubtitle } from "@/hooks/useAuthNavigation";
+import { APP_CONFIG, getCopyrightText } from "@/config/appConfig";
 
 const CitizenLoginNew = () => {
     const { current, push, pop, goToLanding, canGoBack } = useAuthNavigation();
@@ -157,7 +158,7 @@ const CitizenLoginNew = () => {
                 await login(response.access_token, response.refresh_token);
                 toast({
                     title: "Account Verified!",
-                    description: "Welcome to CivicLens!",
+                    description: `Welcome to ${APP_CONFIG.appName}!`,
                 });
                 navigate('/citizen/dashboard');
             } catch (error: any) {
@@ -287,7 +288,7 @@ const CitizenLoginNew = () => {
             await login(response.access_token, response.refresh_token);
             toast({
                 title: "Login Successful!",
-                description: "Welcome back to CivicLens",
+                description: `Welcome back to ${APP_CONFIG.appName}`,
             });
             navigate('/citizen/dashboard');
         } catch (error: any) {
@@ -344,7 +345,7 @@ const CitizenLoginNew = () => {
                         </div>
                         <div>
                             <h1 className="font-bold text-foreground">Citizen Login</h1>
-                            <p className="text-xs text-muted-foreground">CivicLens Portal</p>
+                            <p className="text-xs text-muted-foreground">{APP_CONFIG.appName} Portal</p>
                         </div>
                     </div>
                 </div>
@@ -641,7 +642,7 @@ const CitizenLoginNew = () => {
             </div>
 
             <footer className="border-t bg-card/50 py-6 text-center text-sm text-muted-foreground">
-                © 2025 CivicLens. All rights reserved.
+                {getCopyrightText()}
             </footer>
         </div>
     );

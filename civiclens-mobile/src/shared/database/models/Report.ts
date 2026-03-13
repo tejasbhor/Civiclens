@@ -21,21 +21,21 @@ export interface Report {
   status_updated_at?: number;
   photos: string[];
   videos?: string[];
-  
+
   // AI Classification
   ai_category?: string;
   ai_confidence?: number;
   ai_processed_at?: number;
-  
+
   // Visibility
   is_public: boolean;
   is_sensitive: boolean;
-  
+
   // Offline sync
   is_synced: boolean;
   local_id?: string;
   sync_error?: string;
-  
+
   created_at: number;
   updated_at: number;
 }
@@ -94,7 +94,9 @@ export class ReportModel {
       ]
     );
 
-    return this.findById(result.lastInsertRowId)!;
+    const report = await this.findById(result.lastInsertRowId);
+    if (!report) throw new Error('Failed to create report');
+    return report;
   }
 
   // Find report by ID

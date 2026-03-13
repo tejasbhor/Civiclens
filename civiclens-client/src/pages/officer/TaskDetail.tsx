@@ -44,6 +44,7 @@ import { ResumeWorkModal } from "@/components/officer/ResumeWorkModal";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { MediaViewer, MediaItem } from "@/components/media/MediaViewer";
+import { getMediaUrl } from "@/lib/mediaUtils";
 import {
   Dialog,
   DialogContent,
@@ -66,7 +67,7 @@ const TaskDetail = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
+
   // Modal states
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [showHoldModal, setShowHoldModal] = useState(false);
@@ -115,8 +116,8 @@ const TaskDetail = () => {
     try {
       const date = new Date(dateString);
       if (isNaN(date.getTime())) return 'Invalid date';
-      return date.toLocaleString('en-US', { 
-        month: 'short', 
+      return date.toLocaleString('en-US', {
+        month: 'short',
         day: 'numeric',
         year: 'numeric',
         hour: '2-digit',
@@ -131,8 +132,8 @@ const TaskDetail = () => {
     try {
       const date = new Date(dateString);
       if (isNaN(date.getTime())) return 'Invalid date';
-      return date.toLocaleDateString('en-US', { 
-        month: 'short', 
+      return date.toLocaleDateString('en-US', {
+        month: 'short',
         day: 'numeric',
         year: 'numeric'
       });
@@ -204,7 +205,7 @@ const TaskDetail = () => {
         logger.error('Failed to load task:', taskData.reason);
         const errorMsg = extractErrorMessage(taskData.reason);
         setError(errorMsg);
-      toast({
+        toast({
           title: "Failed to Load Task",
           description: errorMsg,
           variant: "destructive"
@@ -307,7 +308,7 @@ const TaskDetail = () => {
 
   const handleSubmitUpdate = async () => {
     if (!updateText.trim()) {
-    toast({
+      toast({
         title: "Error",
         description: "Please enter an update message",
         variant: "destructive"
@@ -330,7 +331,7 @@ const TaskDetail = () => {
         title: "Error",
         description: extractErrorMessage(error),
         variant: "destructive"
-    });
+      });
     } finally {
       setActionLoading(false);
     }
@@ -439,13 +440,13 @@ const TaskDetail = () => {
             <AlertCircle className="w-16 h-16 mx-auto mb-4 text-destructive" />
             <h3 className="text-xl font-semibold mb-2">Task Not Found</h3>
             <p className="text-muted-foreground mb-6">
-            The task you're looking for doesn't exist or you don't have access to it.
-          </p>
-          <Button onClick={() => navigate('/officer/dashboard')}>
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Dashboard
-          </Button>
-        </Card>
+              The task you're looking for doesn't exist or you don't have access to it.
+            </p>
+            <Button onClick={() => navigate('/officer/dashboard')}>
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back to Dashboard
+            </Button>
+          </Card>
         </div>
       </div>
     );
@@ -468,12 +469,12 @@ const TaskDetail = () => {
       )}
 
       <div className="container mx-auto px-4 py-8 max-w-7xl">
-      {/* Header */}
+        {/* Header */}
         <div className="mb-6">
           <div className="flex items-center gap-4 mb-4">
-            <Button 
-              variant="ghost" 
-              size="icon" 
+            <Button
+              variant="ghost"
+              size="icon"
               onClick={() => navigate('/officer/tasks')}
               aria-label="Back to Tasks"
             >
@@ -492,12 +493,12 @@ const TaskDetail = () => {
                     ID: {task.id}
                   </Badge>
                 )}
-            </div>
+              </div>
               <p className="text-muted-foreground">
                 View and manage task details, status, and progress
               </p>
+            </div>
           </div>
-        </div>
         </div>
 
         <div className="grid lg:grid-cols-3 gap-6">
@@ -616,9 +617,9 @@ const TaskDetail = () => {
             <Card className="p-6">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
-                <MapPin className="w-5 h-5" />
+                  <MapPin className="w-5 h-5" />
                   Location Details
-              </h3>
+                </h3>
                 <Button
                   variant="ghost"
                   size="sm"
@@ -629,10 +630,10 @@ const TaskDetail = () => {
               </div>
               <div className="space-y-4">
                 {task.address && (
-                <div>
-                  <p className="text-sm text-muted-foreground mb-1">Address</p>
+                  <div>
+                    <p className="text-sm text-muted-foreground mb-1">Address</p>
                     <p className="font-medium">{task.address}</p>
-                </div>
+                  </div>
                 )}
                 {task.landmark && (
                   <div>
@@ -641,10 +642,10 @@ const TaskDetail = () => {
                   </div>
                 )}
                 <div className="grid md:grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm text-muted-foreground mb-1">GPS Coordinates</p>
-                  <p className="font-mono text-sm">{task.latitude?.toFixed(6)}, {task.longitude?.toFixed(6)}</p>
-                </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground mb-1">GPS Coordinates</p>
+                    <p className="font-mono text-sm">{task.latitude?.toFixed(6)}, {task.longitude?.toFixed(6)}</p>
+                  </div>
                   {(task.ward_number || task.district) && (
                     <div>
                       <p className="text-sm text-muted-foreground mb-1">Area</p>
@@ -656,11 +657,11 @@ const TaskDetail = () => {
                     </div>
                   )}
                 </div>
-                <Button 
-                  variant="outline" 
-                  className="w-full" 
+                <Button
+                  variant="outline"
+                  className="w-full"
                   onClick={() => {
-                  window.open(`https://www.google.com/maps?q=${task.latitude},${task.longitude}`, '_blank');
+                    window.open(`https://www.google.com/maps?q=${task.latitude},${task.longitude}`, '_blank');
                   }}
                 >
                   <Navigation className="w-4 h-4 mr-2" />
@@ -686,23 +687,17 @@ const TaskDetail = () => {
             {/* Media Gallery */}
             {task.media && task.media.length > 0 && (() => {
               // Separate media by source
-              const citizenPhotos = task.media.filter((m: any) => 
+              const citizenPhotos = task.media.filter((m: any) =>
                 !m.upload_source || m.upload_source === 'citizen_submission'
               );
-              const officerBeforePhotos = task.media.filter((m: any) => 
+              const officerBeforePhotos = task.media.filter((m: any) =>
                 m.upload_source === 'officer_before_photo'
               );
-              const officerAfterPhotos = task.media.filter((m: any) => 
+              const officerAfterPhotos = task.media.filter((m: any) =>
                 m.upload_source === 'officer_after_photo'
               );
 
-              const getMediaUrl = (url: string) => {
-                if (!url) return '';
-                if (url.startsWith('http')) return url;
-                const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
-                const baseUrl = API_BASE.replace('/api/v1', '');
-                return `${baseUrl}${url}`;
-              };
+
 
               const allMedia: MediaItem[] = task.media.map((m: any) => ({
                 id: m.id,
@@ -726,21 +721,21 @@ const TaskDetail = () => {
                     <Card className="p-6">
                       <div className="flex items-center justify-between mb-4">
                         <h3 className="text-lg font-semibold text-foreground flex items-center gap-2">
-                  <ImageIcon className="w-5 h-5" />
+                          <ImageIcon className="w-5 h-5" />
                           Citizen Photos ({citizenPhotos.length})
-                </h3>
+                        </h3>
                         <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
                           Submitted by Citizen
                         </Badge>
                       </div>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                         {citizenPhotos.map((media: any, index: number) => {
                           const mediaIndex = task.media.findIndex((m: any) => m.id === media.id);
                           const mediaUrl = getMediaUrl(media.file_url || media.url);
-                          
+
                           return (
-                    <div
-                      key={media.id}
+                            <div
+                              key={media.id}
                               className="relative aspect-square rounded-lg overflow-hidden bg-muted cursor-pointer hover:opacity-80 transition-opacity group border-2 border-blue-200"
                               onClick={() => handleMediaClick(mediaIndex)}
                               role="button"
@@ -751,27 +746,27 @@ const TaskDetail = () => {
                                   handleMediaClick(mediaIndex);
                                 }
                               }}
-                    >
-                      <img
+                            >
+                              <img
                                 src={mediaUrl}
                                 alt={`Citizen photo ${index + 1}`}
-                        className="w-full h-full object-cover"
-                        onError={(e) => {
-                          e.currentTarget.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100" height="100"%3E%3Crect fill="%23ddd" width="100" height="100"/%3E%3Ctext fill="%23999" x="50%25" y="50%25" text-anchor="middle" dy=".3em"%3ENo Image%3C/text%3E%3C/svg%3E';
-                        }}
-                      />
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  e.currentTarget.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100" height="100"%3E%3Crect fill="%23ddd" width="100" height="100"/%3E%3Ctext fill="%23999" x="50%25" y="50%25" text-anchor="middle" dy=".3em"%3ENo Image%3C/text%3E%3C/svg%3E';
+                                }}
+                              />
                               <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
                                 <ImageIcon className="w-6 h-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
-                    </div>
+                              </div>
                               <div className="absolute top-2 left-2">
                                 <Badge className="bg-blue-500 text-xs">Citizen</Badge>
                               </div>
                             </div>
                           );
                         })}
-                </div>
-              </Card>
-            )}
+                      </div>
+                    </Card>
+                  )}
 
                   {/* Officer Before Photos */}
                   {officerBeforePhotos.length > 0 && (
@@ -789,7 +784,7 @@ const TaskDetail = () => {
                         {officerBeforePhotos.map((media: any, index: number) => {
                           const mediaIndex = task.media.findIndex((m: any) => m.id === media.id);
                           const mediaUrl = getMediaUrl(media.file_url || media.url);
-                          
+
                           return (
                             <div
                               key={media.id}
@@ -848,7 +843,7 @@ const TaskDetail = () => {
                         {officerAfterPhotos.map((media: any, index: number) => {
                           const mediaIndex = task.media.findIndex((m: any) => m.id === media.id);
                           const mediaUrl = getMediaUrl(media.file_url || media.url);
-                          
+
                           return (
                             <div
                               key={media.id}
@@ -909,38 +904,36 @@ const TaskDetail = () => {
                   {history.map((item, index) => {
                     const ItemStatusIcon = getStatusIcon(item.new_status || '');
                     return (
-                    <div key={index} className="flex gap-4">
-                      <div className="flex flex-col items-center">
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                          index === 0 ? 'bg-primary' : 'bg-muted'
-                        }`}>
-                            <ItemStatusIcon className={`w-4 h-4 ${
-                            index === 0 ? 'text-primary-foreground' : 'text-muted-foreground'
-                          }`} />
+                      <div key={index} className="flex gap-4">
+                        <div className="flex flex-col items-center">
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center ${index === 0 ? 'bg-primary' : 'bg-muted'
+                            }`}>
+                            <ItemStatusIcon className={`w-4 h-4 ${index === 0 ? 'text-primary-foreground' : 'text-muted-foreground'
+                              }`} />
+                          </div>
+                          {index < history.length - 1 && (
+                            <div className="w-0.5 h-full bg-border mt-2" />
+                          )}
                         </div>
-                        {index < history.length - 1 && (
-                          <div className="w-0.5 h-full bg-border mt-2" />
-                        )}
-                      </div>
-                      <div className="flex-1 pb-4">
+                        <div className="flex-1 pb-4">
                           <div className="flex items-center gap-2 mb-1 flex-wrap">
                             <Badge className={getStatusColor(item.new_status || '')}>
                               {toLabel(item.new_status || '')}
-                          </Badge>
-                          <span className="text-sm text-muted-foreground">
-                            {formatDate(item.changed_at)}
-                          </span>
-                        </div>
-                        {item.changed_by_user && (
+                            </Badge>
+                            <span className="text-sm text-muted-foreground">
+                              {formatDate(item.changed_at)}
+                            </span>
+                          </div>
+                          {item.changed_by_user && (
                             <p className="text-sm text-muted-foreground mb-1">
-                            by {item.changed_by_user.full_name}
-                          </p>
-                        )}
-                        {item.notes && (
+                              by {item.changed_by_user.full_name}
+                            </p>
+                          )}
+                          {item.notes && (
                             <p className="text-sm mt-1 bg-muted/50 rounded p-2">{item.notes}</p>
-                        )}
+                          )}
+                        </div>
                       </div>
-                    </div>
                     );
                   })}
                 </div>
@@ -956,8 +949,8 @@ const TaskDetail = () => {
               <div className="space-y-3">
                 {canAcknowledge && (
                   <>
-                    <Button 
-                      className="w-full" 
+                    <Button
+                      className="w-full"
                       onClick={handleAcknowledge}
                       disabled={actionLoading}
                     >
@@ -968,9 +961,9 @@ const TaskDetail = () => {
                       )}
                       Acknowledge Task
                     </Button>
-                    <Button 
+                    <Button
                       variant="outline"
-                      className="w-full text-red-600 hover:text-red-700 hover:bg-red-50" 
+                      className="w-full text-red-600 hover:text-red-700 hover:bg-red-50"
                       onClick={handleRejectAssignment}
                       disabled={actionLoading}
                     >
@@ -980,8 +973,8 @@ const TaskDetail = () => {
                   </>
                 )}
                 {canStartWork && (
-                  <Button 
-                    className="w-full bg-blue-600 hover:bg-blue-700" 
+                  <Button
+                    className="w-full bg-blue-600 hover:bg-blue-700"
                     onClick={handleStartWork}
                     disabled={actionLoading}
                   >
@@ -996,26 +989,26 @@ const TaskDetail = () => {
                 {canComplete && (
                   <>
                     {canAddUpdate && (
-                    <Button 
-                      variant="outline"
-                      className="w-full" 
-                      onClick={handleAddUpdate}
+                      <Button
+                        variant="outline"
+                        className="w-full"
+                        onClick={handleAddUpdate}
                         disabled={actionLoading}
-                    >
+                      >
                         <MessageSquare className="w-4 h-4 mr-2" />
                         Add Progress Update
-                    </Button>
+                      </Button>
                     )}
-                    <Button 
-                      className="w-full bg-green-600 hover:bg-green-700" 
+                    <Button
+                      className="w-full bg-green-600 hover:bg-green-700"
                       onClick={handleSubmitForVerification}
                     >
                       <CheckCircle2 className="w-4 h-4 mr-2" />
                       Submit for Verification
                     </Button>
-                    <Button 
+                    <Button
                       variant="outline"
-                      className="w-full text-amber-600 hover:text-amber-700 hover:bg-amber-50" 
+                      className="w-full text-amber-600 hover:text-amber-700 hover:bg-amber-50"
                       onClick={handlePutOnHold}
                       disabled={actionLoading}
                     >
@@ -1025,8 +1018,8 @@ const TaskDetail = () => {
                   </>
                 )}
                 {isOnHold && (
-                  <Button 
-                    className="w-full bg-green-600 hover:bg-green-700" 
+                  <Button
+                    className="w-full bg-green-600 hover:bg-green-700"
                     onClick={handleResumeWork}
                     disabled={actionLoading}
                   >
@@ -1037,9 +1030,9 @@ const TaskDetail = () => {
                 {!canAcknowledge && !canStartWork && !canComplete && !isOnHold && (
                   <div className="text-center py-4">
                     <p className="text-sm text-muted-foreground mb-2">
-                    No actions available for this task
-                  </p>
-                    <Button 
+                      No actions available for this task
+                    </p>
+                    <Button
                       variant="outline"
                       size="sm"
                       onClick={() => navigate('/officer/tasks')}
@@ -1066,9 +1059,9 @@ const TaskDetail = () => {
                   {task.user.phone && (
                     <div>
                       <p className="text-sm text-muted-foreground mb-1">Contact</p>
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
+                      <Button
+                        variant="outline"
+                        size="sm"
                         className="w-full justify-start"
                         onClick={() => window.open(`tel:${task.user.phone}`)}
                       >
@@ -1110,7 +1103,7 @@ const TaskDetail = () => {
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Assigned:</span>
                       <span className="font-medium">{getTimeAgo(task.task.assigned_at)}</span>
-          </div>
+                    </div>
                   )}
                   {task.task.priority && (
                     <div className="flex justify-between">

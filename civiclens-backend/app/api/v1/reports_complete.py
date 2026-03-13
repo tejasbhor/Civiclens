@@ -13,7 +13,7 @@ import time
 import logging
 from datetime import datetime
 
-from app.core.database import get_db, get_redis
+from app.core.database import get_db, get_redis, AsyncSessionLocal
 from app.core.dependencies import get_current_user
 from app.core.exceptions import NotFoundException, ForbiddenException, ValidationException
 from app.core.audit_logger import audit_logger
@@ -155,19 +155,42 @@ async def _create_report_with_number(
 ) -> Report:
     """Create report with atomic report number generation"""
     
+    import asyncio
+    from sqlalchemy import text as sa_text
+    from sqlalchemy import func as sqlfunc
+    
     max_retries = 5
     retry_count = 0
     
+    city = settings.CITY_CODE or settings.ORG_SHORT_NAME or "MC"
+    year = datetime.utcnow().year
+    redis_key = f"seq:report_number:{city}:{year}"
+    rn_prefix = settings.REPORT_NUMBER_PREFIX or "CL"
+    
     while retry_count < max_retries:
         try:
-            # Generate unique report number using Redis
-            city = settings.CITY_CODE or "NMC"
-            year = datetime.utcnow().year
             redis = await get_redis()
             
+            # Check if Redis counter exists; if not, initialize from DB to avoid
+            # re-generating already-used numbers after a Redis restart.
+            if not await redis.exists(redis_key):
+                # Find the current max seq number in the DB for this year/city prefix
+                prefix = f"{rn_prefix}-{year}-{city}-"
+                result = await db.execute(
+                    sa_text(
+                        "SELECT COALESCE(MAX(CAST(SPLIT_PART(report_number, '-', 4) AS INTEGER)), 0) "
+                        "FROM reports WHERE report_number LIKE :prefix"
+                    ),
+                    {"prefix": f"{prefix}%"}
+                )
+                max_seq = result.scalar() or 0
+                # Set the counter to max_seq so next INCR returns max_seq + 1
+                await redis.set(redis_key, max_seq)
+                logger.info(f"Initialized Redis counter {redis_key} from DB max seq: {max_seq}")
+            
             # Atomic increment in Redis
-            seq = await redis.incr(f"seq:report_number:{city}:{year}")
-            report_number = f"CL-{year}-{city}-{seq:05d}"
+            seq = await redis.incr(redis_key)
+            report_number = f"{rn_prefix}-{year}-{city}-{seq:05d}"
             
             # Add generated data to report
             report_dict = {
@@ -183,10 +206,9 @@ async def _create_report_with_number(
             report_create = ReportCreateInternal(**report_dict)
             
             # Manually create Report object to include PostGIS location (which Pydantic doesn't handle)
-            from sqlalchemy import func
             report = Report(
                 **report_create.model_dump(),
-                location=func.ST_SetSRID(func.ST_MakePoint(report_data['longitude'], report_data['latitude']), 4326)
+                location=sqlfunc.ST_SetSRID(sqlfunc.ST_MakePoint(report_data['longitude'], report_data['latitude']), 4326)
             )
             
             db.add(report)
@@ -209,8 +231,7 @@ async def _create_report_with_number(
                         "Unable to generate unique report number. Please try again."
                     )
                 
-                # Exponential backoff
-                import asyncio
+                # Exponential backoff before retrying
                 await asyncio.sleep(0.1 * (2 ** retry_count))
                 logger.warning(f"Duplicate report number, retrying... (attempt {retry_count + 1}/{max_retries})")
                 continue
@@ -225,43 +246,61 @@ async def _create_report_with_number(
 
 
 async def _log_complete_submission_audit(
-    db: AsyncSession,
-    request: Request,
-    current_user: User,
-    report: Report,
     user_id: int,
     user_email: str,
+    user_role: str,
+    report_id: int,
+    report_title: str,
+    report_number: str,
+    report_category: str,
+    report_severity: str,
+    report_latitude: float,
+    report_longitude: float,
+    report_address: str,
     media_count: int,
     total_size: int,
-    duration: float
+    duration: float,
+    ip_address: Optional[str] = None,
+    user_agent: Optional[str] = None
 ) -> None:
-    """Log comprehensive audit information for complete submission"""
-    
-    await audit_logger.log(
-        db=db,
-        action=AuditAction.REPORT_CREATED,
-        status=AuditStatus.SUCCESS,
-        user=current_user,
-        request=request,
-        description=f"Complete report submission: {report.title}",
-        metadata={
-            "report_id": report.id,
-            "report_number": report.report_number,
-            "category": report.category,
-            "severity": str(report.severity),
-            "location": f"{report.latitude},{report.longitude}",
-            "address": report.address,
-            "media_count": media_count,
-            "total_file_size": total_size,
-            "submission_duration": duration,
-            "submission_type": "complete_atomic",
-            "user_id": user_id,
-            "user_email": user_email,
-            "validation_passed": True
-        },
-        resource_type="report",
-        resource_id=str(report.id)
-    )
+    """
+    Log comprehensive audit information for complete submission.
+
+    NOTE: This runs as a Starlette BackgroundTask, AFTER the HTTP response
+    has been sent. The request-scoped DB session is already closed by this point.
+    We must create our own session here.
+    """
+    try:
+        async with AsyncSessionLocal() as db:
+            await audit_logger.log(
+                db=db,
+                action=AuditAction.REPORT_CREATED,
+                status=AuditStatus.SUCCESS,
+                user_id=user_id,
+                ip_address=ip_address,
+                user_agent=user_agent,
+                description=f"Complete report submission: {report_title}",
+                metadata={
+                    "report_id": report_id,
+                    "report_number": report_number,
+                    "category": report_category,
+                    "severity": report_severity,
+                    "location": f"{report_latitude},{report_longitude}",
+                    "address": report_address,
+                    "media_count": media_count,
+                    "total_file_size": total_size,
+                    "submission_duration": duration,
+                    "submission_type": "complete_atomic",
+                    "user_id": user_id,
+                    "user_email": user_email,
+                    "user_role": user_role,
+                    "validation_passed": True
+                },
+                resource_type="report",
+                resource_id=str(report_id)
+            )
+    except Exception as e:
+        logger.error(f"Background audit log failed for report {report_id}: {e}")
 
 
 @router.post("/submit-complete", response_model=ReportWithDetails, status_code=status.HTTP_201_CREATED)
@@ -313,6 +352,13 @@ async def submit_complete_report(
     # to prevent SQLAlchemy detachment issues (MissingGreenlet error)
     user_id = current_user.id
     user_email = current_user.email
+    user_role = current_user.role.value if current_user.role else None
+
+    # Extract request metadata as plain strings NOW — request object is not
+    # available in background tasks (it's tied to the HTTP connection lifetime)
+    from app.core.enhanced_security import get_client_ip, sanitize_user_agent
+    req_ip = get_client_ip(request)
+    req_ua = sanitize_user_agent(request.headers.get("user-agent", ""))
     
     logger.info(f"Complete report submission started by user {user_id}: {title[:50]}")
     
@@ -359,12 +405,17 @@ async def submit_complete_report(
         duration = time.time() - start_time
         logger.info(f"Complete submission successful for report {report.id} in {duration:.2f}s")
         
-        # 5. Background tasks
+        # 5. Background tasks — pass ONLY plain scalars, never ORM objects or sessions
         background_tasks.add_task(queue_report_for_processing_bg, report.id)
         background_tasks.add_task(update_user_reputation_bg, user_id, 5)
         background_tasks.add_task(
-            _log_complete_submission_audit, db, request, current_user, report,
-            user_id, user_email, len(media_list), 0, duration
+            _log_complete_submission_audit,
+            user_id, user_email, user_role,
+            report.id, report.title, report.report_number,
+            str(report.category), str(report.severity),
+            report.latitude, report.longitude, report.address,
+            len(media_list), 0, duration,
+            req_ip, req_ua
         )
         
         # Invalidate cache
@@ -389,25 +440,29 @@ async def submit_complete_report(
         duration = time.time() - start_time
         logger.error(f"Validation error in complete submission: {str(e)} (duration: {duration:.2f}s)")
         
-        # Audit log for validation failure
-        await audit_logger.log(
-            db=db,
-            action=AuditAction.REPORT_CREATED,
-            status=AuditStatus.FAILURE,
-            user=current_user,
-            request=request,
-            description=f"Complete submission failed: Validation error",
-            metadata={
-                "error": str(e),
-                "error_type": "ValidationException",
-                "user_id": user_id,
-                "submission_duration": duration,
-                "submission_type": "complete_atomic",
-                "files_count": len(files) if files else 0
-            },
-            resource_type="report",
-            resource_id=None
-        )
+        # Audit log for validation failure - use user_id (plain int) to avoid
+        # SQLAlchemy detachment issues with the ORM user object
+        try:
+            await audit_logger.log(
+                db=db,
+                action=AuditAction.REPORT_CREATED,
+                status=AuditStatus.FAILURE,
+                user_id=user_id,
+                request=request,
+                description=f"Complete submission failed: Validation error",
+                metadata={
+                    "error": str(e),
+                    "error_type": "ValidationException",
+                    "user_id": user_id,
+                    "submission_duration": duration,
+                    "submission_type": "complete_atomic",
+                    "files_count": len(files) if files else 0
+                },
+                resource_type="report",
+                resource_id=None
+            )
+        except Exception as audit_err:
+            logger.warning(f"Failed to write audit log for validation error: {audit_err}")
         raise
         
     except Exception as e:
@@ -415,25 +470,29 @@ async def submit_complete_report(
         logger.error(f"Unexpected error in complete submission: {str(e)} (duration: {duration:.2f}s)")
         logger.error(f"Error type: {type(e).__name__}")
         
-        # Audit log for system failure
-        await audit_logger.log(
-            db=db,
-            action=AuditAction.REPORT_CREATED,
-            status=AuditStatus.FAILURE,
-            user=current_user,
-            request=request,
-            description=f"Complete submission failed: System error",
-            metadata={
-                "error": str(e),
-                "error_type": type(e).__name__,
-                "user_id": user_id,
-                "submission_duration": duration,
-                "submission_type": "complete_atomic",
-                "files_count": len(files) if files else 0
-            },
-            resource_type="report",
-            resource_id=None
-        )
+        # Audit log for system failure - use user_id (plain int) to avoid
+        # SQLAlchemy detachment issues with the ORM user object
+        try:
+            await audit_logger.log(
+                db=db,
+                action=AuditAction.REPORT_CREATED,
+                status=AuditStatus.FAILURE,
+                user_id=user_id,
+                request=request,
+                description=f"Complete submission failed: System error",
+                metadata={
+                    "error": str(e),
+                    "error_type": type(e).__name__,
+                    "user_id": user_id,
+                    "submission_duration": duration,
+                    "submission_type": "complete_atomic",
+                    "files_count": len(files) if files else 0
+                },
+                resource_type="report",
+                resource_id=None
+            )
+        except Exception as audit_err:
+            logger.warning(f"Failed to write audit log for system error: {audit_err}")
         
         # Return user-friendly error message
         raise ValidationException(

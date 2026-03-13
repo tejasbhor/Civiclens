@@ -1,7 +1,21 @@
+# ============================================================
+# CivicLens Citizen Portal — Production Dockerfile
+# Multi-stage build: Vite SPA served by nginx
+# ============================================================
+
 # Build stage
-FROM node:18-alpine AS builder
+FROM node:20-alpine AS builder
 
 WORKDIR /app
+
+# Accept build-time arguments — Vite bakes VITE_* at build time
+ARG VITE_API_URL
+ARG VITE_APP_NAME
+ARG VITE_ORG_NAME
+ARG VITE_ORG_SHORT_NAME
+ARG VITE_SUPPORT_EMAIL
+ARG VITE_REPORT_PREFIX
+ARG VITE_CITY_CODE
 
 # Copy package files
 COPY package*.json ./
@@ -12,10 +26,10 @@ RUN npm ci
 # Copy source code
 COPY . .
 
-# Build application
+# Build application (VITE_* vars are baked into the bundle here)
 RUN npm run build
 
-# Production stage
+# Production stage — nginx for static serving
 FROM nginx:alpine
 
 # Copy built files to nginx

@@ -3,7 +3,7 @@
  * Features: Stats cards, filters, pagination, offline-first architecture
  */
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -44,19 +44,21 @@ export const MyReportsScreen: React.FC = () => {
   const navigation = useNavigation<ReportsScreenNavigationProp>();
   const insets = useSafeAreaInsets();
   const { reports, loading, error, fetchMyReports, clearError } = useReportStore();
-  
+
   const [refreshing, setRefreshing] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [backendReports, setBackendReports] = useState<any[]>([]);
   const [stats, setStats] = useState<ReportStats | null>(null);
-  
+
   // Filters
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [selectedSeverity, setSelectedSeverity] = useState<string>('all');
   const [showFilterModal, setShowFilterModal] = useState(false);
-  
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
+
   // Offline submission tracking
   const [queueStatus, setQueueStatus] = useState<QueueStatus>({ pending: 0, processing: 0, completed: 0, failed: 0, total: 0 });
 
@@ -72,7 +74,7 @@ export const MyReportsScreen: React.FC = () => {
   // PRODUCTION FIX: Debounce mechanism to prevent rapid API calls
   const [lastLoadTime, setLastLoadTime] = useState(0);
   const LOAD_DEBOUNCE_MS = 1000; // Minimum 1 second between loads
-  
+
   // PRODUCTION FIX: Circuit breaker to prevent infinite loops
   const [errorCount, setErrorCount] = useState(0);
   const [isCircuitOpen, setIsCircuitOpen] = useState(false);
@@ -80,7 +82,7 @@ export const MyReportsScreen: React.FC = () => {
 
   // PRODUCTION FIX: Simplified focus effect to prevent infinite loops
   const [hasInitialLoad, setHasInitialLoad] = useState(false);
-  
+
   useFocusEffect(
     useCallback(() => {
       // Only load once when screen is focused for the first time
@@ -89,12 +91,12 @@ export const MyReportsScreen: React.FC = () => {
         loadReports(true);
         setHasInitialLoad(true);
       }
-      
+
       // Load offline queue status
       loadQueueStatus();
     }, [hasInitialLoad, isCircuitOpen])
   );
-  
+
   // Load queue status and items
   const loadQueueStatus = useCallback(() => {
     try {
@@ -114,7 +116,7 @@ export const MyReportsScreen: React.FC = () => {
     };
 
     submissionQueue.addListener(handleQueueUpdate);
-    
+
     // Initial load
     loadQueueStatus();
 
@@ -123,11 +125,24 @@ export const MyReportsScreen: React.FC = () => {
     };
   }, [loadQueueStatus]);
 
+  // PRODUCTION FIX: Automatically refresh the backend list seamlessly when a report syncs
+  // so that offline synced reports don't vanish from the list before a manual wipe
+  const prevCompletedCount = useRef(0);
+  useEffect(() => {
+    if (queueStatus.completed > prevCompletedCount.current) {
+      console.log('Background sync completed! Implicitly refreshing feeds to show newly synced item.');
+      if (!refreshing && hasInitialLoad) {
+        loadReports(true);
+      }
+    }
+    prevCompletedCount.current = queueStatus.completed;
+  }, [queueStatus.completed]);
+
   useEffect(() => {
     // Load stats whenever reports change or on mount
     loadStats();
   }, [backendReports.length, reports.length]);
-  
+
   // PRODUCTION FIX: Handle filter changes - only reload if we need fresh backend data
   useEffect(() => {
     if (hasInitialLoad && !isCircuitOpen) {
@@ -140,7 +155,7 @@ export const MyReportsScreen: React.FC = () => {
       }
     }
   }, [selectedStatus, selectedSeverity]);
-  
+
   useEffect(() => {
     // Also reload stats when filters change
     if (backendReports.length > 0 || reports.length > 0) {
@@ -160,11 +175,11 @@ export const MyReportsScreen: React.FC = () => {
       console.log(`Fetched ${data.length} reports for status breakdown`);
 
       // Count by specific status categories
-      const received = data.filter(r => 
+      const received = data.filter(r =>
         r.status === 'received'
       ).length;
 
-      const inProgress = data.filter(r => 
+      const inProgress = data.filter(r =>
         r.status === 'pending_classification' ||
         r.status === 'classified' ||
         r.status === 'assigned_to_department' ||
@@ -189,12 +204,12 @@ export const MyReportsScreen: React.FC = () => {
       // First get basic stats from backend
       const { apiClient } = await import('@shared/services/api/apiClient');
       const statsData = await apiClient.get<any>('/users/me/stats');
-      
+
       console.log('Stats from backend:', statsData);
-      
+
       // Get actual status breakdown by fetching reports with status counts
       const statusBreakdown = await getStatusBreakdown();
-      
+
       const mappedStats = {
         total: statsData.total_reports || 0,
         received: statusBreakdown.received,
@@ -202,35 +217,35 @@ export const MyReportsScreen: React.FC = () => {
         resolved: statsData.resolved_reports || 0,
         closed: 0,
       };
-      
+
       console.log('Mapped stats with status breakdown:', mappedStats);
       setStats(mappedStats);
     } catch (err) {
       console.error('Failed to load stats from API:', err);
-      
+
       // Fallback: Calculate from loaded reports
       const allReports = backendReports.length > 0 ? backendReports : reports;
-      
+
       // Count by status matching backend enum values
-      const receivedCount = allReports.filter(r => 
-        r.status === 'received' || 
+      const receivedCount = allReports.filter(r =>
+        r.status === 'received' ||
         r.status === 'pending_classification' ||
         r.status === 'classified'
       ).length;
-      
-      const inProgressCount = allReports.filter(r => 
-        r.status === 'in_progress' || 
+
+      const inProgressCount = allReports.filter(r =>
+        r.status === 'in_progress' ||
         r.status === 'acknowledged' ||
         r.status === 'assigned_to_officer' ||
         r.status === 'assigned_to_department' ||
         r.status === 'pending_verification'
       ).length;
-      
-      const resolvedCount = allReports.filter(r => 
-        r.status === 'resolved' || 
+
+      const resolvedCount = allReports.filter(r =>
+        r.status === 'resolved' ||
         r.status === 'closed'
       ).length;
-      
+
       const calculatedStats = {
         total: allReports.length,
         received: receivedCount,
@@ -238,7 +253,7 @@ export const MyReportsScreen: React.FC = () => {
         resolved: resolvedCount,
         closed: 0,
       };
-      
+
       console.log('Calculated stats from reports:', calculatedStats);
       setStats(calculatedStats);
     }
@@ -267,12 +282,12 @@ export const MyReportsScreen: React.FC = () => {
 
     try {
       const filters: any = {};
-      
+
       // Map filter values to backend status
       if (selectedStatus !== 'all') {
         filters.status = [selectedStatus];
       }
-      
+
       if (selectedSeverity !== 'all') {
         filters.severity = [selectedSeverity];
       }
@@ -282,7 +297,7 @@ export const MyReportsScreen: React.FC = () => {
       // PRODUCTION OPTIMIZATION: Smaller page size for better performance
       const PAGE_SIZE = 10; // Reduced from 15 to 10 for faster loading
       const currentPage = reset ? 1 : page;
-      
+
       const data = await reportApi.getMyReports({
         skip: (currentPage - 1) * PAGE_SIZE,
         limit: PAGE_SIZE,
@@ -314,25 +329,29 @@ export const MyReportsScreen: React.FC = () => {
 
       // PRODUCTION OPTIMIZATION: More accurate hasMore detection
       setHasMore(data.length === PAGE_SIZE);
-      
+
       // PRODUCTION OPTIMIZATION: Don't sync local store on pagination to reduce server load
       if (reset) {
         // Only fetch a small subset for local store
         await fetchMyReports({ limit: 20, skip: 0, filters });
       }
-      
+
       // PRODUCTION FIX: Reset error count on success
       if (errorCount > 0) {
         setErrorCount(0);
         setIsCircuitOpen(false);
       }
-    } catch (err) {
-      console.error('Failed to load reports from backend:', err);
-      
+    } catch (err: any) {
+      if (err?.isAxiosError && err.message === 'Network Error') {
+        console.info('[MyReportsScreen] Network unavailable, relying on offline load.');
+      } else {
+        console.error('Failed to load reports from backend:', err);
+      }
+
       // PRODUCTION FIX: Circuit breaker logic
       const newErrorCount = errorCount + 1;
       setErrorCount(newErrorCount);
-      
+
       if (newErrorCount >= MAX_ERRORS) {
         console.log('Circuit breaker triggered - too many errors');
         setIsCircuitOpen(true);
@@ -343,7 +362,7 @@ export const MyReportsScreen: React.FC = () => {
           setErrorCount(0);
         }, 30000);
       }
-      
+
       // Fallback to local store only if circuit is not open
       if (!isCircuitOpen) {
         await fetchMyReports({ limit: 50, skip: 0 });
@@ -378,12 +397,12 @@ export const MyReportsScreen: React.FC = () => {
     try {
       setLoadingMore(true);
       const filters: any = {};
-      
+
       // Map filter values to backend status
       if (selectedStatus !== 'all') {
         filters.status = [selectedStatus];
       }
-      
+
       if (selectedSeverity !== 'all') {
         filters.severity = [selectedSeverity];
       }
@@ -410,27 +429,38 @@ export const MyReportsScreen: React.FC = () => {
       // Update hasMore based on returned data
       setHasMore(data.length === PAGE_SIZE);
       console.log(`Has more reports: ${data.length === PAGE_SIZE}`);
-      
-    } catch (err) {
-      console.error('Failed to load more reports:', err);
+
+    } catch (err: any) {
+      if (err?.isAxiosError && err.message === 'Network Error') {
+        console.info('[MyReportsScreen] Network unavailable, skipping load more reports.');
+      } else {
+        console.error('Failed to load more reports:', err);
+      }
     } finally {
       setLoadingMore(false);
     }
   };
 
   // Apply filters to both backend and local reports
-  const getFilteredReports = () => {
-    const allReports = backendReports.length > 0 ? backendReports : reports;
-    
-    console.log(`Filtering ${allReports.length} reports with status: ${selectedStatus}, severity: ${selectedSeverity}`);
-    
-    // If no filters are applied, return all reports
-    if (selectedStatus === 'all' && selectedSeverity === 'all') {
-      console.log('No filters applied, returning all reports');
-      return allReports;
+  const getFilteredReports = useCallback(() => {
+    // 1. Extract all unsynced (offline) reports from our local store state
+    const unsyncedReports = reports.filter(r => r.is_synced === false);
+
+    // 2. Combine them. Prepend offline reports to backend reports, ensuring no duplicates.
+    let combinedReports = reports;
+    if (backendReports.length > 0) {
+      combinedReports = [
+        ...unsyncedReports,
+        ...backendReports.filter(br => !unsyncedReports.find(ur => ur.id === br.id || ur.local_id === br.id))
+      ];
     }
-    
-    const filtered = allReports.filter(report => {
+
+    let allReports = combinedReports;
+
+    console.log(`Filtering ${allReports.length} reports with status: ${selectedStatus}, severity: ${selectedSeverity}, search: ${searchQuery}`);
+
+    // Apply status and severity filters
+    const filteredByStatusAndSeverity = allReports.filter(report => {
       // Status filter
       let statusMatch = true;
       if (selectedStatus !== 'all') {
@@ -444,19 +474,31 @@ export const MyReportsScreen: React.FC = () => {
           statusMatch = report.status === selectedStatus;
         }
       }
-      
+
       // Severity filter
       let severityMatch = true;
       if (selectedSeverity !== 'all') {
         severityMatch = report.severity === selectedSeverity;
       }
-      
+
       return statusMatch && severityMatch;
     });
-    
-    console.log(`Filtered to ${filtered.length} reports`);
-    return filtered;
-  };
+
+    // Apply client-side search filtering
+    let result = filteredByStatusAndSeverity;
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      result = result.filter(r =>
+        (r.title && r.title.toLowerCase().includes(query)) ||
+        (r.description && r.description.toLowerCase().includes(query)) ||
+        (r.category && r.category.toLowerCase().includes(query)) ||
+        (r.status && r.status.toLowerCase().includes(query))
+      );
+    }
+
+    console.log(`Filtered to ${result.length} reports`);
+    return result;
+  }, [reports, backendReports, selectedStatus, selectedSeverity, searchQuery]);
 
   const displayReports = getFilteredReports();
 
@@ -587,20 +629,20 @@ export const MyReportsScreen: React.FC = () => {
         <TouchableOpacity
           style={[
             styles.filterChip,
-            (selectedStatus === 'in_progress' || 
-             selectedStatus === 'acknowledged' || 
-             selectedStatus === 'assigned_to_officer' ||
-             selectedStatus === 'assigned_to_department') && styles.filterChipActive,
+            (selectedStatus === 'in_progress' ||
+              selectedStatus === 'acknowledged' ||
+              selectedStatus === 'assigned_to_officer' ||
+              selectedStatus === 'assigned_to_department') && styles.filterChipActive,
           ]}
           onPress={() => setSelectedStatus('in_progress')}
         >
           <Text
             style={[
               styles.filterChipText,
-              (selectedStatus === 'in_progress' || 
-               selectedStatus === 'acknowledged' || 
-               selectedStatus === 'assigned_to_officer' ||
-               selectedStatus === 'assigned_to_department') && styles.filterChipTextActive,
+              (selectedStatus === 'in_progress' ||
+                selectedStatus === 'acknowledged' ||
+                selectedStatus === 'assigned_to_officer' ||
+                selectedStatus === 'assigned_to_department') && styles.filterChipTextActive,
             ]}
           >
             In Progress
@@ -643,7 +685,7 @@ export const MyReportsScreen: React.FC = () => {
     const createdAt = item.created_at;
 
     let thumbnailUri = null;
-    
+
     // Debug: Log the report item structure
     console.log(`📋 Report ${reportId} media structure:`, {
       hasMedia: !!item.media,
@@ -653,7 +695,7 @@ export const MyReportsScreen: React.FC = () => {
       firstMedia: item.media?.[0],
       firstPhoto: item.photos?.[0]
     });
-    
+
     if (item.media && item.media.length > 0) {
       const rawUrl = item.media[0].file_url || item.media[0].url;
       if (rawUrl) {
@@ -666,7 +708,7 @@ export const MyReportsScreen: React.FC = () => {
         console.log(`🖼️ Report ${reportId} thumbnail from photos:`, thumbnailUri);
       }
     }
-    
+
     if (!thumbnailUri) {
       console.log(`❌ Report ${reportId} has no thumbnail available`);
     }
@@ -679,9 +721,9 @@ export const MyReportsScreen: React.FC = () => {
       >
         <View style={styles.cardContent}>
           {thumbnailUri && (
-            <Image 
-              source={{ uri: thumbnailUri }} 
-              style={styles.thumbnail} 
+            <Image
+              source={{ uri: thumbnailUri }}
+              style={styles.thumbnail}
               resizeMode="cover"
               onLoad={() => console.log(`✅ Thumbnail loaded successfully for report ${reportId}:`, thumbnailUri)}
               onError={(error) => console.log(`❌ Thumbnail load error for report ${reportId}:`, thumbnailUri, error.nativeEvent)}
@@ -701,6 +743,31 @@ export const MyReportsScreen: React.FC = () => {
             <Text style={styles.reportTitle} numberOfLines={2}>
               {title}
             </Text>
+
+            {/* Offline Sync Status Overlay */}
+            {item.is_synced === false && (
+              <TouchableOpacity
+                style={{
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  backgroundColor: '#FFF8E1',
+                  padding: 8,
+                  borderRadius: 6,
+                  marginBottom: 8,
+                  borderWidth: 1,
+                  borderColor: '#FFECB3'
+                }}
+                onPress={() => submissionQueue.processQueue()}
+              >
+                <Ionicons name="cloud-offline-outline" size={16} color="#F57F17" />
+                <Text style={{ fontSize: 12, color: '#F57F17', fontWeight: '600', marginLeft: 6, flex: 1 }}>
+                  Pending Sync (Offline)
+                </Text>
+                <View style={{ backgroundColor: '#F57F17', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 4 }}>
+                  <Text style={{ fontSize: 10, color: '#FFF', fontWeight: 'bold' }}>RETRY</Text>
+                </View>
+              </TouchableOpacity>
+            )}
 
             {/* Bottom Row: Status + Severity */}
             <View style={styles.reportBottomRow}>
@@ -747,8 +814,8 @@ export const MyReportsScreen: React.FC = () => {
       <Ionicons name="document-text-outline" size={80} color="#CBD5E1" />
       <Text style={styles.emptyTitle}>No Reports Found</Text>
       <Text style={styles.emptyText}>
-        {selectedStatus !== 'all' || selectedSeverity !== 'all'
-          ? 'Try adjusting your filters'
+        {selectedStatus !== 'all' || selectedSeverity !== 'all' || searchQuery
+          ? 'Try adjusting your filters or search'
           : 'Start by reporting an issue in your community'}
       </Text>
       {selectedStatus === 'all' && selectedSeverity === 'all' && (
@@ -775,6 +842,17 @@ export const MyReportsScreen: React.FC = () => {
       {/* Reusable Top Navbar */}
       <TopNavbar
         title="My Reports"
+        showSearch={true}
+        isSearching={isSearching}
+        searchQuery={searchQuery}
+        onSearchChange={(query) => {
+          setSearchQuery(query);
+          setIsSearching(!!query);
+        }}
+        onSearchPress={() => {
+          setIsSearching(!isSearching);
+          if (isSearching) setSearchQuery('');
+        }}
         rightActions={
           <TouchableOpacity
             style={styles.headerButton}
@@ -787,148 +865,148 @@ export const MyReportsScreen: React.FC = () => {
 
       <View style={styles.content}>
 
-      {error && (
-        <View style={styles.errorBanner}>
-          <Ionicons name="alert-circle" size={20} color="#F44336" />
-          <Text style={styles.errorText}>{error}</Text>
-          <TouchableOpacity onPress={clearError}>
-            <Ionicons name="close" size={20} color="#F44336" />
-          </TouchableOpacity>
-        </View>
-      )}
-
-      {/* Subtle Sync Status */}
-      {(queueStatus.pending > 0 || queueStatus.processing > 0) && (
-        <View style={styles.syncStatusBar}>
-          <View style={styles.syncStatusContent}>
-            <Ionicons name="cloud-upload-outline" size={16} color="#1976D2" />
-            <Text style={styles.syncStatusText}>
-              Syncing {queueStatus.pending + queueStatus.processing} reports...
-            </Text>
-          </View>
-          {queueStatus.failed > 0 && (
-            <TouchableOpacity 
-              onPress={() => submissionQueue.retryFailedItems()}
-              style={styles.retryButton}
-            >
-              <Text style={styles.retryButtonText}>Retry {queueStatus.failed}</Text>
+        {error && (
+          <View style={styles.errorBanner}>
+            <Ionicons name="alert-circle" size={20} color="#F44336" />
+            <Text style={styles.errorText}>{error}</Text>
+            <TouchableOpacity onPress={clearError}>
+              <Ionicons name="close" size={20} color="#F44336" />
             </TouchableOpacity>
-          )}
-        </View>
-      )}
-
-      {renderStatsCards()}
-      {renderFilterChips()}
-
-      {loading && !refreshing && backendReports.length === 0 ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#1976D2" />
-          <Text style={styles.loadingText}>Loading reports...</Text>
-        </View>
-      ) : (
-        <FlatList
-          data={displayReports}
-          renderItem={renderReportCard}
-          keyExtractor={(item, index) => {
-            // PRODUCTION OPTIMIZATION: Ensure truly unique keys
-            const uniqueId = item.id || item.local_id || `temp-${Date.now()}-${index}`;
-            return `report-${uniqueId}-${index}`;
-          }}
-          contentContainerStyle={getContentContainerStyle(insets, styles.listContent)}
-          // PRODUCTION OPTIMIZATIONS: Enhanced performance settings
-          removeClippedSubviews={true}
-          maxToRenderPerBatch={8}        // Reduced for better performance
-          updateCellsBatchingPeriod={100} // Increased for smoother scrolling
-          initialNumToRender={8}         // Reduced initial render
-          windowSize={8}                 // Smaller window for memory efficiency
-          getItemLayout={(_, index) => ({
-            length: 120, // Approximate item height
-            offset: 120 * index,
-            index,
-          })}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={handleRefresh}
-              colors={['#1976D2']}
-              tintColor="#1976D2"
-            />
-          }
-          ListEmptyComponent={renderEmpty}
-          showsVerticalScrollIndicator={false}
-          onEndReached={handleLoadMore}
-          onEndReachedThreshold={0.5}
-          ListFooterComponent={
-            loadingMore && displayReports.length > 0 ? (
-              <View style={styles.footerLoader}>
-                <ActivityIndicator color="#1976D2" />
-                <Text style={styles.footerText}>Loading more...</Text>
-              </View>
-            ) : null
-          }
-        />
-      )}
-
-      {/* Filter Modal */}
-      <Modal
-        visible={showFilterModal}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setShowFilterModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Filters</Text>
-              <TouchableOpacity onPress={() => setShowFilterModal(false)}>
-                <Ionicons name="close" size={24} color="#64748B" />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView style={styles.modalBody}>
-              <Text style={styles.filterSectionTitle}>Severity</Text>
-              {SEVERITY_FILTERS.map((filter) => (
-                <TouchableOpacity
-                  key={filter.value}
-                  style={[
-                    styles.filterOption,
-                    selectedSeverity === filter.value && styles.filterOptionActive,
-                  ]}
-                  onPress={() => {
-                    setSelectedSeverity(filter.value);
-                    setShowFilterModal(false);
-                  }}
-                >
-                  <Text
-                    style={[
-                      styles.filterOptionText,
-                      selectedSeverity === filter.value && styles.filterOptionTextActive,
-                    ]}
-                  >
-                    {filter.label}
-                  </Text>
-                  {selectedSeverity === filter.value && (
-                    <Ionicons name="checkmark-circle" size={24} color="#1976D2" />
-                  )}
-                </TouchableOpacity>
-              ))}
-
-              <View style={styles.modalActions}>
-                <TouchableOpacity
-                  style={styles.resetButton}
-                  onPress={() => {
-                    setSelectedStatus('all');
-                    setSelectedSeverity('all');
-                    setShowFilterModal(false);
-                  }}
-                >
-                  <Text style={styles.resetButtonText}>Reset Filters</Text>
-                </TouchableOpacity>
-              </View>
-            </ScrollView>
           </View>
-        </View>
-      </Modal>
+        )}
+
+        {/* Subtle Sync Status */}
+        {(queueStatus.pending > 0 || queueStatus.processing > 0) && (
+          <View style={styles.syncStatusBar}>
+            <View style={styles.syncStatusContent}>
+              <Ionicons name="cloud-upload-outline" size={16} color="#1976D2" />
+              <Text style={styles.syncStatusText}>
+                Syncing {queueStatus.pending + queueStatus.processing} reports...
+              </Text>
+            </View>
+            {queueStatus.failed > 0 && (
+              <TouchableOpacity
+                onPress={() => submissionQueue.retryFailedItems()}
+                style={styles.retryButton}
+              >
+                <Text style={styles.retryButtonText}>Retry {queueStatus.failed}</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
+
+        {renderStatsCards()}
+        {renderFilterChips()}
+
+        {loading && !refreshing && backendReports.length === 0 ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#1976D2" />
+            <Text style={styles.loadingText}>Loading reports...</Text>
+          </View>
+        ) : (
+          <FlatList
+            data={displayReports}
+            renderItem={renderReportCard}
+            keyExtractor={(item, index) => {
+              // PRODUCTION OPTIMIZATION: Ensure truly unique keys
+              const uniqueId = item.id || item.local_id || `temp-${Date.now()}-${index}`;
+              return `report-${uniqueId}-${index}`;
+            }}
+            contentContainerStyle={getContentContainerStyle(insets, styles.listContent)}
+            // PRODUCTION OPTIMIZATIONS: Enhanced performance settings
+            removeClippedSubviews={true}
+            maxToRenderPerBatch={8}        // Reduced for better performance
+            updateCellsBatchingPeriod={100} // Increased for smoother scrolling
+            initialNumToRender={8}         // Reduced initial render
+            windowSize={8}                 // Smaller window for memory efficiency
+            getItemLayout={(_, index) => ({
+              length: 120, // Approximate item height
+              offset: 120 * index,
+              index,
+            })}
+            refreshControl={
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={handleRefresh}
+                colors={['#1976D2']}
+                tintColor="#1976D2"
+              />
+            }
+            ListEmptyComponent={renderEmpty}
+            showsVerticalScrollIndicator={false}
+            onEndReached={handleLoadMore}
+            onEndReachedThreshold={0.5}
+            ListFooterComponent={
+              loadingMore && displayReports.length > 0 ? (
+                <View style={styles.footerLoader}>
+                  <ActivityIndicator color="#1976D2" />
+                  <Text style={styles.footerText}>Loading more...</Text>
+                </View>
+              ) : null
+            }
+          />
+        )}
+
+        {/* Filter Modal */}
+        <Modal
+          visible={showFilterModal}
+          transparent
+          animationType="slide"
+          onRequestClose={() => setShowFilterModal(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Filters</Text>
+                <TouchableOpacity onPress={() => setShowFilterModal(false)}>
+                  <Ionicons name="close" size={24} color="#64748B" />
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView style={styles.modalBody}>
+                <Text style={styles.filterSectionTitle}>Severity</Text>
+                {SEVERITY_FILTERS.map((filter) => (
+                  <TouchableOpacity
+                    key={filter.value}
+                    style={[
+                      styles.filterOption,
+                      selectedSeverity === filter.value && styles.filterOptionActive,
+                    ]}
+                    onPress={() => {
+                      setSelectedSeverity(filter.value);
+                      setShowFilterModal(false);
+                    }}
+                  >
+                    <Text
+                      style={[
+                        styles.filterOptionText,
+                        selectedSeverity === filter.value && styles.filterOptionTextActive,
+                      ]}
+                    >
+                      {filter.label}
+                    </Text>
+                    {selectedSeverity === filter.value && (
+                      <Ionicons name="checkmark-circle" size={24} color="#1976D2" />
+                    )}
+                  </TouchableOpacity>
+                ))}
+
+                <View style={styles.modalActions}>
+                  <TouchableOpacity
+                    style={styles.resetButton}
+                    onPress={() => {
+                      setSelectedStatus('all');
+                      setSelectedSeverity('all');
+                      setShowFilterModal(false);
+                    }}
+                  >
+                    <Text style={styles.resetButtonText}>Reset Filters</Text>
+                  </TouchableOpacity>
+                </View>
+              </ScrollView>
+            </View>
+          </View>
+        </Modal>
       </View>
     </View>
   );

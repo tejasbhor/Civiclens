@@ -1,0 +1,92 @@
+# ============================================================
+# CivicLens — Caddy Reverse Proxy Configuration
+# Domain: civiclens.space
+# Auto-provisions Let's Encrypt TLS certificates
+# ============================================================
+
+# Global options
+{
+	email admin@civiclens.space
+	# Uncomment below line for testing (uses staging certs to avoid rate limits):
+	# acme_ca https://acme-staging-v02.api.letsencrypt.org/directory
+}
+
+# ---- Citizen Portal (main domain) ----
+civiclens.space {
+	reverse_proxy client:80
+
+	header {
+		X-Content-Type-Options    nosniff
+		X-Frame-Options           SAMEORIGIN
+		Referrer-Policy           strict-origin-when-cross-origin
+		X-XSS-Protection          "1; mode=block"
+		Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+		# Remove server identification
+		-Server
+	}
+
+	encode gzip
+}
+
+# ---- www redirect ----
+www.civiclens.space {
+	redir https://civiclens.space{uri}
+}
+
+# ---- Admin Dashboard ----
+admin.civiclens.space {
+	reverse_proxy admin:3000
+
+	header {
+		X-Content-Type-Options    nosniff
+		X-Frame-Options           SAMEORIGIN
+		Referrer-Policy           strict-origin-when-cross-origin
+		X-XSS-Protection          "1; mode=block"
+		Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+		-Server
+	}
+
+	encode gzip
+}
+
+# ---- API Backend ----
+api.civiclens.space {
+	# MinIO media proxy — serves uploaded files without exposing MinIO directly
+	# URLs in DB are stored as http://minio:9000/civiclens-media/uploads/file.jpg
+	# Clients rewrite to: https://api.civiclens.space/civiclens-media/uploads/file.jpg
+	@media path /civiclens-media/*
+	handle @media {
+		reverse_proxy minio:9000
+	}
+
+	# Upload endpoint — allow larger bodies (55MB for multi-image reports)
+	@uploads path /api/v1/reports/submit-complete /api/v1/media/*
+	handle @uploads {
+		request_body {
+			max_size 55MB
+		}
+		reverse_proxy backend:8000
+	}
+
+	# Health check — no rate limit, no access log
+	@health path /health /health/*
+	handle @health {
+		reverse_proxy backend:8000
+	}
+
+	# All other API requests
+	handle {
+		reverse_proxy backend:8000
+	}
+
+	header {
+		X-Content-Type-Options    nosniff
+		X-Frame-Options           DENY
+		X-XSS-Protection          "1; mode=block"
+		Referrer-Policy           strict-origin-when-cross-origin
+		Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+		-Server
+	}
+
+	encode gzip
+}

@@ -78,8 +78,8 @@ const StatsCard: React.FC<{
 // Helper functions moved to ../utils/taskHelpers.ts for better code organization
 
 // Task Card Component (Navigation only - actions available in detail page)
-const TaskCard: React.FC<{ 
-  task: Task; 
+const TaskCard: React.FC<{
+  task: Task;
   onPress: () => void;
 }> = ({ task, onPress }) => {
   const formatDate = (dateString: string) => {
@@ -173,12 +173,14 @@ const OfficerTasksContent: React.FC = () => {
     isLoading = false,
     isRefreshing = false,
     error = null,
-    refreshTasks = async () => {},
-    loadTasks = async () => {},
+    refreshTasks = async () => { },
+    loadTasks = async () => { },
   } = hookResult || {};
 
   const [filter, setFilter] = useState<string>('all');
-  const [sortBy, setSortBy] = useState<'created_at' | 'severity' | 'status'>('created_at');
+  const [sortBy] = useState<'created_at' | 'severity' | 'status'>('created_at');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
 
   // Load tasks on focus - memoized to prevent infinite loops
   const handleFocusLoad = useCallback(() => {
@@ -201,51 +203,42 @@ const OfficerTasksContent: React.FC = () => {
 
     // Apply status filter
     if (filter !== 'all') {
-      filtered = filtered.filter(task => 
+      filtered = filtered.filter(task =>
         task.status?.toUpperCase() === filter.toUpperCase()
       );
     }
 
+    // Apply search filter
+    if (searchQuery.trim() !== '') {
+      const q = searchQuery.toLowerCase();
+      filtered = filtered.filter(task => {
+        return (
+          (task.report?.title && task.report.title.toLowerCase().includes(q)) ||
+          (task.report?.description && task.report.description.toLowerCase().includes(q)) ||
+          task.id.toString().includes(q) ||
+          task.report_id.toString().includes(q)
+        );
+      });
+    }
+
     // Sort tasks
     filtered.sort((a, b) => {
+      const taskA = a as any;
+      const taskB = b as any;
       if (sortBy === 'created_at') {
-        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+        return new Date(taskB.created_at).getTime() - new Date(taskA.created_at).getTime();
       } else if (sortBy === 'severity') {
-        return (SEVERITY_ORDER[a.report?.severity?.toUpperCase() || ''] ?? 999) - 
-               (SEVERITY_ORDER[b.report?.severity?.toUpperCase() || ''] ?? 999);
+        return (SEVERITY_ORDER[taskA.report?.severity?.toUpperCase() || ''] ?? 999) -
+          (SEVERITY_ORDER[taskB.report?.severity?.toUpperCase() || ''] ?? 999);
       } else if (sortBy === 'status') {
-        return (STATUS_ORDER[a.status?.toUpperCase()] ?? 999) - 
-               (STATUS_ORDER[b.status?.toUpperCase()] ?? 999);
+        return (STATUS_ORDER[taskA.status?.toUpperCase()] ?? 999) -
+          (STATUS_ORDER[taskB.status?.toUpperCase()] ?? 999);
       }
       return 0;
     });
 
     return filtered;
-  }, [tasks, filter, sortBy]);
-
-  // Group tasks by status
-  const groupedTasks = useMemo(() => {
-    const groups: Record<string, Task[]> = {
-      assigned: [],
-      acknowledged: [],
-      in_progress: [],
-      pending_verification: [],
-      on_hold: [],
-      resolved: [],
-      closed: []
-    };
-
-    filteredAndSortedTasks.forEach(task => {
-      const status = task.status?.toLowerCase() || 'assigned';
-      if (groups[status]) {
-        groups[status].push(task);
-      } else {
-        groups.assigned.push(task);
-      }
-    });
-
-    return groups;
-  }, [filteredAndSortedTasks]);
+  }, [tasks, filter, sortBy, searchQuery]);
 
   const handleTaskPress = useCallback((task: Task) => {
     // Navigate to task detail screen with report ID (tasks are embedded in reports)
@@ -266,31 +259,12 @@ const OfficerTasksContent: React.FC = () => {
     { key: 'on_hold', label: 'On Hold', count: tasks.filter((t: Task) => t.status?.toUpperCase() === 'ON_HOLD').length },
   ];
 
-  const renderFilterButton = ({ item }: { item: typeof filterOptions[0] }) => (
-    <TouchableOpacity
-      style={[
-        styles.filterButton,
-        filter === item.key && styles.filterButtonActive,
-      ]}
-      onPress={() => setFilter(item.key)}
-    >
-      <Text
-        style={[
-          styles.filterButtonText,
-          filter === item.key && styles.filterButtonTextActive,
-        ]}
-      >
-        {item.label} ({item.count})
-      </Text>
-    </TouchableOpacity>
-  );
-
   const renderEmptyState = () => (
     <View style={styles.emptyState}>
       <Ionicons name="clipboard-outline" size={64} color={colors.textSecondary} />
       <Text style={styles.emptyStateTitle}>No Tasks Found</Text>
       <Text style={styles.emptyStateMessage}>
-        {filter === 'all' 
+        {filter === 'all'
           ? "You don't have any assigned tasks yet."
           : `No tasks with status "${filter.replace(/_/g, ' ')}".`
         }
@@ -307,8 +281,8 @@ const OfficerTasksContent: React.FC = () => {
   );
 
   const renderTask = ({ item }: { item: Task }) => (
-    <TaskCard 
-      task={item} 
+    <TaskCard
+      task={item}
       onPress={() => handleTaskPress(item)}
     />
   );
@@ -347,8 +321,19 @@ const OfficerTasksContent: React.FC = () => {
 
   return (
     <View style={styles.container}>
-      <TopNavbar title="My Tasks" showNotifications />
-      
+      <TopNavbar
+        title="My Tasks"
+        showNotifications
+        showSearch={true}
+        isSearching={isSearching}
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        onSearchPress={() => {
+          setIsSearching(!isSearching);
+          if (isSearching) setSearchQuery('');
+        }}
+      />
+
       <View style={styles.content}>
         <ScrollView
           refreshControl={
@@ -356,62 +341,62 @@ const OfficerTasksContent: React.FC = () => {
           }
           showsVerticalScrollIndicator={false}
         >
-        {/* Compact Stats Cards (matching citizen reports) */}
-        <View style={styles.statsContainer}>
-          <View style={styles.statsGrid}>
-            <StatsCard title="Total" value={stats.total} />
-            <StatsCard title="Active" value={stats.active} color="#FF9800" />
-            <StatsCard title="Critical" value={stats.critical} color="#F44336" />
-            <StatsCard title="Resolved" value={stats.resolved} color="#4CAF50" />
+          {/* Compact Stats Cards (matching citizen reports) */}
+          <View style={styles.statsContainer}>
+            <View style={styles.statsGrid}>
+              <StatsCard title="Total" value={stats.total} />
+              <StatsCard title="Active" value={stats.active} color="#FF9800" />
+              <StatsCard title="Critical" value={stats.critical} color="#F44336" />
+              <StatsCard title="Resolved" value={stats.resolved} color="#4CAF50" />
+            </View>
           </View>
-        </View>
 
-        {/* Filter Tabs */}
-        <View style={styles.filterContainer}>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.filterList}
-          >
-            {filterOptions.map((option) => (
-              <TouchableOpacity
-                key={option.key}
-                style={[
-                  styles.filterButton,
-                  filter === option.key && styles.filterButtonActive,
-                ]}
-                onPress={() => setFilter(option.key)}
-              >
-                <Text
+          {/* Filter Tabs */}
+          <View style={styles.filterContainer}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.filterList}
+            >
+              {filterOptions.map((option) => (
+                <TouchableOpacity
+                  key={option.key}
                   style={[
-                    styles.filterButtonText,
-                    filter === option.key && styles.filterButtonTextActive,
+                    styles.filterButton,
+                    filter === option.key && styles.filterButtonActive,
                   ]}
+                  onPress={() => setFilter(option.key)}
                 >
-                  {option.label} ({option.count})
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </View>
+                  <Text
+                    style={[
+                      styles.filterButtonText,
+                      filter === option.key && styles.filterButtonTextActive,
+                    ]}
+                  >
+                    {option.label} ({option.count})
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
 
-        {/* Task List */}
-        {isLoading && tasks.length === 0 ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={colors.primary} />
-            <Text style={styles.loadingText}>Loading tasks...</Text>
-          </View>
-        ) : filteredAndSortedTasks.length === 0 ? (
-          renderEmptyState()
-        ) : (
-          <View style={styles.taskListContainer}>
-            {filteredAndSortedTasks.map((task) => (
-              <View key={task.id}>
-                {renderTask({ item: task })}
-              </View>
-            ))}
-          </View>
-        )}
+          {/* Task List */}
+          {isLoading && tasks.length === 0 ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color={colors.primary} />
+              <Text style={styles.loadingText}>Loading tasks...</Text>
+            </View>
+          ) : filteredAndSortedTasks.length === 0 ? (
+            renderEmptyState()
+          ) : (
+            <View style={styles.taskListContainer}>
+              {filteredAndSortedTasks.map((task) => (
+                <View key={task.id}>
+                  {renderTask({ item: task })}
+                </View>
+              ))}
+            </View>
+          )}
         </ScrollView>
       </View>
     </View>

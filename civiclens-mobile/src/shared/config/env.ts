@@ -66,7 +66,7 @@ const getEnvConfig = (): EnvConfig => {
       apiBaseUrl = getDevApiBaseUrl();
     } else {
       // Production/Staging MUST have a URL
-      apiBaseUrl = 'https://api.civiclens.com/api/v1';
+      apiBaseUrl = 'https://api.civiclens.space/api/v1';
       if (isProd) {
         console.warn('⚠️ No EXPO_PUBLIC_API_BASE_URL provided for production, using default.');
       }
@@ -78,7 +78,9 @@ const getEnvConfig = (): EnvConfig => {
     if (isDev) {
       minioBaseUrl = getDevMinioBaseUrl();
     } else {
-      minioBaseUrl = 'https://minio.civiclens.com';
+      // In production, MinIO is NOT publicly exposed.
+      // Media files are accessed via the API backend which proxies MinIO.
+      minioBaseUrl = 'https://api.civiclens.space';
     }
   }
 

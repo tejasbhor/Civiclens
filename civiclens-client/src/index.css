@@ -6,6 +6,10 @@
 All colors MUST be HSL.
 */
 
+html {
+  scroll-behavior: smooth;
+}
+
 @layer base {
   :root {
     --background: 210 20% 98%;
@@ -37,28 +41,28 @@ All colors MUST be HSL.
     --ring: 210 80% 48%;
 
     --radius: 0.75rem;
-    
+
     /* Civic-specific tokens */
     --civic-blue: 210 80% 48%;
     --civic-green: 155 60% 45%;
     --civic-teal: 180 65% 48%;
     --civic-amber: 35 95% 55%;
-    
+
     /* Status colors */
     --status-received: 210 80% 58%;
     --status-progress: 35 95% 55%;
     --status-resolved: 155 60% 45%;
     --status-closed: 215 15% 50%;
-    
+
     /* Gradients */
     --gradient-primary: linear-gradient(135deg, hsl(210 80% 48%) 0%, hsl(195 70% 50%) 100%);
     --gradient-hero: linear-gradient(135deg, hsl(210 80% 52%) 0%, hsl(180 65% 48%) 100%);
-    
+
     /* Shadows */
     --shadow-sm: 0 2px 8px -2px hsl(210 80% 48% / 0.1);
     --shadow-md: 0 4px 16px -4px hsl(210 80% 48% / 0.15);
     --shadow-lg: 0 8px 32px -8px hsl(210 80% 48% / 0.2);
-    
+
     /* Transitions */
     --transition-base: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -108,12 +112,12 @@ All colors MUST be HSL.
     --border: 215 25% 20%;
     --input: 215 25% 18%;
     --ring: 210 80% 55%;
-    
+
     --civic-blue: 210 80% 55%;
     --civic-green: 155 60% 50%;
     --civic-teal: 180 65% 55%;
     --civic-amber: 35 95% 60%;
-    
+
     --gradient-primary: linear-gradient(135deg, hsl(210 80% 55%) 0%, hsl(195 70% 55%) 100%);
     --gradient-hero: linear-gradient(135deg, hsl(210 80% 58%) 0%, hsl(180 65% 55%) 100%);
     --sidebar-background: 240 5.9% 10%;
@@ -134,22 +138,26 @@ All colors MUST be HSL.
 
   body {
     @apply bg-background text-foreground;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 }
 
 /* Production-ready toast z-index configuration */
 /* Ensure toasts appear above all other elements including navbar */
 @layer utilities {
+
   /* Radix UI Toast Viewport */
   [data-radix-toast-viewport] {
     z-index: 9999 !important;
   }
-  
+
   /* Sonner Toast Container */
   [data-sonner-toaster] {
     z-index: 9999 !important;
   }
-  
+
   /* Sonner Toast Items */
   [data-sonner-toast] {
     z-index: 9999 !important;

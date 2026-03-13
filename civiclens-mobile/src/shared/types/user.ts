@@ -22,15 +22,16 @@ export interface User {
   preferred_language: string;
   primary_address?: string;
   bio?: string;
+  profile_completion?: 'minimal' | 'basic' | 'complete';
+  total_reports?: number;
+  total_validations?: number;
+  helpful_validations?: number;
   created_at: string;
   updated_at?: string;
 }
 
-export interface UserProfileDetails extends User {
-  total_reports?: number;
-  total_validations?: number;
-  helpful_validations?: number;
-}
+/** Extended type for profile views that explicitly need all stats fields */
+export type UserProfileDetails = Required<Pick<User, 'total_reports' | 'total_validations' | 'helpful_validations'>> & User;
 
 export interface AuthTokens {
   access_token: string;

@@ -35,7 +35,7 @@ class ApiClient {
   constructor() {
     log.debug('ApiClient constructor called');
     log.debug('ENV.API_BASE_URL:', ENV.API_BASE_URL);
-    
+
     this.client = axios.create({
       baseURL: ENV.API_BASE_URL,
       timeout: 30000,
@@ -72,11 +72,11 @@ class ApiClient {
         const token = await SecureStorage.getAuthToken();
         if (token && config.headers) {
           const validation = validateToken(token);
-          
+
           if (!validation.isValid || validation.isExpired) {
             log.warn('Invalid or expired token, cleaning up auth state');
             await cleanupInvalidAuthState();
-            
+
             // Don't add invalid token to request
             return Promise.reject({
               type: 'AUTH_ERROR',
@@ -85,7 +85,7 @@ class ApiClient {
               config,
             });
           }
-          
+
           config.headers.Authorization = `Bearer ${token}`;
         }
 
@@ -115,7 +115,11 @@ class ApiClient {
         const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
 
         if (ENV.ENABLE_LOGGING) {
-          log.error(`API Response Error: ${error.response?.status} ${error.config?.url}`);
+          if (error.isAxiosError && error.message === 'Network Error') {
+            log.warn(`API Network Unavailable: ${error.config?.method?.toUpperCase()} ${error.config?.url}`);
+          } else {
+            log.error(`API Response Error: ${error.response?.status || error.code || 'Unknown'} ${error.config?.url || 'URL missing'}`);
+          }
         }
 
         // Handle 401 Unauthorized - Token expired
@@ -176,11 +180,11 @@ class ApiClient {
 
               // Update access token
               await SecureStorage.setAuthToken(access_token);
-              
+
               // Verify it was stored
               // const storedToken = await SecureStorage.getAuthToken();
               // log.debug('Stored token verified');
-              
+
               // Update refresh token only if backend provides a new one
               // Note: Backend may not return new refresh token on every refresh
               if (newRefreshToken) {
@@ -238,20 +242,20 @@ class ApiClient {
           if (status === 403) {
             // 403 Forbidden - might be due to invalid token or insufficient permissions
             log.warn('403 Forbidden - checking auth state');
-            
+
             // If we have a token but getting 403, it might be invalid
             const token = await SecureStorage.getAuthToken();
             if (token) {
               log.warn('Have token but got 403 - clearing potentially invalid auth state');
               await cleanupInvalidAuthState();
-              
+
               return Promise.reject({
                 ...error,
                 isAuthError: true,
                 message: 'Session invalid. Please login again.',
               });
             }
-            
+
             return Promise.reject({
               ...error,
               isAuthError: false,

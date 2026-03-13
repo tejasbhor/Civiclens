@@ -7,8 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { useNavigate, useParams } from "react-router-dom";
-import { 
-  ArrowLeft, Camera, Upload, CheckCircle2, ArrowLeftRight, Loader2, 
+import {
+  ArrowLeft, Camera, Upload, CheckCircle2, ArrowLeftRight, Loader2,
   X, AlertCircle, FileText, Clock, AlertTriangle, Image as ImageIcon,
   Trash2, Info, CheckCircle
 } from "lucide-react";
@@ -19,6 +19,7 @@ import { OfficerHeader } from "@/components/layout/OfficerHeader";
 import { useConnectionStatus } from "@/hooks/useConnectionStatus";
 import { logger } from "@/lib/logger";
 import apiClient from "@/services/apiClient";
+import { getMediaUrl } from "@/lib/mediaUtils";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -42,14 +43,14 @@ const CompleteWork = () => {
   const { toast } = useToast();
   const { user, loading: authLoading } = useAuth();
   const { isBackendReachable } = useConnectionStatus();
-  
+
   const [task, setTask] = useState<any>(null);
   const [beforePhotos, setBeforePhotos] = useState<any[]>([]);
   const [citizenPhotos, setCitizenPhotos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
+
   const [completionNotes, setCompletionNotes] = useState("");
   const [workDuration, setWorkDuration] = useState("");
   const [materialsUsed, setMaterialsUsed] = useState("");
@@ -73,7 +74,7 @@ const CompleteWork = () => {
       }
       if (typeof detail === 'object') {
         return detail.msg || detail.message || JSON.stringify(detail);
-    }
+      }
       return detail;
     }
     if (error?.message) return error.message;
@@ -114,18 +115,18 @@ const CompleteWork = () => {
 
       // Handle media data
       if (mediaData.status === 'fulfilled') {
-        const mediaList = Array.isArray(mediaData.value.data) 
-          ? mediaData.value.data 
-          : Array.isArray(mediaData.value) 
-          ? mediaData.value 
-          : [];
-        
+        const mediaList = Array.isArray(mediaData.value.data)
+          ? mediaData.value.data
+          : Array.isArray(mediaData.value)
+            ? mediaData.value
+            : [];
+
         const before = mediaList.filter((m: any) => m.upload_source === 'officer_before_photo');
-        const citizen = mediaList.filter((m: any) => 
+        const citizen = mediaList.filter((m: any) =>
           !m.upload_source || m.upload_source === 'citizen_submission'
-      );
-        
-      setBeforePhotos(before);
+        );
+
+        setBeforePhotos(before);
         setCitizenPhotos(citizen);
         logger.debug(`Loaded ${before.length} before photos, ${citizen.length} citizen photos`);
       } else {
@@ -159,21 +160,15 @@ const CompleteWork = () => {
     }
   }, [authLoading, user, navigate]);
 
-  const getMediaUrl = useCallback((url: string) => {
-    if (!url) return '';
-    if (url.startsWith('http')) return url;
-    const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
-    const baseUrl = API_BASE.replace('/api/v1', '');
-    return `${baseUrl}${url}`;
-  }, []);
+
 
   const handlePhotoUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
-    
+
     // Validate file types
     const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
     const invalidFiles = files.filter(f => !validTypes.includes(f.type));
-    
+
     if (invalidFiles.length > 0) {
       toast({
         title: "Invalid File Type",
@@ -182,11 +177,11 @@ const CompleteWork = () => {
       });
       return;
     }
-    
+
     // Validate file sizes (10MB max)
     const maxSize = 10 * 1024 * 1024; // 10MB
     const oversizedFiles = files.filter(f => f.size > maxSize);
-    
+
     if (oversizedFiles.length > 0) {
       toast({
         title: "File Too Large",
@@ -197,7 +192,7 @@ const CompleteWork = () => {
     }
 
     const totalOfficerPhotos = beforePhotos.length + afterPhotos.length + files.length;
-    
+
     // Backend limit is 5 officer photos (before + after combined)
     if (totalOfficerPhotos > 5) {
       const remaining = 5 - beforePhotos.length - afterPhotos.length;
@@ -208,14 +203,14 @@ const CompleteWork = () => {
       });
       return;
     }
-    
+
     // Create preview objects
     const newPhotos: PhotoPreview[] = files.map(file => ({
       file,
       preview: URL.createObjectURL(file),
       id: `${Date.now()}-${Math.random()}`
     }));
-    
+
     setAfterPhotos(prev => [...prev, ...newPhotos]);
     setChecklist(prev => ({ ...prev, photos: true }));
     setValidationErrors(prev => ({ ...prev, photos: '' }));
@@ -229,7 +224,7 @@ const CompleteWork = () => {
       }
       return prev.filter(p => p.id !== photoId);
     });
-    
+
     if (afterPhotos.length === 1) {
       setChecklist(prev => ({ ...prev, photos: false }));
     }
@@ -307,25 +302,25 @@ const CompleteWork = () => {
         formData.append('caption', 'After completing work');
 
         return apiClient.post(`/media/upload/${id}`, formData, {
-            headers: {
-              'Content-Type': 'multipart/form-data',
+          headers: {
+            'Content-Type': 'multipart/form-data',
           },
         });
       });
 
       // Use allSettled to allow partial success
       const results = await Promise.allSettled(uploadPromises);
-      
+
       // Count successful uploads
       const successCount = results.filter(r => r.status === 'fulfilled').length;
       const failedCount = results.filter(r => r.status === 'rejected').length;
-      
+
       // If all failed, throw error
       if (successCount === 0 && failedCount > 0) {
         const firstError = results.find(r => r.status === 'rejected') as PromiseRejectedResult;
         throw firstError.reason;
       }
-      
+
       // Log partial failures but continue
       if (failedCount > 0) {
         logger.warn(`${failedCount} photo(s) failed to upload, but ${successCount} succeeded`);
@@ -342,7 +337,7 @@ const CompleteWork = () => {
       submitFormData.append('resolution_notes', notes);
 
       await apiClient.post(`/reports/${id}/submit-for-verification`, submitFormData, {
-          headers: {
+        headers: {
           'Content-Type': 'multipart/form-data',
         },
       });
@@ -351,7 +346,7 @@ const CompleteWork = () => {
 
       toast({
         title: "Work Completed Successfully",
-        description: successCount > 0 
+        description: successCount > 0
           ? `Successfully uploaded ${successCount} after photo(s) and submitted for verification.`
           : "Submitted for verification.",
       });
@@ -432,17 +427,17 @@ const CompleteWork = () => {
       )}
 
       <div className="container mx-auto px-4 py-8 max-w-4xl">
-      {/* Header */}
+        {/* Header */}
         <div className="mb-6">
           <div className="flex items-center gap-4 mb-4">
-            <Button 
-              variant="ghost" 
-              size="icon" 
+            <Button
+              variant="ghost"
+              size="icon"
               onClick={() => navigate(`/officer/task/${id}`)}
               aria-label="Back to Task Details"
             >
-            <ArrowLeft className="w-5 h-5" />
-          </Button>
+              <ArrowLeft className="w-5 h-5" />
+            </Button>
             <div className="flex-1">
               <div className="flex items-center gap-3 mb-2">
                 <h1 className="text-3xl font-bold text-foreground">Submit Work for Verification</h1>
@@ -586,47 +581,47 @@ const CompleteWork = () => {
                 </span>
               </div>
               <p className="text-sm text-muted-foreground mb-4">
-                Upload photos showing the completed work. {remainingPhotoSlots > 0 
+                Upload photos showing the completed work. {remainingPhotoSlots > 0
                   ? `You can add ${remainingPhotoSlots} more photo${remainingPhotoSlots !== 1 ? 's' : ''}.`
                   : 'Photo limit reached.'}
               </p>
-              
+
               <div className="space-y-4">
                 <div className="flex gap-2">
-                  <Button 
+                  <Button
                     type="button"
-                    variant="outline" 
-                    className="flex-1" 
+                    variant="outline"
+                    className="flex-1"
                     asChild
                     disabled={remainingPhotoSlots === 0}
                   >
                     <label className="cursor-pointer">
                       <Camera className="w-4 h-4 mr-2" />
                       Take Photo
-                      <input 
-                        type="file" 
-                        accept="image/jpeg,image/jpg,image/png,image/webp" 
-                        capture="environment" 
+                      <input
+                        type="file"
+                        accept="image/jpeg,image/jpg,image/png,image/webp"
+                        capture="environment"
                         className="hidden"
                         onChange={handlePhotoUpload}
                         disabled={remainingPhotoSlots === 0}
                       />
                     </label>
                   </Button>
-                  <Button 
+                  <Button
                     type="button"
-                    variant="outline" 
-                    className="flex-1" 
+                    variant="outline"
+                    className="flex-1"
                     asChild
                     disabled={remainingPhotoSlots === 0}
                   >
                     <label className="cursor-pointer">
                       <Upload className="w-4 h-4 mr-2" />
                       Upload from Device
-                      <input 
-                        type="file" 
-                        accept="image/jpeg,image/jpg,image/png,image/webp" 
-                        multiple 
+                      <input
+                        type="file"
+                        accept="image/jpeg,image/jpg,image/png,image/webp"
+                        multiple
                         className="hidden"
                         onChange={handlePhotoUpload}
                         disabled={remainingPhotoSlots === 0}
@@ -638,13 +633,13 @@ const CompleteWork = () => {
                 {afterPhotos.length > 0 && (
                   <div className="grid grid-cols-3 gap-3">
                     {afterPhotos.map((photoPreview) => (
-                      <div 
-                        key={photoPreview.id} 
+                      <div
+                        key={photoPreview.id}
                         className="relative aspect-square rounded-lg overflow-hidden bg-muted border-2 border-green-200 group"
                       >
-                        <img 
-                          src={photoPreview.preview} 
-                          alt="After work" 
+                        <img
+                          src={photoPreview.preview}
+                          alt="After work"
                           className="w-full h-full object-cover"
                         />
                         <button
@@ -684,33 +679,33 @@ const CompleteWork = () => {
                 <div className="space-y-4">
                   {beforePhotos.slice(0, Math.min(beforePhotos.length, afterPhotos.length)).map((beforePhoto, idx) => (
                     <div key={idx} className="grid grid-cols-2 gap-4">
-                        <div>
+                      <div>
                         <div className="flex items-center gap-2 mb-2">
                           <Badge className="bg-amber-500 text-xs">Before</Badge>
                           <span className="text-xs text-muted-foreground">Photo {idx + 1}</span>
                         </div>
                         <div className="aspect-video rounded-lg overflow-hidden bg-muted border-2 border-amber-200">
-                            <img 
-                            src={getMediaUrl(beforePhoto.file_url || beforePhoto.url)} 
-                              alt={`Before ${idx + 1}`} 
-                              className="w-full h-full object-cover" 
-                            />
-                          </div>
+                          <img
+                            src={getMediaUrl(beforePhoto.file_url || beforePhoto.url)}
+                            alt={`Before ${idx + 1}`}
+                            className="w-full h-full object-cover"
+                          />
                         </div>
-                        <div>
+                      </div>
+                      <div>
                         <div className="flex items-center gap-2 mb-2">
                           <Badge className="bg-green-500 text-xs">After</Badge>
                           <span className="text-xs text-muted-foreground">Photo {idx + 1}</span>
                         </div>
                         <div className="aspect-video rounded-lg overflow-hidden bg-muted border-2 border-green-200">
-                            <img 
-                            src={afterPhotos[idx]?.preview || ''} 
-                              alt={`After ${idx + 1}`} 
-                              className="w-full h-full object-cover" 
-                            />
-                          </div>
+                          <img
+                            src={afterPhotos[idx]?.preview || ''}
+                            alt={`After ${idx + 1}`}
+                            className="w-full h-full object-cover"
+                          />
                         </div>
                       </div>
+                    </div>
                   ))}
                 </div>
               </Card>
@@ -764,14 +759,14 @@ const CompleteWork = () => {
                 Enter the total time spent on this task in hours (e.g., 2.5 for 2 hours 30 minutes).
               </p>
               <div className="flex items-center gap-3">
-              <Input
-                id="workDuration"
-                type="number"
-                step="0.5"
+                <Input
+                  id="workDuration"
+                  type="number"
+                  step="0.5"
                   min="0.5"
                   max="1000"
-                placeholder="2.5"
-                value={workDuration}
+                  placeholder="2.5"
+                  value={workDuration}
                   onChange={(e) => {
                     setWorkDuration(e.target.value);
                     setValidationErrors(prev => ({ ...prev, workDuration: '' }));
@@ -781,7 +776,7 @@ const CompleteWork = () => {
                   aria-describedby={validationErrors.workDuration ? 'workDuration-error' : undefined}
                 />
                 <span className="text-sm text-muted-foreground">hours</span>
-            </div>
+              </div>
             </Card>
 
             {/* Materials Used */}
@@ -816,7 +811,7 @@ const CompleteWork = () => {
               </p>
               <div className="space-y-4">
                 <div className={`flex items-start space-x-3 p-3 rounded-lg border ${checklist.resolved ? 'bg-green-50 border-green-200' : 'bg-muted/50 border-border'}`}>
-                  <Checkbox 
+                  <Checkbox
                     id="resolved"
                     checked={checklist.resolved}
                     onCheckedChange={(checked) => {
@@ -826,12 +821,12 @@ const CompleteWork = () => {
                     className="mt-0.5"
                   />
                   <div className="flex-1">
-                  <label
-                    htmlFor="resolved"
+                    <label
+                      htmlFor="resolved"
                       className="text-sm font-medium leading-tight cursor-pointer"
-                  >
-                    Issue completely resolved
-                  </label>
+                    >
+                      Issue completely resolved
+                    </label>
                     <p className="text-xs text-muted-foreground mt-1">
                       The reported issue has been fully addressed and resolved.
                     </p>
@@ -842,21 +837,21 @@ const CompleteWork = () => {
                 </div>
 
                 <div className={`flex items-start space-x-3 p-3 rounded-lg border ${checklist.cleaned ? 'bg-green-50 border-green-200' : 'bg-muted/50 border-border'}`}>
-                  <Checkbox 
+                  <Checkbox
                     id="cleaned"
                     checked={checklist.cleaned}
-                    onCheckedChange={(checked) => 
+                    onCheckedChange={(checked) =>
                       setChecklist(prev => ({ ...prev, cleaned: checked as boolean }))
                     }
                     className="mt-0.5"
                   />
                   <div className="flex-1">
-                  <label
-                    htmlFor="cleaned"
+                    <label
+                      htmlFor="cleaned"
                       className="text-sm font-medium leading-tight cursor-pointer"
-                  >
+                    >
                       Area cleaned and restored
-                  </label>
+                    </label>
                     <p className="text-xs text-muted-foreground mt-1">
                       The work area has been cleaned and restored to its original or better condition.
                     </p>
@@ -867,24 +862,24 @@ const CompleteWork = () => {
                 </div>
 
                 <div className={`flex items-start space-x-3 p-3 rounded-lg border ${checklist.photos ? 'bg-green-50 border-green-200' : 'bg-muted/50 border-border'}`}>
-                  <Checkbox 
+                  <Checkbox
                     id="photos"
                     checked={checklist.photos}
-                    onCheckedChange={(checked) => 
+                    onCheckedChange={(checked) =>
                       setChecklist(prev => ({ ...prev, photos: checked as boolean }))
                     }
                     className="mt-0.5"
                     disabled={afterPhotos.length > 0}
                   />
                   <div className="flex-1">
-                  <label
-                    htmlFor="photos"
+                    <label
+                      htmlFor="photos"
                       className={`text-sm font-medium leading-tight ${afterPhotos.length > 0 ? 'cursor-pointer' : 'cursor-not-allowed opacity-70'}`}
-                  >
-                    Before/After photos uploaded
-                  </label>
+                    >
+                      Before/After photos uploaded
+                    </label>
                     <p className="text-xs text-muted-foreground mt-1">
-                      {afterPhotos.length > 0 
+                      {afterPhotos.length > 0
                         ? `${afterPhotos.length} after photo${afterPhotos.length !== 1 ? 's' : ''} uploaded.`
                         : 'Upload at least one after photo to complete this task.'}
                     </p>
@@ -895,21 +890,21 @@ const CompleteWork = () => {
                 </div>
 
                 <div className={`flex items-start space-x-3 p-3 rounded-lg border ${checklist.materials ? 'bg-green-50 border-green-200' : 'bg-muted/50 border-border'}`}>
-                  <Checkbox 
+                  <Checkbox
                     id="materials"
                     checked={checklist.materials}
-                    onCheckedChange={(checked) => 
+                    onCheckedChange={(checked) =>
                       setChecklist(prev => ({ ...prev, materials: checked as boolean }))
                     }
                     className="mt-0.5"
                   />
                   <div className="flex-1">
-                  <label
-                    htmlFor="materials"
+                    <label
+                      htmlFor="materials"
                       className="text-sm font-medium leading-tight cursor-pointer"
-                  >
-                    All materials properly disposed
-                  </label>
+                    >
+                      All materials properly disposed
+                    </label>
                     <p className="text-xs text-muted-foreground mt-1">
                       Any waste materials or debris have been properly disposed of.
                     </p>
@@ -928,43 +923,43 @@ const CompleteWork = () => {
                 <div className="flex-1">
                   <h4 className="font-semibold text-blue-900 mb-1">What happens next?</h4>
                   <p className="text-sm text-blue-800">
-                    After submission, your work will be reviewed by an administrator. The citizen will be notified, 
+                    After submission, your work will be reviewed by an administrator. The citizen will be notified,
                     and you'll receive updates on the verification status. You can track the progress from the task details page.
                   </p>
-            </div>
-          </div>
+                </div>
+              </div>
             </Card>
 
             {/* Action Buttons */}
             <div className="flex gap-3 pt-4">
-            <Button 
+              <Button
                 type="button"
-              variant="outline" 
-              className="flex-1"
-              onClick={() => navigate(`/officer/task/${id}`)}
-              disabled={submitting}
-            >
+                variant="outline"
+                className="flex-1"
+                onClick={() => navigate(`/officer/task/${id}`)}
+                disabled={submitting}
+              >
                 <ArrowLeft className="w-4 h-4 mr-2" />
-              Cancel
-            </Button>
-            <Button 
+                Cancel
+              </Button>
+              <Button
                 type="submit"
                 className="flex-1 bg-green-600 hover:bg-green-700"
                 disabled={submitting || !isBackendReachable}
-            >
-              {submitting ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Submitting...
-                </>
-              ) : (
-                <>
-                  <CheckCircle2 className="w-4 h-4 mr-2" />
-                  Submit for Verification
-                </>
-              )}
-            </Button>
-          </div>
+              >
+                {submitting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Submitting...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 className="w-4 h-4 mr-2" />
+                    Submit for Verification
+                  </>
+                )}
+              </Button>
+            </div>
           </div>
         </form>
 
@@ -975,7 +970,7 @@ const CompleteWork = () => {
               <AlertDialogTitle>Submit Work for Verification?</AlertDialogTitle>
               <AlertDialogDescription className="space-y-2">
                 <p>
-                You are about to mark this task as completed and submit it for verification.
+                  You are about to mark this task as completed and submit it for verification.
                 </p>
                 <div className="bg-muted p-3 rounded-lg space-y-1 text-sm">
                   <p className="font-medium">Summary:</p>

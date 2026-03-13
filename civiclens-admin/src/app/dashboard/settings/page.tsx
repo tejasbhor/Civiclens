@@ -1,20 +1,21 @@
 'use client';
 
 import React, { useState } from 'react';
-import { 
-  Settings as SettingsIcon, 
-  Shield, 
-  Users, 
-  Upload, 
-  Bell, 
-  Database, 
-  FileText, 
+import {
+  Settings as SettingsIcon,
+  Shield,
+  Users,
+  Upload,
+  Bell,
+  Database,
+  FileText,
   Zap,
   Server,
   AlertTriangle,
   Save,
   RefreshCw
 } from 'lucide-react';
+import { APP_CONFIG } from '@/lib/config/appConfig';
 import {
   SystemSettings,
   SecuritySettings,
@@ -34,10 +35,10 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false);
 
   const [settings, setSettings] = useState({
-    appName: 'CivicLens API',
-    appVersion: '1.0.0',
+    appName: APP_CONFIG.appName,
+    appVersion: APP_CONFIG.appVersion,
     environment: 'production',
-    cityCode: 'RNC',
+    cityCode: APP_CONFIG.cityCode,
     debug: false,
     accessTokenExpireMinutes: 1440,
     maxLoginAttempts: 5,
@@ -82,7 +83,7 @@ export default function SettingsPage() {
     await new Promise(resolve => setTimeout(resolve, 1500));
     setSaving(false);
     setHasChanges(false);
-    
+
     const toast = document.createElement('div');
     toast.className = 'fixed top-4 right-4 bg-green-600 text-white px-4 py-2 rounded-lg shadow-lg z-50';
     toast.textContent = 'Settings saved successfully';
@@ -103,7 +104,7 @@ export default function SettingsPage() {
             <p className="text-sm text-gray-600">Configure system-wide settings and preferences</p>
           </div>
         </div>
-        
+
         {hasChanges && (
           <div className="flex items-center gap-3">
             <span className="text-sm text-orange-600 font-medium flex items-center gap-2">
@@ -143,11 +144,10 @@ export default function SettingsPage() {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-2 px-6 py-4 text-sm font-medium transition-colors whitespace-nowrap border-b-2 ${
-                  isActive
+                className={`flex items-center gap-2 px-6 py-4 text-sm font-medium transition-colors whitespace-nowrap border-b-2 ${isActive
                     ? 'border-primary-600 text-primary-600 bg-primary-50'
                     : 'border-transparent text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                }`}
+                  }`}
               >
                 <Icon className="w-4 h-4" />
                 {tab.label}

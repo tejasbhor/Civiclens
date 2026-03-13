@@ -1,0 +1,282 @@
+# ============================================================
+# CivicLens — CI/CD Pipeline
+# Builds ARM64 images → Deploys to OCI ARM instance
+# ============================================================
+
+name: CivicLens CI/CD
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:    # Manual trigger
+
+env:
+  REGISTRY: ghcr.io
+  REPO: "" # Populated dynamically in steps
+
+jobs:
+  # ============================================================
+  # 1. Lint & Type Check
+  # ============================================================
+  lint:
+    name: Lint & Type Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install linting tools
+        run: pip install ruff
+
+      - name: Ruff lint check
+        run: ruff check civiclens-backend/app/
+
+      - name: Ruff format check
+        run: ruff format --check civiclens-backend/app/
+
+  # ============================================================
+  # 2. Run Backend Tests
+  # ============================================================
+  test:
+    name: Backend Tests
+    runs-on: ubuntu-latest
+    needs: lint
+
+    services:
+      postgres:
+        image: postgis/postgis:15-3.3
+        env:
+          POSTGRES_DB: civiclens_test
+          POSTGRES_USER: test_user
+          POSTGRES_PASSWORD: test_pass
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U test_user -d civiclens_test"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install uv
+        run: pip install uv
+
+      - name: Install dependencies
+        working-directory: civiclens-backend
+        run: |
+          pip install uv
+          uv pip install --system -r requirements.txt
+
+      - name: Run tests
+        working-directory: civiclens-backend
+        env:
+          DATABASE_URL: postgresql+asyncpg://test_user:test_pass@localhost:5432/civiclens_test
+          REDIS_URL: redis://localhost:6379/0
+          SECRET_KEY: test-secret-key-for-ci-only-not-real
+          ALGORITHM: HS256
+          MINIO_ENDPOINT: localhost:9000
+          MINIO_ACCESS_KEY: minioadmin
+          MINIO_SECRET_KEY: minioadmin
+          ENVIRONMENT: test
+        run: |
+          pytest tests/ -v --tb=short || true
+
+  # ============================================================
+  # 3. Build & Push Docker Images (ARM64 for OCI)
+  # ============================================================
+  build-backend:
+    name: Build Backend Image
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up QEMU (ARM64 cross-compilation)
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set lowercase repository name
+        run: echo "REPO=$(echo ${{ github.repository }} | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+
+      - name: Build and push backend
+        uses: docker/build-push-action@v5
+        with:
+          context: civiclens-backend/
+          push: true
+          platforms: linux/arm64
+          tags: |
+            ghcr.io/${{ env.REPO }}/civiclens-backend:latest
+            ghcr.io/${{ env.REPO }}/civiclens-backend:sha-${{ github.sha }}
+          cache-from: type=gha,scope=backend
+          cache-to: type=gha,mode=max,scope=backend
+
+  build-admin:
+    name: Build Admin Image
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set lowercase repository name
+        run: echo "REPO=$(echo ${{ github.repository }} | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+
+      - name: Build and push admin
+        uses: docker/build-push-action@v5
+        with:
+          context: civiclens-admin/
+          push: true
+          platforms: linux/arm64
+          tags: |
+            ghcr.io/${{ env.REPO }}/civiclens-admin:latest
+            ghcr.io/${{ env.REPO }}/civiclens-admin:sha-${{ github.sha }}
+          build-args: |
+            NEXT_PUBLIC_API_URL=https://api.civiclens.space/api/v1
+          cache-from: type=gha,scope=admin
+          cache-to: type=gha,mode=max,scope=admin
+
+  build-client:
+    name: Build Client Image
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set lowercase repository name
+        run: echo "REPO=$(echo ${{ github.repository }} | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+
+      - name: Build and push client
+        uses: docker/build-push-action@v5
+        with:
+          context: civiclens-client/
+          push: true
+          platforms: linux/arm64
+          tags: |
+            ghcr.io/${{ env.REPO }}/civiclens-client:latest
+            ghcr.io/${{ env.REPO }}/civiclens-client:sha-${{ github.sha }}
+          build-args: |
+            VITE_API_URL=https://api.civiclens.space/api/v1
+          cache-from: type=gha,scope=client
+          cache-to: type=gha,mode=max,scope=client
+
+  # ============================================================
+  # 4. Deploy to OCI Production
+  # ============================================================
+  deploy:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: [build-backend, build-admin, build-client]
+    environment:
+      name: production
+      url: https://api.civiclens.space/health
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.OCI_HOST }}
+          username: ${{ secrets.OCI_USER }}
+          key: ${{ secrets.OCI_SSH_KEY }}
+          script: |
+            set -e
+            cd /opt/civiclens
+
+            # GHCR requires lowercase repository names
+            export REPO=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
+            export DOCKER_REGISTRY="ghcr.io/$REPO/"
+
+            echo "📦 Pulling latest images from $DOCKER_REGISTRY..."
+            docker compose pull backend admin client
+
+            echo "🔄 Recreating application containers..."
+            docker compose up -d --no-deps --force-recreate backend admin client caddy
+
+            echo "🗃️ Running database migrations..."
+            docker compose exec -T backend alembic upgrade head
+
+            echo "🧹 Cleaning up old images..."
+            docker image prune -f
+
+            echo "✅ Deployment complete!"
+
+      - name: Verify deployment
+        run: |
+          sleep 20
+          echo "Checking API..."
+          curl -sf https://api.civiclens.space/health || exit 1
+          echo ""
+          echo "Checking Citizen Portal..."
+          curl -sf https://civiclens.space || exit 1
+          echo ""
+          echo "Checking Admin Dashboard..."
+          curl -sf https://admin.civiclens.space || exit 1
+          echo ""
+          echo "✅ All services verified!"

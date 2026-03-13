@@ -326,7 +326,7 @@ export function AssignDepartmentModal({
                   <span className="text-gray-500">Avg Resolution:</span>
                   <div className="font-medium">
                     {getSelectedDepartmentStats()!.avg_resolution_time_days 
-                      ? `${getSelectedDepartmentStats()!.avg_resolution_time_days.toFixed(1)} days`
+                      ? `${getSelectedDepartmentStats()?.avg_resolution_time_days?.toFixed(1)} days`
                       : 'N/A'
                     }
                   </div>

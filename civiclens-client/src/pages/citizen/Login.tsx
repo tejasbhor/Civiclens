@@ -8,9 +8,10 @@ import { useToast } from "@/hooks/use-toast";
 import { authService } from "@/services/authService";
 import { useAuth } from "@/contexts/AuthContext";
 import { isCitizen, getDashboardPath } from "@/utils/authHelpers";
+import { APP_CONFIG, getCopyrightText } from "@/config/appConfig";
 
-type AuthMode = 'select' | 'quick-otp' | 'full-register' | 'password-login';
-type AuthStep = 'phone' | 'otp' | 'register' | 'password';
+type AuthMode = 'select' | 'quick-otp' | 'full-register' | 'password-login' | 'email-otp';
+type AuthStep = 'phone' | 'otp' | 'register' | 'password' | 'email' | 'email-otp-verify';
 
 const CitizenLogin = () => {
   const [authMode, setAuthMode] = useState<AuthMode>('select');
@@ -42,7 +43,7 @@ const CitizenLogin = () => {
   const normalizePhoneNumber = (phone: string): string => {
     // Remove all non-digit characters
     const digits = phone.replace(/\D/g, '');
-    
+
     // If it's already 10 digits, add +91 prefix
     if (digits.length === 10) {
       // Check if first digit is valid (should be 1-9, not 0)
@@ -51,20 +52,20 @@ const CitizenLogin = () => {
       }
       return `+91${digits}`;
     }
-    
+
     // If it starts with 91 and has 12 digits total, add +
     if (digits.length === 12 && digits.startsWith('91')) {
       return `+${digits}`;
     }
-    
+
     // If it already has +91, return as is (after cleaning)
     if (phone.startsWith('+91')) {
       const cleaned = phone.replace(/\D/g, '').replace(/^91/, '');
       if (cleaned.length === 10 && cleaned[0] !== '0') {
         return `+91${cleaned}`;
+      }
     }
-    }
-    
+
     throw new Error('Invalid phone number format');
   };
 
@@ -99,7 +100,7 @@ const CitizenLogin = () => {
         description: response.message + (response.otp ? ` (Dev OTP: ${response.otp})` : ''),
       });
       setAuthStep('otp');
-      
+
       // Start countdown
       const interval = setInterval(() => {
         setCountdown(prev => {
@@ -119,12 +120,52 @@ const CitizenLogin = () => {
           variant: "destructive"
         });
       } else {
-      toast({
-        title: "Error",
+        toast({
+          title: "Error",
           description: error.response?.data?.detail || error.message || "Failed to send OTP",
+          variant: "destructive"
+        });
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRequestEmailOtp = async () => {
+    if (!email || !/^\S+@\S+\.\S+$/.test(email)) {
+      toast({
+        title: "Invalid Email",
+        description: "Please enter a valid email address",
         variant: "destructive"
       });
-      }
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const response = await authService.requestEmailOTP(email);
+      toast({
+        title: "OTP Sent!",
+        description: response.message + (response.otp ? ` (Dev OTP: ${response.otp})` : ''),
+      });
+      setAuthStep('email-otp-verify');
+
+      // Start countdown
+      const interval = setInterval(() => {
+        setCountdown(prev => {
+          if (prev <= 1) {
+            clearInterval(interval);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.response?.data?.detail || error.message || "Failed to send OTP",
+        variant: "destructive"
+      });
     } finally {
       setLoading(false);
     }
@@ -170,7 +211,25 @@ const CitizenLogin = () => {
         await login(response.access_token, response.refresh_token);
         toast({
           title: "Account Verified!",
-          description: "Welcome to CivicLens! Your account is ready.",
+          description: `Welcome to ${APP_CONFIG.appName}! Your account is ready.`,
+        });
+        navigate('/citizen/dashboard');
+      } catch (error: any) {
+        toast({
+          title: "Verification Failed",
+          description: error.response?.data?.detail || "Invalid OTP",
+          variant: "destructive"
+        });
+      } finally {
+        setLoading(false);
+      }
+    } else if (authMode === 'email-otp') {
+      try {
+        const response = await authService.verifyEmailOTP(email, otp);
+        await login(response.access_token, response.refresh_token);
+        toast({
+          title: "Email Login Successful!",
+          description: `Welcome back to ${APP_CONFIG.appName}.`,
         });
         navigate('/citizen/dashboard');
       } catch (error: any) {
@@ -232,20 +291,20 @@ const CitizenLogin = () => {
         email: email || undefined,
         password
       });
-      
+
       // Show OTP in toast for development
-      const otpMessage = response.message + 
+      const otpMessage = response.message +
         ((response as any).otp ? ` (Dev OTP: ${(response as any).otp})` : '');
-      
+
       toast({
         title: "Account Created!",
         description: otpMessage,
         duration: 10000, // Show for 10 seconds
       });
-      
+
       // Move to OTP verification step
       setAuthStep('otp');
-      
+
       // Start countdown
       setCountdown(300);
       const interval = setInterval(() => {
@@ -266,11 +325,11 @@ const CitizenLogin = () => {
           variant: "destructive"
         });
       } else {
-      toast({
-        title: "Registration Failed",
+        toast({
+          title: "Registration Failed",
           description: error.response?.data?.detail || error.message || "Failed to create account",
-        variant: "destructive"
-      });
+          variant: "destructive"
+        });
       }
     } finally {
       setLoading(false);
@@ -304,7 +363,7 @@ const CitizenLogin = () => {
       await login(response.access_token, response.refresh_token);
       toast({
         title: "Login Successful!",
-        description: "Welcome back to CivicLens",
+        description: `Welcome back to ${APP_CONFIG.appName}`,
       });
       navigate('/citizen/dashboard');
     } catch (error: any) {
@@ -324,11 +383,11 @@ const CitizenLogin = () => {
           duration: 6000,
         });
       } else {
-      toast({
-        title: "Login Failed",
+        toast({
+          title: "Login Failed",
           description: error.response?.data?.detail || error.message || "Invalid credentials",
-        variant: "destructive"
-      });
+          variant: "destructive"
+        });
       }
     } finally {
       setLoading(false);
@@ -366,7 +425,7 @@ const CitizenLogin = () => {
             </div>
             <div>
               <h1 className="font-bold text-foreground">Citizen Login</h1>
-              <p className="text-xs text-muted-foreground">CivicLens Portal</p>
+              <p className="text-xs text-muted-foreground">{APP_CONFIG.appName} Portal</p>
             </div>
           </div>
         </div>
@@ -382,12 +441,12 @@ const CitizenLogin = () => {
                 <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary to-accent flex items-center justify-center mx-auto mb-4">
                   <Phone className="w-8 h-8 text-white" />
                 </div>
-                <h2 className="text-2xl font-bold text-foreground mb-2">Welcome to CivicLens</h2>
+                <h2 className="text-2xl font-bold text-foreground mb-2">Welcome to {APP_CONFIG.appName}</h2>
                 <p className="text-muted-foreground">Choose how you want to continue</p>
               </div>
 
               <div className="space-y-4">
-                <Button 
+                <Button
                   onClick={() => {
                     setAuthMode('quick-otp');
                     setAuthStep('phone');
@@ -402,7 +461,7 @@ const CitizenLogin = () => {
                   </div>
                 </Button>
 
-                <Button 
+                <Button
                   onClick={() => {
                     setAuthMode('full-register');
                     setAuthStep('register');
@@ -427,7 +486,7 @@ const CitizenLogin = () => {
                   </div>
                 </div>
 
-                <Button 
+                <Button
                   onClick={() => {
                     setAuthMode('password-login');
                     setAuthStep('password');
@@ -437,6 +496,18 @@ const CitizenLogin = () => {
                 >
                   <Lock className="w-4 h-4 mr-2" />
                   Login with Password
+                </Button>
+
+                <Button
+                  onClick={() => {
+                    setAuthMode('email-otp');
+                    setAuthStep('email');
+                  }}
+                  variant="ghost"
+                  className="w-full"
+                >
+                  <Mail className="w-4 h-4 mr-2" />
+                  Login with Email
                 </Button>
               </div>
             </>
@@ -524,11 +595,103 @@ const CitizenLogin = () => {
 
                 <div className="text-center">
                   <p className="text-sm text-muted-foreground mb-2">Didn't receive the OTP?</p>
-                  <Button 
-                    variant="link" 
+                  <Button
+                    variant="link"
                     onClick={async () => {
                       setCountdown(300);
-                      await handleRequestOtp();
+                      if (authMode === 'email-otp') {
+                        await handleRequestEmailOtp();
+                      } else {
+                        await handleRequestOtp();
+                      }
+                    }}
+                    disabled={loading}
+                  >
+                    Resend OTP
+                  </Button>
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* Email Entry Step */}
+          {authStep === 'email' && authMode === 'email-otp' && (
+            <>
+              <div className="text-center mb-8">
+                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary to-accent flex items-center justify-center mx-auto mb-4">
+                  <Mail className="w-8 h-8 text-white" />
+                </div>
+                <h2 className="text-2xl font-bold text-foreground mb-2">Email Login</h2>
+                <p className="text-muted-foreground">Enter your email address to get an OTP</p>
+              </div>
+
+              <div className="space-y-6">
+                <div>
+                  <label className="text-sm font-medium text-foreground mb-2 block">Email Address *</label>
+                  <Input
+                    type="email"
+                    placeholder="your.email@example.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    disabled={loading}
+                  />
+                </div>
+
+                <Button onClick={handleRequestEmailOtp} className="w-full" size="lg" disabled={loading}>
+                  {loading ? "Sending..." : "Request Email OTP"}
+                </Button>
+
+                <Button variant="ghost" size="sm" onClick={resetForm} className="w-full">
+                  <ArrowLeft className="w-4 h-4 mr-2" />
+                  Back to Options
+                </Button>
+              </div>
+            </>
+          )}
+
+          {/* Email OTP Verification Step */}
+          {authStep === 'email-otp-verify' && authMode === 'email-otp' && (
+            <>
+              <div className="text-center mb-8">
+                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary to-accent flex items-center justify-center mx-auto mb-4">
+                  <Shield className="w-8 h-8 text-white" />
+                </div>
+                <h2 className="text-2xl font-bold text-foreground mb-2">Verify Email OTP</h2>
+                <p className="text-muted-foreground mb-2">OTP sent to {email}</p>
+                <Button variant="link" size="sm" onClick={() => setAuthStep('email')}>
+                  Change Email
+                </Button>
+              </div>
+
+              <div className="space-y-6">
+                <div>
+                  <label className="text-sm font-medium text-foreground mb-2 block">Enter 6-digit OTP</label>
+                  <Input
+                    type="text"
+                    placeholder="000000"
+                    value={otp}
+                    onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                    className="text-center text-2xl tracking-widest"
+                    maxLength={6}
+                    disabled={loading}
+                  />
+                  <div className="text-center mt-2 text-sm">
+                    <span className="text-muted-foreground">OTP expires in: </span>
+                    <span className="font-mono font-semibold text-primary">{formatTime(countdown)}</span>
+                  </div>
+                </div>
+
+                <Button onClick={handleVerifyOtp} className="w-full" size="lg" disabled={loading}>
+                  {loading ? "Verifying..." : "Verify & Continue"}
+                </Button>
+
+                <div className="text-center">
+                  <p className="text-sm text-muted-foreground mb-2">Didn't receive the OTP?</p>
+                  <Button
+                    variant="link"
+                    onClick={async () => {
+                      setCountdown(300);
+                      await handleRequestEmailOtp();
                     }}
                     disabled={loading}
                   >
@@ -547,7 +710,7 @@ const CitizenLogin = () => {
                   <User className="w-8 h-8 text-white" />
                 </div>
                 <h2 className="text-2xl font-bold text-foreground mb-2">Create Full Account</h2>
-                <p className="text-muted-foreground">Get access to all CivicLens features</p>
+                <p className="text-muted-foreground">Get access to all {APP_CONFIG.appName} features</p>
               </div>
 
               <div className="space-y-4">
@@ -683,7 +846,7 @@ const CitizenLogin = () => {
       </div>
 
       <footer className="border-t bg-card/50 py-6 text-center text-sm text-muted-foreground">
-        © 2025 CivicLens. All rights reserved.
+        {getCopyrightText()}
       </footer>
     </div>
   );

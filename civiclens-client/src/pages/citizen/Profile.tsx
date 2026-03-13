@@ -70,8 +70,8 @@ const CitizenProfile = () => {
       setFormData({
         full_name: user.full_name || "",
         email: user.email || "",
-        primary_address: "",
-        bio: "",
+        primary_address: user.primary_address || "",
+        bio: user.bio || "",
         push_notifications: true,
         sms_notifications: true,
         email_notifications: true
@@ -112,20 +112,17 @@ const CitizenProfile = () => {
     try {
       setSaving(true);
 
-      // Prepare update data (only send non-empty fields)
+      // Prepare update data - always send the form state if changed
       const updateData: any = {};
-      if (formData.full_name && formData.full_name !== user?.full_name) {
-        updateData.full_name = formData.full_name;
+      if (formData.full_name !== user?.full_name) {
+        updateData.full_name = formData.full_name || null;
       }
-      if (formData.email && formData.email !== user?.email) {
-        updateData.email = formData.email;
+      if (formData.email !== user?.email) {
+        updateData.email = formData.email || null;
       }
-      if (formData.primary_address) {
-        updateData.primary_address = formData.primary_address;
-      }
-      if (formData.bio) {
-        updateData.bio = formData.bio;
-      }
+      // For optional fields, send the value even if empty to allow clearing (using null for backend)
+      updateData.primary_address = formData.primary_address || null;
+      updateData.bio = formData.bio || null;
 
       // Update profile and preferences in parallel
       await Promise.all([
@@ -717,37 +714,30 @@ const CitizenProfile = () => {
               </Card>
             )}
 
-        {/* Logout */}
-        <Card className="p-6">
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button variant="destructive" className="w-full">
-                <LogOut className="w-4 h-4 mr-2" />
-                Logout
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Are you sure you want to logout?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  You will need to sign in again to access your account.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={handleLogout} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                  Logout
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        </Card>
             {/* Logout */}
             <Card className="p-6">
-              <Button onClick={handleLogout} variant="destructive" className="w-full">
-                <LogOut className="w-4 h-4 mr-2" />
-                Logout
-              </Button>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="destructive" className="w-full">
+                    <LogOut className="w-4 h-4 mr-2" />
+                    Logout
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Are you sure you want to logout?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      You will need to sign in again to access your account.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleLogout} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                      Logout
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             </Card>
           </div>
         </div>

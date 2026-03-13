@@ -13,6 +13,8 @@ import { useAuthStore } from './authStore';
 import { reportApi } from '@shared/services/api/reportApi';
 import { networkService } from '@shared/services/network/networkService';
 import { createLogger } from '@shared/utils/logger';
+import { submissionQueue } from '@shared/services/queue/submissionQueue';
+import { apiClient } from '@shared/services/api/apiClient';
 
 const log = createLogger('ReportStore');
 
@@ -310,8 +312,12 @@ export const useReportStore = create<ReportState>((set, get) => ({
               );
             }
           }
-        } catch (apiError) {
-          console.warn('Failed to sync reports from server:', apiError);
+        } catch (apiError: any) {
+          if (apiError?.isAxiosError && apiError.message === 'Network Error') {
+            console.info('[ReportStore] Network unavailable, loading reports from local DB only');
+          } else {
+            console.warn('[ReportStore] Failed to sync reports from server:', apiError);
+          }
           // Continue to load from local DB
         }
       }
@@ -541,19 +547,33 @@ export const useReportStore = create<ReportState>((set, get) => ({
   syncOfflineReports: async () => {
     try {
       set({ syncStatus: SyncStatus.SYNCING });
+      log.info('Starting offline reports sync from reportStore');
 
+      // 1. Process submission queue out of the box (for new robust offline architecture)
+      try {
+        await submissionQueue.processQueue();
+      } catch (err) {
+        log.warn('Submission queue process error:', err);
+      }
+
+      // 2. Process legacy offline reports stored only in SQLite without submissionQueue entries
       const db = await database.getDatabase();
       const unsyncedReports = await db.getAllAsync<any>(
         'SELECT * FROM reports WHERE is_synced = 0'
       );
 
       if (unsyncedReports.length === 0) {
-        set({ syncStatus: SyncStatus.SUCCESS, unsyncedCount: 0 });
+        // Just verify unsyncedCount matches
+        const countResult = await db.getFirstAsync<{ count: number }>(
+          'SELECT COUNT(*) as count FROM reports WHERE is_synced = 0'
+        );
+        const remainingCount = countResult?.count || 0;
+        set({
+          syncStatus: SyncStatus.SUCCESS,
+          unsyncedCount: remainingCount
+        });
         return;
       }
-
-      // Import API dynamically to avoid circular dependencies
-      const { reportApi } = await import('@shared/services/api/reportApi');
 
       let syncedCount = 0;
       let errorCount = 0;
@@ -561,36 +581,51 @@ export const useReportStore = create<ReportState>((set, get) => ({
       for (const dbReport of unsyncedReports) {
         try {
           const report = parseReportFromDb(dbReport);
+          log.info(`Syncing legacy sqlite report: ${report.local_id}`);
 
-          // Submit to server
-          const response = await reportApi.submitReport({
-            title: report.title,
-            description: report.description,
-            category: report.category,
-            sub_category: report.sub_category,
-            severity: report.severity,
-            latitude: report.latitude,
-            longitude: report.longitude,
-            address: report.address,
-            landmark: report.landmark,
-            ward_number: report.ward_number,
-            photos: report.photos,
-            videos: report.videos,
-            is_public: report.is_public,
-            is_sensitive: report.is_sensitive,
+          // Create FormData for atomic submission with media
+          const formData = new FormData();
+          formData.append('title', report.title.trim());
+          formData.append('description', report.description.trim());
+          if (report.category) formData.append('category', report.category);
+          if (report.severity) formData.append('severity', report.severity);
+          formData.append('latitude', report.latitude.toString());
+          formData.append('longitude', report.longitude.toString());
+          if (report.address) formData.append('address', report.address.trim());
+          formData.append('is_public', report.is_public ? 'true' : 'false');
+          formData.append('is_sensitive', report.is_sensitive ? 'true' : 'false');
+          if (report.landmark) formData.append('landmark', report.landmark.trim());
+
+          // Handle media correctly (convert URIs into file objects)
+          if (report.photos && report.photos.length > 0) {
+            report.photos.forEach((photoUri, index) => {
+              formData.append('files', {
+                uri: photoUri,
+                type: 'image/jpeg',
+                name: `photo_${index}.jpg`,
+              } as any);
+            });
+          }
+
+          // Submit to atomic complete endpoint to retain media properly
+          const response = await apiClient.post('/reports/submit-complete', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+            timeout: 60000,
           });
+
+          const responseData = (response as any).data || response;
 
           // Update local record with server data
           await db.runAsync(
             `UPDATE reports SET 
               id = ?, report_number = ?, is_synced = 1, sync_error = NULL, updated_at = ?
             WHERE local_id = ?`,
-            [response.id, response.report_number, Date.now(), report.local_id!]
+            [responseData.id, responseData.report_number, Date.now(), report.local_id!]
           );
 
           syncedCount++;
         } catch (error: any) {
-          console.error(`Failed to sync report ${dbReport.local_id}:`, error);
+          log.error(`Failed to sync legacy report ${dbReport.local_id}:`, error);
 
           // Update error status
           await db.runAsync(

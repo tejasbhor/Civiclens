@@ -14,6 +14,15 @@ class OTPRequest(BaseModel):
     phone: str = Field(..., pattern=r'^\+?[1-9]\d{1,14}$')
 
 
+class EmailOTPRequest(BaseModel):
+    email: EmailStr
+
+
+class EmailOTPVerify(BaseModel):
+    email: EmailStr
+    otp: str = Field(..., min_length=6, max_length=6)
+
+
 class CitizenSignupRequest(BaseModel):
     """Full citizen registration with password"""
     phone: str = Field(..., pattern=r'^\+?[1-9]\d{1,14}$')

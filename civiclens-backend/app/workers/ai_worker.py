@@ -75,7 +75,7 @@ async def process_ai_queue():
     from app.config import settings
     logger.info("=" * 80)
     city_name = settings.CITY_CODE or "UNDEFINED CITY"
-    app_name = settings.APP_NAME or "CivicLens"
+    app_name = settings.APP_NAME or "Platform"
     
     logger.info(f"  {app_name.upper()} AI ENGINE - {city_name} ZONE")
     logger.info("  Automated Report Classification & Assignment System")
@@ -106,6 +106,59 @@ async def process_ai_queue():
     
     # Initialize AI Pipeline ONCE (Global Warmup)
     logger.info("[SYSTEM] Initializing AI Pipeline (loading models)...")
+    
+    # Print comprehensive hardware detection
+    try:
+        import torch
+        import psutil
+        from app.services.ai.gpu_manager import GPUManager
+        
+        logger.info("[HARDWARE] ========== SYSTEM HARDWARE DETECTION ==========")
+        
+        # CPU Information
+        cpu_count = psutil.cpu_count()
+        cpu_freq = psutil.cpu_freq()
+        logger.info(f"[HARDWARE] CPU: {cpu_count} cores @ {cpu_freq.current:.1f} MHz")
+        
+        # Memory Information
+        memory = psutil.virtual_memory()
+        logger.info(f"[HARDWARE] RAM: {memory.total / 1e9:.2f} GB total, {memory.available / 1e9:.2f} GB available")
+        
+        # GPU Detection
+        logger.info("[HARDWARE] GPU Detection:")
+        cuda_available = torch.cuda.is_available()
+        logger.info(f"[HARDWARE]   CUDA Available: {cuda_available}")
+        
+        if cuda_available:
+            gpu_count = torch.cuda.device_count()
+            logger.info(f"[HARDWARE]   GPU Count: {gpu_count}")
+            
+            for i in range(gpu_count):
+                gpu_name = torch.cuda.get_device_name(i)
+                try:
+                    props = torch.cuda.get_device_properties(i)
+                    total_memory = props.total_memory / 1e9
+                    compute_cap = torch.cuda.get_device_capability(i)
+                    logger.info(f"[HARDWARE]   GPU {i}: {gpu_name}")
+                    logger.info(f"[HARDWARE]     - Memory: {total_memory:.2f} GB")
+                    logger.info(f"[HARDWARE]     - Compute Capability: {compute_cap[0]}.{compute_cap[1]}")
+                except Exception as e:
+                    logger.info(f"[HARDWARE]   GPU {i}: {gpu_name} (info unavailable)")
+        else:
+            logger.info("[HARDWARE]   No CUDA-capable GPU detected, using CPU")
+        
+        # Initialize GPU Manager for device selection
+        gpu_manager = GPUManager()
+        device_info = gpu_manager.get_device_info()
+        logger.info(f"[HARDWARE] Selected Device: {device_info.device_name}")
+        logger.info(f"[HARDWARE] Device Type: {device_info.device_type.upper()}")
+        logger.info(f"[HARDWARE] FP16 Support: {gpu_manager.should_use_fp16()}")
+        logger.info(f"[HARDWARE] Batch Size: {gpu_manager.get_batch_size()}")
+        logger.info("[HARDWARE] ================================================")
+        
+    except Exception as e:
+        logger.warning(f"[HARDWARE] Could not detect hardware: {e}")
+    
     try:
         pipeline = AIProcessingPipeline()
         await pipeline._warmup_models()

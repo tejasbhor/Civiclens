@@ -4,6 +4,7 @@ Token refresh, password reset, logout, and session management
 """
 
 from fastapi import APIRouter, Depends, status, Request
+from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List
 from app.core.database import get_db, get_redis
@@ -299,9 +300,6 @@ async def change_password(
     
     return {"message": "Password changed successfully"}
 
-
-# Import datetime for session update
-from datetime import datetime
 
 
 # ============================================================================

@@ -30,12 +30,13 @@ AsyncSessionLocal = async_sessionmaker(
 )
 
 
-# Dependency for FastAPI
+# Dependency for FastAPI route handlers.
+# IMPORTANT: Handlers are responsible for calling db.commit() themselves.
+# The session rolls back automatically on unhandled exceptions.
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
     async with AsyncSessionLocal() as session:
         try:
             yield session
-            await session.commit()
         except Exception:
             await session.rollback()
             raise

@@ -48,7 +48,7 @@ export const RecentActivity: React.FC<RecentActivityProps> = ({ loading: initial
           id: report.id,
           type: activityType,
           title: getActivityTitle(activityType, report),
-          description: report.title || report.location || 'No description',
+          description: report.title || report.address || 'No description',
           time: formatRelativeTime(report.created_at),
           reportNumber: report.report_number || `#${report.id}`,
           reportId: report.id

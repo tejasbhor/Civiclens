@@ -9,6 +9,8 @@ import { notificationApi } from '@shared/services/api/notificationApi';
 import type { Notification } from '@shared/types/notification';
 import { NOTIFICATION_CONSTANTS } from '@shared/types/notification';
 import { cacheService } from '@shared/services/storage/cacheService';
+import { networkService } from '@shared/services/network/networkService';
+import { pushNotificationService } from '@shared/services/notifications/pushNotificationService';
 
 interface UseNotificationsOptions {
   limit?: number;
@@ -39,30 +41,30 @@ async function retryWithBackoff<T>(
   delay: number = NOTIFICATION_CONSTANTS.RETRY_DELAY
 ): Promise<T> {
   let lastError: any;
-  
+
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     try {
       return await fn();
     } catch (error: any) {
       lastError = error;
-      
+
       // Don't retry on auth errors - let user re-login
       if (error?.response?.status === 401 || error?.type === 'AUTH_ERROR') {
         console.log('🔐 Auth error detected, stopping retries');
         throw error;
       }
-      
+
       // Don't retry on client errors (4xx except 401)
       if (error?.response?.status >= 400 && error?.response?.status < 500) {
         throw error;
       }
-      
+
       if (attempt < maxRetries - 1) {
         await new Promise(resolve => setTimeout(resolve, delay * Math.pow(2, attempt)));
       }
     }
   }
-  
+
   throw lastError!;
 }
 
@@ -99,6 +101,11 @@ export function useNotifications(options: UseNotificationsOptions = {}): UseNoti
   }, []);
 
   const fetchNotifications = useCallback(async () => {
+    if (!networkService.isOnline()) {
+      setLoading(false);
+      return;
+    }
+
     try {
       setError(null);
       const response = await retryWithBackoff(async () => {
@@ -121,11 +128,15 @@ export function useNotifications(options: UseNotificationsOptions = {}): UseNoti
     } catch (err: any) {
       if (isMountedRef.current) {
         const error = err as Error;
-        
+
         // Don't set error state for auth errors - user will be redirected to login
         if (err?.response?.status !== 401 && err?.type !== 'AUTH_ERROR') {
-          setError(error);
-          console.error('Failed to fetch notifications:', error);
+          if (err?.isAxiosError && err.message === 'Network Error') {
+            console.info('[Notifications] Network unavailable, skipping notification fetch');
+          } else {
+            setError(error);
+            console.error('[Notifications] Failed to fetch notifications:', error);
+          }
         }
         setLoading(false);
       }
@@ -133,6 +144,8 @@ export function useNotifications(options: UseNotificationsOptions = {}): UseNoti
   }, [limit, unreadOnly]);
 
   const fetchUnreadCount = useCallback(async () => {
+    if (!networkService.isOnline()) return;
+
     try {
       const count = await retryWithBackoff(async () => {
         return await notificationApi.getUnreadCount();
@@ -148,7 +161,11 @@ export function useNotifications(options: UseNotificationsOptions = {}): UseNoti
     } catch (err: any) {
       // Don't log auth errors - they're handled by interceptor
       if (err?.response?.status !== 401 && err?.type !== 'AUTH_ERROR') {
-        console.error('Failed to fetch unread count:', err);
+        if (err?.isAxiosError && err.message === 'Network Error') {
+          console.info('[Notifications] Network unavailable, skipping unread count fetch');
+        } else {
+          console.error('[Notifications] Failed to fetch unread count:', err);
+        }
       }
     }
   }, []);
@@ -182,6 +199,21 @@ export function useNotifications(options: UseNotificationsOptions = {}): UseNoti
     };
   }, []);
 
+  // Listen for incoming push notifications while app is in foreground
+  useEffect(() => {
+    const subscription = pushNotificationService.addNotificationReceivedListener(
+      () => {
+        console.log('[Notifications] Foreground notification received, refreshing lists');
+        fetchNotifications();
+        fetchUnreadCount();
+      }
+    );
+
+    return () => {
+      pushNotificationService.removeNotificationSubscription(subscription);
+    };
+  }, [fetchNotifications, fetchUnreadCount]);
+
   const markAsRead = useCallback(async (id: number) => {
     // Optimistic update
     const previousNotifications = [...notifications];
@@ -209,14 +241,23 @@ export function useNotifications(options: UseNotificationsOptions = {}): UseNoti
         notifications: updatedNotifications,
         unreadCount: updatedUnreadCount,
       });
-    } catch (err) {
-      // Rollback on error
-      setNotifications(previousNotifications);
-      setUnreadCount(previousUnreadCount);
-      
-      const error = err as Error;
-      console.error('Failed to mark as read:', error);
-      Alert.alert('Error', 'Failed to mark notification as read. Please try again.');
+    } catch (err: any) {
+      if (err?.isAxiosError && err.message === 'Network Error') {
+        console.info('[Notifications] Network unavailable, optimistic mark-read kept locally');
+        // Save the optimistic state to cache so it persists offline
+        await cacheService.cacheNotificationsSnapshot({
+          notifications: updatedNotifications,
+          unreadCount: updatedUnreadCount,
+        });
+      } else {
+        // Rollback on actual error
+        setNotifications(previousNotifications);
+        setUnreadCount(previousUnreadCount);
+
+        const error = err as Error;
+        console.error('Failed to mark as read:', error);
+        Alert.alert('Error', 'Failed to mark notification as read. Please try again.');
+      }
     }
   }, [notifications, unreadCount]);
 
@@ -241,14 +282,23 @@ export function useNotifications(options: UseNotificationsOptions = {}): UseNoti
         unreadCount: 0,
       });
       Alert.alert('Success', 'All notifications marked as read.');
-    } catch (err) {
-      // Rollback on error
-      setNotifications(previousNotifications);
-      setUnreadCount(previousUnreadCount);
-      
-      const error = err as Error;
-      console.error('Failed to mark all as read:', error);
-      Alert.alert('Error', 'Failed to mark all notifications as read. Please try again.');
+    } catch (err: any) {
+      if (err?.isAxiosError && err.message === 'Network Error') {
+        console.info('[Notifications] Network unavailable, optimistic mark-all-read kept locally');
+        await cacheService.cacheNotificationsSnapshot({
+          notifications: updatedNotifications,
+          unreadCount: 0,
+        });
+        Alert.alert('Success', 'Notifications marked as read (Offline)');
+      } else {
+        // Rollback on actual error
+        setNotifications(previousNotifications);
+        setUnreadCount(previousUnreadCount);
+
+        const error = err as Error;
+        console.error('Failed to mark all as read:', error);
+        Alert.alert('Error', 'Failed to mark all notifications as read. Please try again.');
+      }
     }
   }, [notifications, unreadCount]);
 
@@ -274,14 +324,22 @@ export function useNotifications(options: UseNotificationsOptions = {}): UseNoti
         notifications: updatedNotifications,
         unreadCount: updatedUnreadCount,
       });
-    } catch (err) {
-      // Rollback on error
-      setNotifications(previousNotifications);
-      setUnreadCount(previousUnreadCount);
+    } catch (err: any) {
+      if (err?.isAxiosError && err.message === 'Network Error') {
+        console.info('[Notifications] Network unavailable, optimistic delete kept locally');
+        await cacheService.cacheNotificationsSnapshot({
+          notifications: updatedNotifications,
+          unreadCount: updatedUnreadCount,
+        });
+      } else {
+        // Rollback on actual error
+        setNotifications(previousNotifications);
+        setUnreadCount(previousUnreadCount);
 
-      const error = err as Error;
-      console.error('Failed to delete notification:', error);
-      Alert.alert('Error', 'Failed to delete notification. Please try again.');
+        const error = err as Error;
+        console.error('Failed to delete notification:', error);
+        Alert.alert('Error', 'Failed to delete notification. Please try again.');
+      }
     }
   }, [notifications, unreadCount]);
 

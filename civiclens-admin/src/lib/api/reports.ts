@@ -27,6 +27,8 @@ export interface AssignOfficerRequest {
 export interface StatusUpdateRequest {
   new_status: ReportStatus;
   notes?: string;
+  progress_percentage?: number;
+  estimated_completion?: string;
 }
 
 export interface StatusHistoryItem {

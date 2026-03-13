@@ -3,6 +3,7 @@ import { Report, Media } from '@/types';
 import { reportsApi } from '@/lib/api/reports';
 import { mediaApi } from '@/lib/api/media';
 import { CheckCircle, X, Loader2, AlertTriangle, Camera, FileText, Clock, User, Calendar } from 'lucide-react';
+import { getMediaUrl } from '@/lib/utils/media';
 
 interface ApproveResolutionModalProps {
   isOpen: boolean;
@@ -22,25 +23,25 @@ export function ApproveResolutionModal({
   const [error, setError] = useState<string | null>(null);
   const [workMedia, setWorkMedia] = useState<Media[]>([]);
   const [loadingMedia, setLoadingMedia] = useState(true);
-  
+
   // Load work completion media (before/after photos)
   useEffect(() => {
     if (isOpen && report.id) {
       loadWorkMedia();
     }
   }, [isOpen, report.id]);
-  
+
   const loadWorkMedia = async () => {
     try {
       setLoadingMedia(true);
       const media = await mediaApi.getReportMedia(report.id);
       // Filter for officer's work photos (before/after)
-      const workPhotos = media.filter((m: Media) => 
-        m.upload_source === 'officer_before_photo' || 
+      const workPhotos = media.filter((m: any) =>
+        m.upload_source === 'officer_before_photo' ||
         m.upload_source === 'officer_after_photo' ||
         m.is_proof_of_work
       );
-      setWorkMedia(workPhotos);
+      setWorkMedia(workPhotos as any);
     } catch (err) {
       console.error('Failed to load work media:', err);
     } finally {
@@ -112,14 +113,14 @@ export function ApproveResolutionModal({
               </div>
             </div>
           </div>
-          
+
           {/* Work Completion Review - NEW */}
           <div className="border-2 border-blue-200 rounded-lg p-4 bg-blue-50/50">
             <div className="flex items-center gap-2 mb-4">
               <FileText className="w-5 h-5 text-blue-600" />
               <h3 className="text-sm font-semibold text-gray-900">Work Completion Review</h3>
             </div>
-            
+
             {/* Task Details */}
             {report.task && (
               <div className="space-y-3 mb-4">
@@ -141,7 +142,7 @@ export function ApproveResolutionModal({
                     </div>
                   </div>
                 </div>
-                
+
                 {/* Resolution Notes */}
                 {report.task.resolution_notes && (
                   <div className="bg-white rounded-lg p-3 border border-gray-200">
@@ -151,14 +152,14 @@ export function ApproveResolutionModal({
                 )}
               </div>
             )}
-            
+
             {/* Work Photos (Before/After) */}
             <div>
               <p className="text-xs font-medium text-gray-600 mb-2 flex items-center gap-2">
                 <Camera className="w-4 h-4" />
                 Proof of Work Photos ({workMedia.length})
               </p>
-              
+
               {loadingMedia ? (
                 <div className="flex items-center justify-center py-8">
                   <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
@@ -168,7 +169,7 @@ export function ApproveResolutionModal({
                   {workMedia.map((media) => (
                     <div key={media.id} className="relative group">
                       <img
-                        src={media.file_url}
+                        src={getMediaUrl(media.file_url)}
                         alt={media.upload_source || 'Work photo'}
                         className="w-full h-32 object-cover rounded-lg border-2 border-gray-200 group-hover:border-blue-400 transition-colors"
                       />
@@ -180,7 +181,7 @@ export function ApproveResolutionModal({
                       {/* Full size preview on click */}
                       <button
                         type="button"
-                        onClick={() => window.open(media.file_url, '_blank')}
+                        onClick={() => window.open(getMediaUrl(media.file_url), '_blank')}
                         className="absolute top-2 right-2 bg-white/90 hover:bg-white rounded-full p-1.5 opacity-0 group-hover:opacity-100 transition-opacity"
                       >
                         <svg className="w-4 h-4 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -214,7 +215,7 @@ export function ApproveResolutionModal({
                 </div>
               </div>
             </div>
-            
+
             {/* Approval Notes */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">

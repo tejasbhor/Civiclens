@@ -10,6 +10,7 @@ import {
   StyleSheet,
   TouchableOpacity,
   Platform,
+  TextInput,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -33,6 +34,9 @@ interface TopNavbarProps {
   onSearchPress?: () => void;
   rightActions?: React.ReactNode;
   titleStyle?: 'default' | 'compact';
+  isSearching?: boolean;
+  searchQuery?: string;
+  onSearchChange?: (text: string) => void;
 }
 
 export const TopNavbar: React.FC<TopNavbarProps> = ({
@@ -51,6 +55,9 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
   onSearchPress,
   rightActions,
   titleStyle = 'default',
+  isSearching = false,
+  searchQuery = '',
+  onSearchChange,
 }) => {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
@@ -96,7 +103,7 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
 
             {title && !showLocation && (
               <View style={styles.titleContainer}>
-                <Text 
+                <Text
                   style={[
                     styles.navbarTitle,
                     titleStyle === 'compact' && styles.navbarTitleCompact
@@ -128,6 +135,15 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
               </TouchableOpacity>
             )}
 
+            {showSearch && (
+              <TouchableOpacity
+                style={styles.navbarIconButton}
+                onPress={onSearchPress}
+              >
+                <Ionicons name={isSearching ? "close" : "search"} size={22} color="#FFF" />
+              </TouchableOpacity>
+            )}
+
             {showNotifications && (
               <NotificationBell
                 size={22}
@@ -149,15 +165,32 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
 
         {/* Search Bar */}
         {showSearch && (
-          <TouchableOpacity
-            style={styles.searchBar}
-            activeOpacity={0.7}
-            onPress={onSearchPress || (() => console.log('Open search'))}
-          >
-            <Ionicons name="search" size={20} color="#64748B" />
-            <Text style={styles.searchPlaceholder}>Search reports, issues...</Text>
-            <Ionicons name="options" size={20} color="#64748B" />
-          </TouchableOpacity>
+          isSearching ? (
+            <View style={styles.searchBar}>
+              <Ionicons name="search" size={20} color="#64748B" />
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Search reports, issues, regions..."
+                value={searchQuery}
+                onChangeText={onSearchChange}
+                placeholderTextColor="#64748B"
+                autoFocus
+              />
+              <TouchableOpacity onPress={onSearchPress}>
+                <Ionicons name="close-circle" size={20} color="#64748B" />
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <TouchableOpacity
+              style={styles.searchBar}
+              activeOpacity={0.7}
+              onPress={onSearchPress || (() => console.log('Open search'))}
+            >
+              <Ionicons name="search" size={20} color="#64748B" />
+              <Text style={styles.searchPlaceholder}>Search reports, issues...</Text>
+              <Ionicons name="options" size={20} color="#64748B" />
+            </TouchableOpacity>
+          )
         )}
       </LinearGradient>
     </View>
@@ -192,6 +225,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flex: 1,
     minWidth: 0, // Allow text truncation
+    paddingRight: 8, // Avoid squishing into right actions
   },
   backButton: {
     width: 40,
@@ -210,9 +244,12 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 20,
     gap: 6,
+    maxWidth: '100%',
+    flexShrink: 1,
   },
   locationInfo: {
     marginLeft: 4,
+    flexShrink: 1,
   },
   locationLabel: {
     fontSize: 10,
@@ -227,6 +264,7 @@ const styles = StyleSheet.create({
   titleContainer: {
     flex: 1,
     minWidth: 0, // Allow text truncation
+    marginRight: 8,
   },
   navbarTitle: {
     fontSize: 20,
@@ -249,6 +287,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
     flexShrink: 0, // Prevent actions from shrinking
+    zIndex: 2, // Keep it above truncated text
   },
   navbarIconButton: {
     position: 'relative',
@@ -300,6 +339,13 @@ const styles = StyleSheet.create({
     color: '#64748B',
     flex: 1,
     fontWeight: '500',
+  },
+  searchInput: {
+    fontSize: 15,
+    color: '#1E293B',
+    flex: 1,
+    fontWeight: '500',
+    padding: 0,
   },
   notificationBellContainer: {
     width: 36,

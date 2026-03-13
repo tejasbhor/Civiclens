@@ -19,39 +19,39 @@ interface EnhancedReportState {
   reports: Report[];
   myReports: Report[];
   nearbyReports: Report[];
-  
+
   // UI states
   loading: boolean;
   refreshing: boolean;
   error: string | null;
-  
+
   // Offline states
   isOffline: boolean;
   unsyncedCount: number;
   queueStatus: any;
-  
+
   // Cache states
   lastSync: number | null;
   cacheAge: number;
-  
+
   // Pagination
   hasMore: boolean;
   currentPage: number;
-  
+
   // Actions
   fetchMyReports: (refresh?: boolean) => Promise<void>;
   fetchNearbyReports: (lat: number, lng: number, refresh?: boolean) => Promise<void>;
   fetchReportDetail: (id: number, refresh?: boolean) => Promise<Report | null>;
   submitReport: (data: any) => Promise<Report>;
-  
+
   // Offline actions
   getOfflineReports: () => Promise<Report[]>;
   syncOfflineReports: () => Promise<void>;
-  
+
   // Cache actions
   preloadRecentReports: () => Promise<void>;
   clearCache: () => Promise<void>;
-  
+
   // Utility actions
   refreshAll: () => Promise<void>;
   setOfflineMode: (offline: boolean) => void;
@@ -80,10 +80,10 @@ export const useEnhancedReportStore = create<EnhancedReportState>()(
      */
     fetchMyReports: async (refresh = false) => {
       const state = get();
-      
+
       // Don't fetch if already loading
       if (state.loading && !refresh) return;
-      
+
       set({ loading: !refresh, refreshing: refresh, error: null });
 
       try {
@@ -101,7 +101,7 @@ export const useEnhancedReportStore = create<EnhancedReportState>()(
           offlineFirstApi.get(`/reports/${report.id}`, {
             ttl: 10 * 60 * 1000,
             staleWhileRevalidate: true,
-          }).catch(() => {}); // Ignore errors for background caching
+          }).catch(() => { }); // Ignore errors for background caching
         });
 
         set({
@@ -117,7 +117,7 @@ export const useEnhancedReportStore = create<EnhancedReportState>()(
 
       } catch (error: any) {
         log.error('Failed to fetch reports:', error);
-        
+
         // Try to get offline reports as fallback
         try {
           const offlineReports = await get().getOfflineReports();
@@ -133,7 +133,7 @@ export const useEnhancedReportStore = create<EnhancedReportState>()(
         } catch {
           set({ error: error.message || 'Failed to load reports' });
         }
-        
+
         set({ loading: false, refreshing: false });
       }
     },
@@ -143,9 +143,9 @@ export const useEnhancedReportStore = create<EnhancedReportState>()(
      */
     fetchNearbyReports: async (lat: number, lng: number, refresh = false) => {
       const state = get();
-      
+
       if (state.loading && !refresh) return;
-      
+
       set({ loading: !refresh, refreshing: refresh, error: null });
 
       try {
@@ -204,10 +204,10 @@ export const useEnhancedReportStore = create<EnhancedReportState>()(
 
       } catch (error: any) {
         log.error(`Failed to fetch report ${id}:`, error);
-        
+
         // Try to find in existing data
         const state = get();
-        const existingReport = 
+        const existingReport =
           state.reports.find(r => r.id === id) ||
           state.myReports.find(r => r.id === id) ||
           state.nearbyReports.find(r => r.id === id);
@@ -228,9 +228,8 @@ export const useEnhancedReportStore = create<EnhancedReportState>()(
       try {
         log.info('Submitting report via enhanced system');
 
-        // Import the complete submission hook
-        const { useCompleteReportSubmission } = await import('@shared/hooks/useCompleteReportSubmission');
-        
+        // Import the complete submission hook - deliberately removed because useCompleteReportSubmission requires a React component context
+
         // Use the complete submission system
         const result = await submissionQueue.addToQueue({
           type: 'COMPLETE_REPORT_SUBMISSION',
@@ -282,6 +281,7 @@ export const useEnhancedReportStore = create<EnhancedReportState>()(
 
         const reports: Report[] = rows.map(row => ({
           id: row.id || row.local_id,
+          user_id: row.user_id || 1,
           title: row.title,
           description: row.description,
           category: row.category as ReportCategory,
@@ -291,6 +291,8 @@ export const useEnhancedReportStore = create<EnhancedReportState>()(
           longitude: row.longitude,
           address: row.address,
           photos: JSON.parse(row.photos || '[]'),
+          is_public: row.is_public === 1,
+          is_sensitive: row.is_sensitive === 1,
           created_at: new Date(row.created_at),
           updated_at: new Date(row.updated_at),
           is_synced: row.is_synced === 1,
@@ -312,18 +314,18 @@ export const useEnhancedReportStore = create<EnhancedReportState>()(
     syncOfflineReports: async () => {
       try {
         log.info('Starting offline reports sync');
-        
+
         // Process submission queue
         await submissionQueue.processQueue();
-        
+
         // Update unsynced count
         const db = await database.getDatabase();
         const result = await db.getFirstAsync<{ count: number }>(
           'SELECT COUNT(*) as count FROM reports WHERE is_synced = 0'
         );
-        
+
         set({ unsyncedCount: result?.count || 0 });
-        
+
         log.info('Offline sync completed');
 
       } catch (error: any) {
@@ -350,7 +352,7 @@ export const useEnhancedReportStore = create<EnhancedReportState>()(
           offlineFirstApi.get(endpoint, {
             ttl: 10 * 60 * 1000,
             staleWhileRevalidate: true,
-          }).catch(() => {}) // Ignore errors for preloading
+          }).catch(() => { }) // Ignore errors for preloading
         );
 
         await Promise.allSettled(promises);
@@ -379,7 +381,7 @@ export const useEnhancedReportStore = create<EnhancedReportState>()(
      */
     refreshAll: async () => {
       const state = get();
-      
+
       set({ refreshing: true });
 
       try {
@@ -402,7 +404,7 @@ export const useEnhancedReportStore = create<EnhancedReportState>()(
      */
     setOfflineMode: (offline: boolean) => {
       set({ isOffline: offline });
-      
+
       if (!offline) {
         // Back online - start sync
         get().syncOfflineReports();

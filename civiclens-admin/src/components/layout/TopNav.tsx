@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/Button';
 import { cn } from '@/lib/utils/cn';
 import { useRouter } from 'next/navigation';
 import { authApi } from '@/lib/api/auth';
+import { useAuth } from '@/lib/hooks/useAuth';
 import { usersApi } from '@/lib/api/users';
 import { notificationsApi, Notification } from '@/lib/api/notifications';
 import { formatDistanceToNow } from 'date-fns';
@@ -13,6 +14,7 @@ import { AIEngineStatusDropdown } from '@/components/ai/AIEngineStatus';
 
 export const TopNav: React.FC = () => {
   const router = useRouter();
+  const { clearAuth } = useAuth();
   const [searchFocused, setSearchFocused] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -21,6 +23,7 @@ export const TopNav: React.FC = () => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loadingNotifications, setLoadingNotifications] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -28,7 +31,7 @@ export const TopNav: React.FC = () => {
         const me = await usersApi.getMe();
         setUserName(me.full_name || undefined);
         setUserEmail(me.email || undefined);
-      } catch {}
+      } catch { }
     })();
   }, []);
 
@@ -42,7 +45,7 @@ export const TopNav: React.FC = () => {
         console.error('Failed to fetch unread count:', error);
       }
     };
-    
+
     fetchUnreadCount();
     // Refresh every 30 seconds
     const interval = setInterval(fetchUnreadCount, 30000);
@@ -74,7 +77,7 @@ export const TopNav: React.FC = () => {
   const handleMarkAsRead = async (notificationId: number) => {
     try {
       await notificationsApi.markAsRead(notificationId);
-      setNotifications(notifications.map(n => 
+      setNotifications(notifications.map(n =>
         n.id === notificationId ? { ...n, is_read: true } : n
       ));
       setUnreadCount(Math.max(0, unreadCount - 1));
@@ -87,7 +90,7 @@ export const TopNav: React.FC = () => {
     if (!notification.is_read) {
       handleMarkAsRead(notification.id);
     }
-    
+
     // Use related entities to navigate (ignore action_url as it may be incorrect)
     if (notification.related_report_id) {
       // Navigate to report detail page
@@ -110,15 +113,22 @@ export const TopNav: React.FC = () => {
     router.push('/profile/settings?tab=overview');
   };
 
-  
+
 
   const onLogout = async () => {
-    try {
-      await authApi.logout();
-    } finally {
-      setShowUserMenu(false);
-      router.replace('/auth/login');
-    }
+    if (loggingOut) return;
+    setLoggingOut(true);
+    setShowUserMenu(false);
+
+    // authApi.logout() now uses a raw axios call (bypasses the response
+    // interceptor), clears localStorage, and dispatches AUTH_LOGOUT_EVENT
+    // which causes AuthProvider to call clearAuth().
+    // We do NOT call clearAuth() here to avoid a double-clear race.
+    await authApi.logout();
+
+    // Navigate to login. Use replace so the user can't go "back" into
+    // a logged-out dashboard.
+    router.replace('/auth/login');
   };
 
 
@@ -147,7 +157,7 @@ export const TopNav: React.FC = () => {
         <div className="flex items-center gap-3 ml-6">
           {/* AI Engine Status */}
           <AIEngineStatusDropdown />
-          
+
           {/* Notifications */}
           <div className="relative">
             <button
@@ -235,7 +245,7 @@ export const TopNav: React.FC = () => {
                   )}
                 </div>
                 <div className="px-4 py-2 border-t border-gray-200">
-                  <button 
+                  <button
                     onClick={() => {
                       router.push('/dashboard/notifications');
                       setShowNotifications(false);

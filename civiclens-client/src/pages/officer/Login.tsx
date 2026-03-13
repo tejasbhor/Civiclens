@@ -9,6 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { authService } from "@/services/authService";
 import { isOfficer, isCitizen } from "@/utils/authHelpers";
+import { APP_CONFIG, getCopyrightText } from "@/config/appConfig";
 
 const OfficerLogin = () => {
   const [phone, setPhone] = useState("");
@@ -37,25 +38,25 @@ const OfficerLogin = () => {
   const normalizePhoneNumber = useCallback((phone: string): string => {
     // Remove all spaces and dashes
     let cleaned = phone.replace(/[\s-]/g, '');
-    
+
     // Backend pattern: ^\+?[1-9]\d{1,14}$
     // Expected format: +919876543210 (no dashes, no spaces)
-    
+
     // If already starts with +91, remove any remaining dashes/spaces
     if (cleaned.startsWith('+91')) {
       return cleaned;
     }
-    
+
     // If starts with 91 (12 digits total), add +
     if (cleaned.startsWith('91') && cleaned.length === 12) {
       return '+' + cleaned;
     }
-    
+
     // If 10 digits, add +91 prefix
     if (/^\d{10}$/.test(cleaned)) {
       return '+91' + cleaned;
     }
-    
+
     // Return cleaned version (will be validated)
     return cleaned;
   }, []);
@@ -63,20 +64,20 @@ const OfficerLogin = () => {
   const validatePhoneNumber = useCallback((phone: string): { valid: boolean; error?: string } => {
     // Backend pattern: ^\+?[1-9]\d{1,14}$
     const pattern = /^\+?[1-9]\d{1,14}$/;
-    
+
     if (!phone || phone.trim().length === 0) {
       return { valid: false, error: "Phone number is required" };
     }
-    
+
     const normalized = normalizePhoneNumber(phone);
-    
+
     if (!pattern.test(normalized)) {
-      return { 
-        valid: false, 
-        error: "Please enter a valid phone number (10 digits or with +91 country code)" 
+      return {
+        valid: false,
+        error: "Please enter a valid phone number (10 digits or with +91 country code)"
       };
     }
-    
+
     return { valid: true };
   }, [normalizePhoneNumber]);
 
@@ -84,11 +85,11 @@ const OfficerLogin = () => {
     if (!password || password.trim().length === 0) {
       return { valid: false, error: "Password is required" };
     }
-    
+
     if (password.length < 8) {
       return { valid: false, error: "Password must be at least 8 characters" };
     }
-    
+
     return { valid: true };
   }, []);
 
@@ -139,31 +140,31 @@ const OfficerLogin = () => {
 
     try {
       setLoading(true);
-      
+
       // Call authService.login to get tokens with officer portal type
       const response = await authService.login(normalizedPhone, password, 'officer');
-      
+
       // Pass tokens to AuthContext login - this will fetch user data
       await login(response.access_token, response.refresh_token);
-      
+
       // Store remember me preference
       if (rememberMe) {
         localStorage.setItem('remember_me', 'true');
       } else {
         localStorage.removeItem('remember_me');
       }
-      
+
       // Show success toast
       toast({
         title: "Login Successful",
         description: "Welcome to the Officer Portal",
       });
-      
+
       // The useEffect hook will handle redirect when user state is updated
       // No need to navigate here - let the useEffect handle it
     } catch (error: any) {
       let errorMessage = "Invalid credentials. Please verify your phone number and password and try again.";
-      
+
       if (error.response?.data?.detail?.includes('Citizen Portal')) {
         // Portal mismatch - user is a citizen trying to access officer portal
         errorMessage = error.response.data.detail;
@@ -242,7 +243,7 @@ const OfficerLogin = () => {
             </div>
             <div>
               <h1 className="font-bold text-foreground">Officer Login</h1>
-              <p className="text-xs text-muted-foreground">CivicLens Portal</p>
+              <p className="text-xs text-muted-foreground">{APP_CONFIG.appName} Portal</p>
             </div>
           </div>
         </div>
@@ -340,8 +341,8 @@ const OfficerLogin = () => {
 
             <div className="flex justify-between items-center text-sm">
               <label className="flex items-center gap-2 cursor-pointer group">
-                <input 
-                  type="checkbox" 
+                <input
+                  type="checkbox"
                   className="rounded border-input cursor-pointer"
                   checked={rememberMe}
                   onChange={(e) => setRememberMe(e.target.checked)}
@@ -351,8 +352,8 @@ const OfficerLogin = () => {
                   Remember me
                 </span>
               </label>
-              <Button 
-                variant="link" 
+              <Button
+                variant="link"
                 className="p-0 h-auto text-sm"
                 onClick={() => {
                   toast({
@@ -366,10 +367,10 @@ const OfficerLogin = () => {
               </Button>
             </div>
 
-            <Button 
-              onClick={handleLogin} 
-              className="w-full" 
-              size="lg" 
+            <Button
+              onClick={handleLogin}
+              className="w-full"
+              size="lg"
               disabled={loading || !!phoneError || !!passwordError || !phone || !password}
             >
               {loading ? (
@@ -391,7 +392,7 @@ const OfficerLogin = () => {
                 <div>
                   <p className="font-medium text-foreground mb-1">Secure Portal</p>
                   <p className="text-xs text-muted-foreground">
-                    This portal is restricted to authorized government personnel only. 
+                    This portal is restricted to authorized government personnel only.
                     All access attempts are logged and monitored.
                   </p>
                 </div>
@@ -402,7 +403,7 @@ const OfficerLogin = () => {
       </div>
 
       <footer className="border-t bg-card/50 py-6 text-center text-sm text-muted-foreground">
-        © 2025 CivicLens. All rights reserved.
+        {getCopyrightText()}
       </footer>
     </div>
   );

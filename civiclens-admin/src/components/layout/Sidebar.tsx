@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils/cn';
+import { APP_CONFIG } from '@/lib/config/appConfig';
 import {
   LayoutDashboard,
   FileText,
@@ -79,7 +80,7 @@ export const Sidebar: React.FC = () => {
               <span className="text-white font-bold text-lg">C</span>
             </div>
             <div>
-              <h1 className="text-lg font-bold">CivicLens</h1>
+              <h1 className="text-lg font-bold">{APP_CONFIG.appName}</h1>
               <p className="text-xs text-gray-400">Admin Portal</p>
             </div>
           </div>

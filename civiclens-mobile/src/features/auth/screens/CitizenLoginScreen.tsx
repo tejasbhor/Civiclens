@@ -18,7 +18,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '@shared/theme/colors';
-import { useToast } from '@shared/hooks';
+import { ENV } from '@shared/config/env';
+
+/** Dev OTP visibility flag — only true when EXPO_PUBLIC_ENV=development */
+const IS_DEV = ENV.ENVIRONMENT === 'development';
+import { useToast } from '@/shared/hooks/useToast';
+import { APP_CONFIG } from '@/config/appConfig';
 import { Toast } from '@shared/components';
 import { authApi } from '@shared/services/api/authApi';
 import { useAuthStore } from '@/store/authStore';
@@ -37,8 +42,8 @@ import {
 
 import { AUTH_GRADIENT } from './RoleSelectionScreen';
 
-type AuthMode = 'select' | 'quick-otp' | 'full-register' | 'password-login';
-type AuthStep = 'phone' | 'otp' | 'register' | 'password';
+type AuthMode = 'select' | 'quick-otp' | 'full-register' | 'password-login' | 'email-otp';
+type AuthStep = 'phone' | 'otp' | 'register' | 'password' | 'email' | 'email-otp';
 
 // Enable LayoutAnimation on Android
 if (
@@ -162,10 +167,44 @@ export const CitizenLoginScreen = () => {
       setCountdown(300);
 
       showSuccess(
-        `Verification code sent to ${phone}${response.otp ? ` (Dev OTP: ${response.otp})` : ''}`
+        `Verification code sent to ${phone}${IS_DEV && response.otp ? ` (Dev OTP: ${response.otp})` : ''}`
       );
     } catch (err: any) {
       const errorMsg = err.message || 'Failed to send OTP';
+      setError(errorMsg);
+      showError(errorMsg);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleRequestEmailOtp = async () => {
+    const validation = validateEmail(email);
+    if (!validation.isValid) {
+      setError(validation.error!);
+      showError(validation.error!);
+      return;
+    }
+
+    setIsLoading(true);
+    setError('');
+
+    try {
+      const response = await authApi.requestEmailOTP(email.trim());
+
+      if (response.otp) {
+        setDevOtp(response.otp);
+      }
+
+      animateTransition();
+      setAuthStep('email-otp');
+      setCountdown(300);
+
+      showSuccess(
+        `Verification code sent to email${IS_DEV && response.otp ? ` (Dev OTP: ${response.otp})` : ''}`
+      );
+    } catch (err: any) {
+      const errorMsg = err.message || 'Failed to send Email OTP';
       setError(errorMsg);
       showError(errorMsg);
     } finally {
@@ -185,13 +224,15 @@ export const CitizenLoginScreen = () => {
     setError('');
 
     try {
-      const normalizedPhone = normalizePhone(phone);
-
       let response;
       if (authMode === 'quick-otp') {
+        const normalizedPhone = normalizePhone(phone);
         response = await authApi.verifyOTP(normalizedPhone, otp);
       } else if (authMode === 'full-register') {
+        const normalizedPhone = normalizePhone(phone);
         response = await authApi.verifyPhone(normalizedPhone, otp);
+      } else if (authMode === 'email-otp') {
+        response = await authApi.verifyEmailOTP(email.trim(), otp);
       }
 
       if (response) {
@@ -207,7 +248,7 @@ export const CitizenLoginScreen = () => {
         }
 
         await setTokens(response);
-        showSuccess('Login successful! Welcome to CivicLens');
+        showSuccess(`Login successful! Welcome to ${APP_CONFIG.appName}`);
       }
     } catch (err: any) {
       const errorMsg = err.message || 'Invalid or expired OTP';
@@ -221,7 +262,6 @@ export const CitizenLoginScreen = () => {
   const handleSignup = async () => {
     const phoneValidation = validatePhone(phone);
     const nameValidation = validateFullName(name);
-    const emailValidation = validateEmail(email);
     const passwordValidation = validatePassword(password);
 
     if (!phoneValidation.isValid) {
@@ -234,10 +274,14 @@ export const CitizenLoginScreen = () => {
       showError(nameValidation.error!);
       return;
     }
-    if (!emailValidation.isValid) {
-      setError(emailValidation.error!);
-      showError(emailValidation.error!);
-      return;
+    // Email is optional — only validate if provided
+    if (email.trim()) {
+      const emailValidation = validateEmail(email);
+      if (!emailValidation.isValid) {
+        setError(emailValidation.error!);
+        showError(emailValidation.error!);
+        return;
+      }
     }
     if (!passwordValidation.isValid) {
       setError(passwordValidation.error!);
@@ -271,7 +315,7 @@ export const CitizenLoginScreen = () => {
       setCountdown(300);
 
       showSuccess(
-        `Verification code sent${response.otp ? ` (Dev OTP: ${response.otp})` : ''}`
+        `Verification code sent${IS_DEV && response.otp ? ` (Dev OTP: ${response.otp})` : ''}`
       );
     } catch (err: any) {
       const errorMsg = err.message || 'Signup failed';
@@ -366,6 +410,11 @@ export const CitizenLoginScreen = () => {
       title = 'Create Account';
       if (authStep === 'register') subtitle = 'Fill in your details to get started';
       else if (authStep === 'otp') subtitle = 'Verify your phone number to complete registration';
+    } else if (authMode === 'email-otp') {
+      iconName = 'mail-outline';
+      title = 'Email Login';
+      if (authStep === 'email') subtitle = 'Enter your email address to continue';
+      else if (authStep === 'email-otp') subtitle = 'Enter the verification code sent to your email';
     }
 
     return (
@@ -412,7 +461,7 @@ export const CitizenLoginScreen = () => {
                 <Text style={styles.logoBadgeText}>CL</Text>
               </View>
               <View style={styles.heroTextBlock}>
-                <Text style={styles.heroTitle}>Welcome to CivicLens</Text>
+                <Text style={styles.heroTitle}>Welcome to {APP_CONFIG.appName}</Text>
                 <Text style={styles.heroSubtitle}>
                   Choose how you'd like to continue
                 </Text>
@@ -421,7 +470,7 @@ export const CitizenLoginScreen = () => {
           </LinearGradient>
 
           <View style={styles.infoBanner}>
-            <Text style={styles.infoTitle}>Why citizens prefer CivicLens</Text>
+            <Text style={styles.infoTitle}>Why citizens prefer {APP_CONFIG.appName}</Text>
             <View style={styles.infoRow}>
               {INFO_POINTS.map(point => (
                 <View key={point.title} style={styles.infoPoint}>
@@ -587,7 +636,7 @@ export const CitizenLoginScreen = () => {
                   <Text style={styles.errorText}>{error}</Text>
                 ) : null}
 
-                {devOtp && __DEV__ && (
+                {devOtp && IS_DEV && (
                   <View style={styles.devOtpContainer}>
                     <Text style={styles.devOtpText}>Dev OTP: {devOtp}</Text>
                   </View>
@@ -918,6 +967,158 @@ export const CitizenLoginScreen = () => {
                 </TouchableOpacity>
               </>
             )}
+
+            {/* Email OTP - Email Input */}
+            {authMode === 'email-otp' && authStep === 'email' && (
+              <>
+                <Text style={styles.label}>Email Address</Text>
+                <View style={styles.inputContainer}>
+                  <View style={styles.iconCircle}>
+                    <Ionicons
+                      name="mail-outline"
+                      size={15}
+                      color="#0D47A1"
+                    />
+                  </View>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="your@email.com"
+                    placeholderTextColor={colors.textTertiary}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    value={email}
+                    onChangeText={text => {
+                      setEmail(text);
+                      setError('');
+                    }}
+                    editable={!isLoading}
+                  />
+                </View>
+
+                {error ? (
+                  <Text style={styles.errorText}>{error}</Text>
+                ) : null}
+
+                <TouchableOpacity
+                  style={[styles.button, isLoading && styles.buttonDisabled]}
+                  onPress={handleRequestEmailOtp}
+                  disabled={isLoading}
+                  activeOpacity={0.8}
+                >
+                  {isLoading ? (
+                    <ActivityIndicator color={colors.white} />
+                  ) : (
+                    <>
+                      <Ionicons
+                        name="send-outline"
+                        size={17}
+                        color={colors.white}
+                        style={styles.buttonIcon}
+                      />
+                      <Text style={styles.buttonText}>Send Code to Email</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              </>
+            )}
+
+            {/* Email OTP Verification */}
+            {authStep === 'email-otp' && authMode === 'email-otp' && (
+              <>
+                <Text style={styles.label}>Enter Code sent to Email</Text>
+                <View style={styles.inputContainer}>
+                  <View style={styles.iconCircle}>
+                    <Ionicons
+                      name="shield-checkmark-outline"
+                      size={15}
+                      color="#0D47A1"
+                    />
+                  </View>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="6-digit OTP"
+                    placeholderTextColor={colors.textTertiary}
+                    keyboardType="number-pad"
+                    maxLength={6}
+                    value={otp}
+                    onChangeText={text => {
+                      setOtp(text.replace(/\D/g, ''));
+                      setError('');
+                    }}
+                    editable={!isLoading}
+                  />
+                </View>
+
+                {error ? (
+                  <Text style={styles.errorText}>{error}</Text>
+                ) : null}
+
+                {devOtp && IS_DEV && (
+                  <View style={styles.devOtpContainer}>
+                    <Text style={styles.devOtpText}>Dev OTP: {devOtp}</Text>
+                  </View>
+                )}
+
+                <View style={styles.timerRow}>
+                  <Ionicons
+                    name="time-outline"
+                    size={14}
+                    color={
+                      countdown > 0 ? colors.textSecondary : colors.error
+                    }
+                  />
+                  <Text
+                    style={[
+                      styles.timerText,
+                      countdown === 0 && styles.timerExpired,
+                    ]}
+                  >
+                    {countdown > 0
+                      ? `Resend in ${Math.floor(countdown / 60)}:${(countdown % 60).toString().padStart(2, '0')}`
+                      : 'Code expired'}
+                  </Text>
+                </View>
+
+                {countdown === 0 && (
+                  <TouchableOpacity
+                    style={styles.resendButton}
+                    onPress={() => {
+                      setCountdown(300);
+                      handleRequestEmailOtp();
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons
+                      name="refresh-outline"
+                      size={16}
+                      color="#0D47A1"
+                    />
+                    <Text style={styles.resendText}>Resend Email</Text>
+                  </TouchableOpacity>
+                )}
+
+                <TouchableOpacity
+                  style={[styles.button, isLoading && styles.buttonDisabled]}
+                  onPress={handleVerifyOtp}
+                  disabled={isLoading}
+                  activeOpacity={0.8}
+                >
+                  {isLoading ? (
+                    <ActivityIndicator color={colors.white} />
+                  ) : (
+                    <>
+                      <Ionicons
+                        name="checkmark-circle-outline"
+                        size={17}
+                        color={colors.white}
+                        style={styles.buttonIcon}
+                      />
+                      <Text style={styles.buttonText}>Verify and Login</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              </>
+            )}
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -952,6 +1153,15 @@ const OPTION_CARDS = [
     iconColor: '#0D47A1',
     title: 'Login with Password',
     description: 'Sign in to your existing account',
+  },
+  {
+    mode: 'email-otp',
+    step: 'email',
+    icon: 'mail-outline',
+    iconBg: 'rgba(13,71,161,0.06)',
+    iconColor: '#0D47A1',
+    title: 'Login with Email',
+    description: 'Secure code sent straight to your inbox',
   },
   {
     mode: 'full-register',

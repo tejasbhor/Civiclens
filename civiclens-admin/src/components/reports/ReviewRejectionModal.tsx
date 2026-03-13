@@ -41,9 +41,9 @@ const CATEGORY_OPTIONS = [
   { value: ReportCategory.WATER, label: 'Water Supply', icon: '💧' },
   { value: ReportCategory.ELECTRICITY, label: 'Electricity', icon: '⚡' },
   { value: ReportCategory.SANITATION, label: 'Sanitation & Waste', icon: '🗑️' },
-  { value: ReportCategory.STREET_LIGHTS, label: 'Street Lights', icon: '💡' },
+  { value: ReportCategory.STREETLIGHT, label: 'Street Lights', icon: '💡' },
   { value: ReportCategory.DRAINAGE, label: 'Drainage', icon: '🌊' },
-  { value: ReportCategory.PARKS, label: 'Parks & Recreation', icon: '🌳' },
+  { value: ReportCategory.PUBLIC_PROPERTY, label: 'Parks & Public Property', icon: '🌳' },
   { value: ReportCategory.OTHER, label: 'Other', icon: '📋' }
 ] as const;
 
@@ -85,7 +85,7 @@ export function ReviewRejectionModal({
       }
       // Pre-fill current values for reclassify
       if (action === 'reclassify') {
-        setNewCategory(report.category || '');
+        setNewCategory((report.category as ReportCategory) || '');
         setNewSeverity(report.severity || '');
         setNewDepartmentId(report.department_id || null);
       }

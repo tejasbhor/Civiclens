@@ -467,8 +467,11 @@ export default function ProfileSettingsPage() {
                         size="sm"
                         onClick={async () => {
                           try {
-                            await usersApi.sendEmailVerification();
+                            const res = await usersApi.sendEmailVerification();
                             toast.success('Verification email sent');
+                            if ((res as any).debug_token) {
+                              setEmailToken((res as any).debug_token);
+                            }
                           } catch {
                             toast.error('Failed to send verification email');
                           }
@@ -533,8 +536,11 @@ export default function ProfileSettingsPage() {
                         size="sm"
                         onClick={async () => {
                           try {
-                            await usersApi.sendPhoneVerification();
+                            const res = await usersApi.sendPhoneVerification();
                             toast.success('Verification OTP sent');
+                            if ((res as any).debug_otp) {
+                              setPhoneOtp((res as any).debug_otp);
+                            }
                           } catch {
                             toast.error('Failed to send OTP');
                           }

@@ -9,7 +9,9 @@ const mockStats: DashboardStats = {
   pending_tasks: 23,
   resolved_today: 8,
   high_priority_count: 5,
+  critical_priority_count: 2,
   avg_resolution_time: 48,
+  sla_compliance: 94.5,
   reports_by_category: {
     'Potholes': 342,
     'Streetlights': 189,

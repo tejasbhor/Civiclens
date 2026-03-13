@@ -3,7 +3,7 @@ import { apiClient } from './apiClient';
 import { AuthTokens, User } from '@shared/types/user';
 import { SecureStorage } from '@shared/services/storage';
 
-console.log('🔍 authApi.ts is being loaded...');
+console.log('[AuthApi] Module loading...');
 
 // Helper function to handle API errors
 function handleError(error: any): Error {
@@ -28,7 +28,7 @@ async function storeAuthData(tokens: AuthTokens): Promise<void> {
   // Store tokens in secure storage
   await SecureStorage.setAuthToken(tokens.access_token);
   await SecureStorage.setRefreshToken(tokens.refresh_token);
-  
+
   // Note: User data will be fetched separately after tokens are stored
   // This avoids circular dependency issues
 }
@@ -72,14 +72,14 @@ export const authApi = {
    */
   async requestOTP(phone: string): Promise<OTPResponse> {
     try {
-      console.log('📞 Requesting OTP for:', phone);
+      console.log('[AuthApi] Requesting OTP for:', phone);
       const response = await apiClient.post<OTPResponse>('/auth/request-otp', {
         phone,
       });
-      console.log('✅ OTP response:', response);
+      console.log('[AuthApi] OTP response received');
       return response;
     } catch (error: any) {
-      console.error('❌ OTP request failed:', error);
+      console.error('[AuthApi] OTP request failed:', error);
       throw handleError(error);
     }
   },
@@ -89,7 +89,7 @@ export const authApi = {
    */
   async verifyOTP(phone: string, otp: string): Promise<AuthTokens> {
     try {
-      console.log('🔐 Verifying OTP for:', phone);
+      console.log('[AuthApi] Verifying OTP for:', phone);
       const response = await apiClient.post<AuthTokens>('/auth/verify-otp', {
         phone,
         otp,
@@ -97,19 +97,66 @@ export const authApi = {
 
       // Store tokens
       await storeAuthData(response);
-      
+
       // Fetch and store user data
       try {
         const user = await apiClient.get<User>('/users/me');
         await SecureStorage.setUserData(user);
-        console.log('✅ User data fetched:', user);
+        console.log('[AuthApi] User data fetched:', user);
       } catch (error) {
         console.error('Failed to fetch user data:', error);
       }
 
       return response;
     } catch (error: any) {
-      console.error('❌ OTP verification failed:', error);
+      console.error('[AuthApi] OTP verification failed:', error);
+      throw handleError(error);
+    }
+  },
+
+  /**
+   * Request OTP for email
+   */
+  async requestEmailOTP(email: string): Promise<OTPResponse> {
+    try {
+      console.log('[AuthApi] Requesting Email OTP for:', email);
+      const response = await apiClient.post<OTPResponse>('/auth/request-email-otp', {
+        email,
+      });
+      console.log('[AuthApi] Email OTP response received');
+      return response;
+    } catch (error: any) {
+      console.error('[AuthApi] Email OTP request failed:', error);
+      throw handleError(error);
+    }
+  },
+
+  /**
+   * Verify Email OTP and get tokens
+   */
+  async verifyEmailOTP(email: string, otp: string): Promise<AuthTokens> {
+    try {
+      console.log('[AuthApi] Verifying Email OTP for:', email);
+      const response = await apiClient.post<AuthTokens>('/auth/verify-email-otp', {
+        email,
+        otp,
+      });
+
+      // Store tokens
+      await storeAuthData(response);
+
+      // Fetch and store user data
+      try {
+        const user = await apiClient.get<User>('/users/me');
+        await SecureStorage.setUserData(user);
+        console.log('[AuthApi] User data fetched:', user);
+      } catch (error) {
+        console.error('Failed to fetch user data:', error);
+      }
+
+      return response;
+    } catch (error: any) {
+      console.error('[AuthApi] Email OTP verification failed:', error);
       throw handleError(error);
     }
   },
@@ -119,30 +166,30 @@ export const authApi = {
    */
   async login(phone: string, password: string, portalType: 'citizen' | 'officer' = 'citizen'): Promise<AuthTokens> {
     try {
-      console.log('🔑 Logging in:', phone, 'portal:', portalType);
+      console.log('[AuthApi] Logging in:', phone, 'portal:', portalType);
       const response = await apiClient.post<AuthTokens>('/auth/login', {
         phone,
         password,
         portal_type: portalType,
       });
 
-      console.log('✅ Login response:', response);
-      
+      console.log('[AuthApi] Login response received');
+
       // Store tokens
       await storeAuthData(response);
-      
+
       // Fetch and store user data
       try {
         const user = await apiClient.get<User>('/users/me');
         await SecureStorage.setUserData(user);
-        console.log('✅ User data fetched:', user);
+        console.log('[AuthApi] User data fetched:', user);
       } catch (error) {
         console.error('Failed to fetch user data:', error);
       }
 
       return response;
     } catch (error: any) {
-      console.error('❌ Login failed:', error);
+      console.error('[AuthApi] Login failed:', error);
       throw handleError(error);
     }
   },
@@ -152,11 +199,11 @@ export const authApi = {
    */
   async signup(data: SignupRequest): Promise<{ message: string; user_id: number; otp?: string }> {
     try {
-      console.log('📝 Signing up:', data.phone);
-      const response = await apiClient.post('/auth/signup', data);
+      console.log('[AuthApi] Signing up:', data.phone);
+      const response = await apiClient.post<{ message: string; user_id: number; otp?: string }>('/auth/signup', data);
       return response;
     } catch (error: any) {
-      console.error('❌ Signup failed:', error);
+      console.error('[AuthApi] Signup failed:', error);
       throw handleError(error);
     }
   },
@@ -166,7 +213,7 @@ export const authApi = {
    */
   async verifyPhone(phone: string, otp: string): Promise<AuthTokens> {
     try {
-      console.log('📱 Verifying phone:', phone);
+      console.log('[AuthApi] Verifying phone:', phone);
       const response = await apiClient.post<AuthTokens>('/auth/verify-phone', {
         phone,
         otp,
@@ -174,19 +221,19 @@ export const authApi = {
 
       // Store tokens
       await storeAuthData(response);
-      
+
       // Fetch and store user data
       try {
         const user = await apiClient.get<User>('/users/me');
         await SecureStorage.setUserData(user);
-        console.log('✅ User data fetched:', user);
+        console.log('[AuthApi] User data fetched:', user);
       } catch (error) {
         console.error('Failed to fetch user data:', error);
       }
 
       return response;
     } catch (error: any) {
-      console.error('❌ Phone verification failed:', error);
+      console.error('[AuthApi] Phone verification failed:', error);
       throw handleError(error);
     }
   },
@@ -215,7 +262,7 @@ export const authApi = {
   async getCurrentUser(): Promise<User> {
     try {
       const response = await apiClient.get<User>('/users/me');
-      
+
       // Store user data in secure storage
       await SecureStorage.setUserData(response);
 
@@ -230,8 +277,8 @@ export const authApi = {
    */
   async logout(): Promise<void> {
     try {
-      // Call backend logout endpoint (if exists)
-      // await apiClient.post('/auth/logout');
+      // Call backend logout endpoint
+      await apiClient.post('/auth/logout', {}, { timeout: 5000 });
     } catch (error) {
       console.error('Logout API error:', error);
     } finally {
@@ -242,7 +289,7 @@ export const authApi = {
   },
 };
 
-console.log('✅ authApi object created');
-console.log('✅ authApi.login:', typeof authApi.login);
-console.log('✅ authApi.requestOTP:', typeof authApi.requestOTP);
-console.log('✅ authApi keys:', Object.keys(authApi));
+console.log('[AuthApi] Module loaded');
+console.log('[AuthApi] authApi.login:', typeof authApi.login);
+console.log('[AuthApi] authApi.requestOTP:', typeof authApi.requestOTP);
+console.log('[AuthApi] keys:', Object.keys(authApi));

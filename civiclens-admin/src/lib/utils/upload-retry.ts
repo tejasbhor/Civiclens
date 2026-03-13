@@ -45,7 +45,7 @@ export class UploadRetryManager {
     uploadFunction: (signal: AbortSignal) => Promise<T>,
     onProgress?: (attempt: number, error?: Error) => void
   ): Promise<T> {
-    let lastError: Error;
+    let lastError: Error = new Error('Unknown upload error');
     
     // Create abort controller for this upload
     const abortController = new AbortController();

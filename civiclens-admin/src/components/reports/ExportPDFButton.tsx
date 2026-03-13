@@ -189,7 +189,7 @@ export function ExportPDFButton({
                     {/* Info Footer */}
                     <div className="mt-2 px-4 py-2 border-t border-gray-200 bg-gray-50">
                         <p className="text-xs text-gray-500">
-                            💡 PDFs will open in a new window. Use <kbd className="px-1 bg-gray-200 rounded text-gray-700 font-mono">Ctrl+P</kbd> to print or save.
+                            PDFs will open in a new window. Use <kbd className="px-1 bg-gray-200 rounded text-gray-700 font-mono">Ctrl+P</kbd> to print or save.
                         </p>
                     </div>
                 </div>

@@ -2,6 +2,7 @@ import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { AlertTriangle, RefreshCw, Home } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { APP_CONFIG } from '@/config/appConfig';
 
 interface Props {
   children: ReactNode;
@@ -27,13 +28,13 @@ export class ErrorBoundary extends Component<Props, State> {
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error('ErrorBoundary caught an error:', error, errorInfo);
-    
+
     // Log to error reporting service (e.g., Sentry)
     if (import.meta.env.PROD) {
       // TODO: Send to error tracking service
       // Sentry.captureException(error, { extra: errorInfo });
     }
-    
+
     this.setState({
       error,
       errorInfo,
@@ -61,11 +62,11 @@ export class ErrorBoundary extends Component<Props, State> {
               <div className="w-20 h-20 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-6">
                 <AlertTriangle className="w-10 h-10 text-red-600" />
               </div>
-              
+
               <h1 className="text-3xl font-bold text-foreground mb-3">
                 Oops! Something went wrong
               </h1>
-              
+
               <p className="text-muted-foreground mb-6 text-lg">
                 We're sorry for the inconvenience. An unexpected error occurred.
               </p>
@@ -97,7 +98,7 @@ export class ErrorBoundary extends Component<Props, State> {
                   <RefreshCw className="w-4 h-4" />
                   Try Again
                 </Button>
-                
+
                 <Button
                   onClick={this.handleGoHome}
                   variant="outline"
@@ -111,7 +112,7 @@ export class ErrorBoundary extends Component<Props, State> {
 
               <p className="text-sm text-muted-foreground mt-6">
                 If this problem persists, please{' '}
-                <a href="mailto:support@civiclens.com" className="text-primary hover:underline">
+                <a href={`mailto:${APP_CONFIG.supportEmail}`} className="text-primary hover:underline">
                   contact support
                 </a>
               </p>

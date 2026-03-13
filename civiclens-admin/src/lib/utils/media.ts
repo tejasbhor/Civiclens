@@ -24,18 +24,25 @@ export const getMediaUrl = (fileUrl: string): string => {
     return '';
   }
 
-  // If it's already a complete URL (starts with http:// or https://), return as-is
+  // If it's already a complete URL (starts with http:// or https://)
   if (fileUrl.startsWith('http://') || fileUrl.startsWith('https://')) {
+    // Rewrite Docker-internal MinIO URLs to the public API proxy
+    // DB stores: http://minio:9000/civiclens-media/uploads/file.jpg
+    // Rewrite to: https://api.civiclens.space/civiclens-media/uploads/file.jpg
+    if (fileUrl.includes('minio:9000')) {
+      const backendBaseUrl = getBackendBaseUrl();
+      return fileUrl.replace(/https?:\/\/minio:9000/, backendBaseUrl);
+    }
     return fileUrl;
   }
 
   // If it's a relative path, construct the full URL
   // Media files are served at http://localhost:8000/media/... (NOT /api/v1/media/...)
   const backendBaseUrl = getBackendBaseUrl();
-  
+
   // Ensure the path starts with /
   const path = fileUrl.startsWith('/') ? fileUrl : `/${fileUrl}`;
-  
+
   return `${backendBaseUrl}${path}`;
 };
 
@@ -81,10 +88,10 @@ export const isVideoUrl = (fileUrl: string): boolean => {
  */
 export const formatFileSize = (bytes: number): string => {
   if (bytes === 0) return '0 Bytes';
-  
+
   const k = 1024;
   const sizes = ['Bytes', 'KB', 'MB', 'GB'];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
-  
+
   return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
 };

@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Animated, Dimensions } from 'react-native';
+import { APP_CONFIG } from '@/config/appConfig';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '@shared/theme/colors';
@@ -17,11 +18,11 @@ interface SplashScreenProps {
 }
 
 export const SplashScreen = ({
-  statusHeading = 'Preparing CivicLens',
+  statusHeading = `Preparing ${APP_CONFIG.appName}`,
   statusMessage = 'Initializing secure storage, offline cache & sync',
   highlights = defaultHighlights,
   footerText = 'Offline-first • Multilingual • Secure',
-  footerSubtext = 'v1.0 • Powered by CivicLens',
+  footerSubtext = `v1.0 • Powered by ${APP_CONFIG.appName}`,
   isError = false,
 }: SplashScreenProps) => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -36,7 +37,7 @@ export const SplashScreen = ({
     }).start();
 
     if (!isError) {
-       Animated.timing(progressAnim, {
+      Animated.timing(progressAnim, {
         toValue: 1,
         duration: 2200,
         useNativeDriver: false,
@@ -59,15 +60,15 @@ export const SplashScreen = ({
       <Animated.View style={[styles.content, { opacity: fadeAnim }]}>
         {/* Logo Container - Simplified */}
         <View style={styles.logoContainer}>
-            {/*
+          {/*
                 TODO: Replace with actual App Logo Image
                 <Image source={require('@assets/logo.png')} style={styles.logoImage} />
             */}
-            <View style={styles.logoCircle}>
-                <Ionicons name="shield-checkmark" size={64} color="#FFFFFF" />
-            </View>
-          
-          <Text style={styles.appName}>CivicLens</Text>
+          <View style={styles.logoCircle}>
+            <Ionicons name="shield-checkmark" size={64} color="#FFFFFF" />
+          </View>
+
+          <Text style={styles.appName}>{APP_CONFIG.appName}</Text>
           <Text style={styles.tagline}>Citizen & Officer Collaboration Platform</Text>
         </View>
 

@@ -56,27 +56,27 @@ class CacheService {
       // Try to get cached data
       if (!forceRefresh) {
         const cached = await this.getCached<T>(cacheKey);
-        
+
         if (cached) {
           const isExpired = Date.now() > cached.expiresAt;
-          
+
           if (!isExpired) {
             log.debug(`Cache HIT (fresh): ${key}`);
             return cached.data;
           }
-          
+
           // Stale data - return it while fetching fresh
           if (staleWhileRevalidate && networkService.isOnline()) {
             log.debug(`Cache HIT (stale): ${key} - revalidating in background`);
-            
+
             // Return stale data immediately
             const staleData = cached.data;
-            
+
             // Fetch fresh data in background (don't await)
             this.fetchAndCache(cacheKey, fetcher, ttl).catch(err => {
               log.error(`Background revalidation failed for ${key}`, err);
             });
-            
+
             return staleData;
           }
         }
@@ -85,17 +85,21 @@ class CacheService {
       // No cache or force refresh - fetch fresh data
       log.debug(`Cache MISS: ${key} - fetching fresh data`);
       return await this.fetchAndCache(cacheKey, fetcher, ttl);
-      
-    } catch (error) {
-      log.error(`Cache error for ${key}`, error);
-      
+
+    } catch (error: any) {
+      if (error?.isAxiosError && error.message === 'Network Error') {
+        log.warn(`Network unavailable for ${key} - falling back to cache`);
+      } else {
+        log.error(`Cache fetch error for ${key}`, error);
+      }
+
       // Try to return stale cache as fallback
       const cached = await this.getCached<T>(cacheKey);
       if (cached) {
         log.warn(`Returning stale cache as fallback for: ${key}`);
         return cached.data;
       }
-      
+
       throw error;
     }
   }
@@ -112,10 +116,10 @@ class CacheService {
     const fetchPromise = (async () => {
       try {
         const data = await fetcher();
-        
+
         // Cache the result
         await this.set(cacheKey, data, ttl);
-        
+
         return data;
       } finally {
         // Remove from pending requests
@@ -125,7 +129,7 @@ class CacheService {
 
     // Store pending request
     this.pendingRequests.set(cacheKey, fetchPromise);
-    
+
     return fetchPromise;
   }
 
@@ -135,7 +139,7 @@ class CacheService {
   private async getCached<T>(cacheKey: string): Promise<CacheEntry<T> | null> {
     try {
       const cached = await AsyncStorage.getItem(cacheKey);
-      
+
       if (!cached) {
         return null;
       }
@@ -186,7 +190,7 @@ class CacheService {
   async invalidatePattern(pattern: string): Promise<void> {
     try {
       const keys = await AsyncStorage.getAllKeys();
-      const matchingKeys = keys.filter(key => 
+      const matchingKeys = keys.filter(key =>
         key.startsWith(this.CACHE_PREFIX) && key.includes(pattern)
       );
 
@@ -204,7 +208,7 @@ class CacheService {
     try {
       const keys = await AsyncStorage.getAllKeys();
       const cacheKeys = keys.filter(key => key.startsWith(this.CACHE_PREFIX));
-      
+
       await AsyncStorage.multiRemove(cacheKeys);
       log.info(`Cleared ${cacheKeys.length} cache entries`);
     } catch (error) {
@@ -224,7 +228,7 @@ class CacheService {
     try {
       const keys = await AsyncStorage.getAllKeys();
       const cacheKeys = keys.filter(key => key.startsWith(this.CACHE_PREFIX));
-      
+
       let totalSize = 0;
       let oldestEntry: number | null = null;
       let newestEntry: number | null = null;
@@ -233,7 +237,7 @@ class CacheService {
         const value = await AsyncStorage.getItem(key);
         if (value) {
           totalSize += value.length;
-          
+
           try {
             const entry = JSON.parse(value);
             if (entry.timestamp) {
@@ -274,7 +278,7 @@ class CacheService {
     try {
       const keys = await AsyncStorage.getAllKeys();
       const cacheKeys = keys.filter(key => key.startsWith(this.CACHE_PREFIX));
-      
+
       let removedCount = 0;
       const now = Date.now();
 
@@ -318,14 +322,14 @@ class CacheService {
    */
   async initialize(): Promise<void> {
     log.info('Initializing Cache Service');
-    
+
     // Clean up expired entries on init
     await this.cleanup();
-    
+
     // Log cache stats
     const stats = await this.getStats();
     log.info(`Cache Stats: ${stats.totalEntries} entries, ${(stats.totalSize / 1024).toFixed(2)} KB`);
-    
+
     log.info('Cache Service initialized successfully');
   }
 }

@@ -17,6 +17,7 @@ import { OfficerTasksScreen } from '../features/officer/screens/OfficerTasksScre
 import { OfficerTaskDetailScreen } from '../features/officer/screens/OfficerTaskDetailScreen';
 import SubmitVerificationScreen from '../features/officer/screens/SubmitVerificationScreen';
 import { OfficerAnalyticsScreen } from '../features/officer/screens';
+import { LegalScreen, HelpSupportScreen } from '../shared/screens';
 
 // Placeholder screens for now
 const PlaceholderScreen = () => {
@@ -49,6 +50,8 @@ export type StatsStackParamList = {
 export type ProfileStackParamList = {
   ProfileMain: undefined;
   EditProfile: undefined;
+  Legal: { type: 'terms' | 'privacy' };
+  HelpSupport: undefined;
 };
 
 export type NotificationsStackParamList = {
@@ -88,6 +91,8 @@ const ProfileStackNavigator = () => (
   <ProfileStack.Navigator screenOptions={{ headerShown: false }}>
     <ProfileStack.Screen name="ProfileMain" component={OfficerProfileScreen} />
     <ProfileStack.Screen name="EditProfile" component={PlaceholderScreen} />
+    <ProfileStack.Screen name="Legal" component={LegalScreen} />
+    <ProfileStack.Screen name="HelpSupport" component={HelpSupportScreen} />
   </ProfileStack.Navigator>
 );
 
@@ -100,11 +105,11 @@ const NotificationsStackNavigator = () => (
 // Main Officer Tab Navigator
 export const OfficerTabNavigator: React.FC = () => {
   const insets = useSafeAreaInsets();
-  
+
   // Calculate proper bottom padding for gesture area (same as citizen)
   const bottomPadding = Math.max(insets.bottom, 20); // At least 20px, or use safe area
   const tabBarHeight = 60 + bottomPadding; // Icon area + bottom padding
-  
+
   return (
     <Tab.Navigator
       screenOptions={{

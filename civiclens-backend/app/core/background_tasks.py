@@ -60,27 +60,11 @@ async def send_email_notification_bg(
 ):
     """
     Background task to send email notifications.
-    Non-blocking email sending for verification, notifications, etc.
+    Non-blocking email sending using fastapi-mail (production-ready).
     """
     try:
-        if not smtp_config:
-            logger.warning(f"Background: SMTP not configured, skipping email to {to_email}")
-            return
-        
-        from email.message import EmailMessage
-        import smtplib
-        
-        msg = EmailMessage()
-        msg["Subject"] = subject
-        msg["From"] = smtp_config.get("from_email", "no-reply@civiclens.local")
-        msg["To"] = to_email
-        msg.set_content(body)
-        
-        with smtplib.SMTP(smtp_config["host"], smtp_config["port"]) as server:
-            server.starttls()
-            server.login(smtp_config["username"], smtp_config["password"])
-            server.send_message(msg)
-        
+        from app.services.email_service import send_notification_email
+        await send_notification_email(to_email, subject, body)
         logger.info(f"Background: Email sent to {to_email}")
     except Exception as e:
         logger.error(f"Background: Failed to send email to {to_email}: {str(e)}")
@@ -150,12 +134,24 @@ async def send_otp_sms_bg(phone: str, otp: str):
         # from twilio.rest import Client
         # client = Client(account_sid, auth_token)
         # message = client.messages.create(
-        #     body=f"Your CivicLens OTP is: {otp}",
+        #     body=f"Your {settings.APP_NAME} OTP is: {otp}",
         #     from_=twilio_phone,
         #     to=phone
         # )
     except Exception as e:
         logger.error(f"Background: Failed to send OTP SMS to {phone}: {str(e)}")
+
+
+async def send_otp_email_bg(email: str, otp: str):
+    """
+    Background task to send OTP via Email gateway securely.
+    """
+    try:
+        from app.services.email_service import send_otp_email
+        await send_otp_email(email, otp)
+        logger.info(f"Background: Email OTP dispatched for {email}")
+    except Exception as e:
+        logger.error(f"Background: Failed to dispatch Email OTP to {email}: {str(e)}")
 
 
 async def cleanup_expired_tokens_bg():

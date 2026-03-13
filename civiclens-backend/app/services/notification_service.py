@@ -12,6 +12,11 @@ from app.models.user import User
 from app.models.report import Report, ReportStatus
 from app.models.task import Task
 import logging
+from exponent_server_sdk import (
+    PushClient,
+    PushMessage,
+    PushServerError,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -57,6 +62,33 @@ class NotificationService:
             f"report_id={related_report_id}, priority={priority}"
         )
         
+        # Dispatch push notification if applicable
+        try:
+            # Fetch user to check preferences and get device token
+            user_result = await self.db.execute(select(User).where(User.id == user_id))
+            user = user_result.scalar_one_or_none()
+            
+            if user and user.push_notifications and getattr(user, 'device_token', None):
+                extra_data = {}
+                if related_report_id:
+                    extra_data["related_report_id"] = related_report_id
+                if related_task_id:
+                    extra_data["related_task_id"] = related_task_id
+                if action_url:
+                    extra_data["action_url"] = action_url
+                    
+                message = PushMessage(
+                    to=user.device_token,
+                    title=title,
+                    body=message,
+                    data=extra_data,
+                    priority="high" if priority in [NotificationPriority.HIGH, NotificationPriority.CRITICAL] else "default"
+                )
+                response = PushClient().publish(message)
+                logger.info(f"Push notification sent successfully to user {user_id}. Device: {user.device_token}")
+        except Exception as e:
+            logger.error(f"Failed to send push notification to user {user_id}: {str(e)}")
+            
         return notification
     
     async def notify_status_change(

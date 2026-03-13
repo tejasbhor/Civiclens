@@ -7,6 +7,8 @@
  */
 
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import { useNavigation } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   View,
   Text,
@@ -20,14 +22,16 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { getBottomTabPadding } from '@shared/utils/screenPadding';
 
 // Hooks and Services
 import { TopNavbar, RoleGuard } from '../../../shared/components';
-import { useOfficerProfile } from '../../../shared/hooks/useOfficerProfile';
+import { useOfficerProfile } from '@shared/hooks/useOfficerProfile';
 import { networkService } from '../../../shared/services/network/networkService';
 import { colors } from '../../../shared/theme/colors';
 import { UserRole } from '../../../shared/types/user';
-import { useAuthStore } from '../../../store/authStore';
+import { useAuthStore } from '@store/authStore';
+import { APP_CONFIG } from '@/config/appConfig';
 
 export const OfficerProfileScreen: React.FC = () => {
   return (
@@ -38,14 +42,15 @@ export const OfficerProfileScreen: React.FC = () => {
 };
 
 const OfficerProfileContent: React.FC = () => {
-  const { logout } = useAuthStore();
-  
+  const navigation = useNavigation();
+  const insets = useSafeAreaInsets();
+  const { user, logout, refreshUser: refreshAuthUser } = useAuthStore();
+
   const {
-    profile,
-    isLoading,
+    profile: hookProfile,
+    isLoading: hookLoading,
     isHydrating,
     error,
-    hasData,
     refreshProfile,
     updateProfile,
     clearError,
@@ -53,12 +58,42 @@ const OfficerProfileContent: React.FC = () => {
 
   const [isOnline, setIsOnline] = useState(networkService.isOnline());
   const [isUpdating, setIsUpdating] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+
+  // Derive profile by merging hook profile with auth store user
+  // This ensures we always have SOMETHING to show (name, phone) immediately
+  const profile = useMemo(() => {
+    if (hookProfile) return hookProfile;
+    if (!user) return null;
+    
+    // Fallback if full officer profile isn't loaded yet
+    return {
+      full_name: user.full_name || 'Officer',
+      phone: user.phone,
+      email: user.email || '',
+      designation: 'Nodal Officer',
+      department: 'Municipal Services',
+      employee_id: '...',
+      zone_assigned: 'Unassigned',
+      bio: user.bio || '',
+      preferred_language: user.preferred_language || 'en',
+      notification_preferences: {
+        task_assignments: true,
+        urgent_reports: true,
+        system_updates: false,
+        performance_reports: true,
+      }
+    };
+  }, [hookProfile, user]);
+
+  const hasData = !!profile;
+  const isLoading = hookLoading && !hookProfile; // Only "loading" if we have absolutely no hook data
 
   // Local state for editable fields
   const [editableData, setEditableData] = useState({
-    bio: profile?.bio || '',
-    preferred_language: profile?.preferred_language || 'en',
-    notification_preferences: profile?.notification_preferences || {
+    bio: '',
+    preferred_language: 'en',
+    notification_preferences: {
       task_assignments: true,
       urgent_reports: true,
       system_updates: false,
@@ -98,7 +133,7 @@ const OfficerProfileContent: React.FC = () => {
         },
       };
       setEditableData(profileData);
-      setOriginalData(profileData); // Store original data for comparison
+      setOriginalData(profileData);
     }
   }, [profile]);
 
@@ -113,7 +148,6 @@ const OfficerProfileContent: React.FC = () => {
   // Check if there are any changes
   const hasChanges = useMemo(() => {
     if (!profile) return false;
-    
     return (
       editableData.bio.trim() !== originalData.bio ||
       editableData.preferred_language !== originalData.preferred_language ||
@@ -131,16 +165,16 @@ const OfficerProfileContent: React.FC = () => {
         preferred_language: editableData.preferred_language,
         notification_preferences: editableData.notification_preferences,
       };
-      
+
       await updateProfile(updates);
-      
+
       // Update original data after successful save
       setOriginalData({
         bio: editableData.bio.trim(),
         preferred_language: editableData.preferred_language,
         notification_preferences: editableData.notification_preferences,
       });
-      
+
       Alert.alert('Success', 'Profile updated successfully');
     } catch (error: any) {
       Alert.alert('Error', error.message || 'Failed to update profile');
@@ -148,6 +182,20 @@ const OfficerProfileContent: React.FC = () => {
       setIsUpdating(false);
     }
   }, [profile, editableData, originalData, hasChanges, updateProfile]);
+
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await Promise.all([
+        refreshAuthUser(),
+        refreshProfile()
+      ]);
+    } catch (err) {
+      console.error('[OfficerProfile] Refresh failed:', err);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [refreshAuthUser, refreshProfile]);
 
   const handleLogout = useCallback(() => {
     Alert.alert(
@@ -170,6 +218,18 @@ const OfficerProfileContent: React.FC = () => {
     );
   }, [logout]);
 
+  // If absolutely no data and loading, show full screen spinner
+  if (isLoading && !user) {
+    return (
+      <View style={styles.container}>
+        <TopNavbar title="Officer Profile" showNotifications={true} />
+        <View style={styles.centered}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={styles.loadingText}>Loading officer profile…</Text>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -181,12 +241,15 @@ const OfficerProfileContent: React.FC = () => {
 
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingBottom: getBottomTabPadding(insets, 24) }
+        ]}
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
-            refreshing={isLoading && !isHydrating}
-            onRefresh={refreshProfile}
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
             colors={[colors.primary]}
             tintColor={colors.primary}
           />
@@ -194,7 +257,7 @@ const OfficerProfileContent: React.FC = () => {
       >
         {hasData && profile ? (
           <>
-            {/* Profile Header Card - Matching Citizen Design */}
+            {/* Profile Header Card - Robust Design */}
             <View style={styles.profileCard}>
               <LinearGradient
                 colors={[colors.primary, '#1565C0']}
@@ -209,7 +272,7 @@ const OfficerProfileContent: React.FC = () => {
                     </Text>
                   </View>
                   <View style={styles.officerBadge}>
-                    <Ionicons name="shield-checkmark" size={20} color="#4CAF50" />
+                    <Ionicons name="checkmark-circle" size={22} color="#4CAF50" />
                   </View>
                 </View>
 
@@ -218,8 +281,8 @@ const OfficerProfileContent: React.FC = () => {
                 <Text style={styles.profileDepartment}>{profile.department}</Text>
 
                 <View style={styles.badgeContainer}>
-                  <Ionicons name="shield" size={16} color="#FFF" />
-                  <Text style={styles.badgeText}>Municipal Officer</Text>
+                  <Ionicons name="shield-checkmark" size={16} color="#FFF" />
+                  <Text style={styles.badgeText}>Verified Municipal Officer</Text>
                 </View>
               </LinearGradient>
             </View>
@@ -227,243 +290,207 @@ const OfficerProfileContent: React.FC = () => {
             {/* Official Information Section */}
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Official Information</Text>
-              
-              <View style={styles.officialInfoItem}>
-                <View style={styles.officialInfoHeader}>
-                  <View style={[styles.menuIconCircle, { backgroundColor: '#EFF6FF' }]}>
-                    <Ionicons name="card-outline" size={20} color="#2563EB" />
+              <View style={styles.card}>
+                <View style={styles.officialInfoItem}>
+                  <View style={styles.officialInfoHeader}>
+                    <View style={[styles.menuIconCircle, { backgroundColor: '#EFF6FF' }]}>
+                      <Ionicons name="card-outline" size={20} color="#2563EB" />
+                    </View>
+                    <View>
+                      <Text style={styles.menuItemText}>Employee ID</Text>
+                      <Text style={styles.officialInfoValue}>{profile.employee_id}</Text>
+                    </View>
                   </View>
-                  <Text style={styles.officialInfoLabel}>Employee ID</Text>
                 </View>
-                <Text style={styles.officialInfoValue}>{profile.employee_id}</Text>
-              </View>
 
-              <View style={styles.officialInfoItem}>
-                <View style={styles.officialInfoHeader}>
-                  <View style={[styles.menuIconCircle, { backgroundColor: '#F0FDF4' }]}>
-                    <Ionicons name="call-outline" size={20} color="#22C55E" />
-                  </View>
-                  <Text style={styles.officialInfoLabel}>Phone Number</Text>
-                </View>
-                <Text style={styles.officialInfoValue}>{profile.phone}</Text>
-              </View>
+                <View style={styles.divider} />
 
-              <View style={styles.officialInfoItem}>
-                <View style={styles.officialInfoHeader}>
-                  <View style={[styles.menuIconCircle, { backgroundColor: '#FEF3C7' }]}>
-                    <Ionicons name="mail-outline" size={20} color="#F59E0B" />
+                <View style={styles.officialInfoItem}>
+                  <View style={styles.officialInfoHeader}>
+                    <View style={[styles.menuIconCircle, { backgroundColor: '#F0FDF4' }]}>
+                      <Ionicons name="call-outline" size={20} color="#22C55E" />
+                    </View>
+                    <View>
+                      <Text style={styles.menuItemText}>Phone Number</Text>
+                      <Text style={styles.officialInfoValue}>{profile.phone}</Text>
+                    </View>
                   </View>
-                  <Text style={styles.officialInfoLabel}>Email Address</Text>
                 </View>
-                <Text style={styles.officialInfoValue}>{profile.email}</Text>
-              </View>
 
-              <View style={styles.officialInfoItem}>
-                <View style={styles.officialInfoHeader}>
-                  <View style={[styles.menuIconCircle, { backgroundColor: '#F3E8FF' }]}>
-                    <Ionicons name="location-outline" size={20} color="#A855F7" />
+                <View style={styles.divider} />
+
+                <View style={styles.officialInfoItem}>
+                  <View style={styles.officialInfoHeader}>
+                    <View style={[styles.menuIconCircle, { backgroundColor: '#FEF3C7' }]}>
+                      <Ionicons name="mail-outline" size={20} color="#F59E0B" />
+                    </View>
+                    <View>
+                      <Text style={styles.menuItemText}>Email Address</Text>
+                      <Text style={styles.officialInfoValue}>{profile.email || 'N/A'}</Text>
+                    </View>
                   </View>
-                  <Text style={styles.officialInfoLabel}>Assigned Zone</Text>
                 </View>
-                <Text style={styles.officialInfoValue}>{profile.zone_assigned}</Text>
+
+                <View style={styles.divider} />
+
+                <View style={styles.officialInfoItem}>
+                  <View style={styles.officialInfoHeader}>
+                    <View style={[styles.menuIconCircle, { backgroundColor: '#F3E8FF' }]}>
+                      <Ionicons name="location-outline" size={20} color="#A855F7" />
+                    </View>
+                    <View>
+                      <Text style={styles.menuItemText}>Assigned Zone</Text>
+                      <Text style={styles.officialInfoValue}>{profile.zone_assigned}</Text>
+                    </View>
+                  </View>
+                </View>
               </View>
             </View>
 
             {/* Personal Information Section */}
             <View style={styles.section}>
               <View style={styles.sectionHeader}>
-                <Text style={styles.sectionTitle}>Personal Information</Text>
+                <Text style={styles.sectionTitle}>Profile Details</Text>
                 {hasChanges && (
                   <View style={styles.unsavedIndicator}>
-                    <Text style={styles.unsavedText}>Unsaved</Text>
+                    <Text style={styles.unsavedText}>Unsaved Changes</Text>
                   </View>
                 )}
               </View>
-              
-              <TouchableOpacity 
-                style={styles.menuItem}
-                onPress={() => {
-                  Alert.prompt(
-                    'Edit Bio',
-                    'Update your bio',
-                    [
-                      { text: 'Cancel', style: 'cancel' },
-                      { 
-                        text: 'Save', 
-                        onPress: (text?: string) => setEditableData(prev => ({ ...prev, bio: text || '' }))
-                      },
-                    ],
-                    'plain-text',
-                    editableData.bio
-                  );
-                }}
-              >
-                <View style={styles.menuItemLeft}>
-                  <View style={[styles.menuIconCircle, { backgroundColor: '#DBEAFE' }]}>
-                    <Ionicons name="document-text-outline" size={20} color="#3B82F6" />
+              <View style={styles.card}>
+                <TouchableOpacity
+                  style={styles.menuItemInner}
+                  onPress={() => {
+                    Alert.prompt(
+                      'Edit Bio',
+                      'Update your bio',
+                      [
+                        { text: 'Cancel', style: 'cancel' },
+                        {
+                          text: 'Save',
+                          onPress: (text?: string) => setEditableData(prev => ({ ...prev, bio: text || '' }))
+                        },
+                      ],
+                      'plain-text',
+                      editableData.bio
+                    );
+                  }}
+                >
+                  <View style={styles.menuItemLeft}>
+                    <View style={[styles.menuIconCircle, { backgroundColor: '#DBEAFE' }]}>
+                      <Ionicons name="document-text-outline" size={20} color="#3B82F6" />
+                    </View>
+                    <Text style={styles.menuItemText}>Bio</Text>
                   </View>
-                  <Text style={styles.menuItemText}>Bio</Text>
-                </View>
-                <View style={styles.menuItemRight}>
-                  <Text style={styles.menuItemValue}>
-                    {editableData.bio || 'Tap to add bio'}
-                  </Text>
-                  <Ionicons name="chevron-forward" size={20} color="#CBD5E1" />
-                </View>
-              </TouchableOpacity>
+                  <View style={styles.menuItemRight}>
+                    <Text style={styles.menuItemValue} numberOfLines={1}>
+                      {editableData.bio || 'Add bio'}
+                    </Text>
+                    <Ionicons name="chevron-forward" size={18} color="#CBD5E1" />
+                  </View>
+                </TouchableOpacity>
 
-              <TouchableOpacity 
-                style={styles.menuItem}
-                onPress={() => {
-                  Alert.alert(
-                    'Select Language',
-                    'Choose your preferred language',
-                    [
-                      { text: 'Cancel', style: 'cancel' },
-                      { 
-                        text: 'English', 
-                        onPress: () => setEditableData(prev => ({ ...prev, preferred_language: 'en' }))
-                      },
-                      { 
-                        text: 'Hindi', 
-                        onPress: () => setEditableData(prev => ({ ...prev, preferred_language: 'hi' }))
-                      },
-                    ]
-                  );
-                }}
-              >
-                <View style={styles.menuItemLeft}>
-                  <View style={[styles.menuIconCircle, { backgroundColor: '#F0FDF4' }]}>
-                    <Ionicons name="language-outline" size={20} color="#22C55E" />
+                <View style={styles.divider} />
+
+                <TouchableOpacity
+                  style={styles.menuItemInner}
+                  onPress={() => {
+                    Alert.alert(
+                      'Select Language',
+                      'Choose your preferred language',
+                      [
+                        { text: 'Cancel', style: 'cancel' },
+                        {
+                          text: 'English',
+                          onPress: () => setEditableData(prev => ({ ...prev, preferred_language: 'en' }))
+                        },
+                        {
+                          text: 'Hindi',
+                          onPress: () => setEditableData(prev => ({ ...prev, preferred_language: 'hi' }))
+                        },
+                      ]
+                    );
+                  }}
+                >
+                  <View style={styles.menuItemLeft}>
+                    <View style={[styles.menuIconCircle, { backgroundColor: '#F0FDF4' }]}>
+                      <Ionicons name="language-outline" size={20} color="#22C55E" />
+                    </View>
+                    <Text style={styles.menuItemText}>Preferred Language</Text>
                   </View>
-                  <Text style={styles.menuItemText}>Preferred Language</Text>
-                </View>
-                <View style={styles.menuItemRight}>
-                  <Text style={styles.menuItemValue}>
-                    {editableData.preferred_language === 'en' ? 'English' : 'Hindi'}
-                  </Text>
-                  <Ionicons name="chevron-forward" size={20} color="#CBD5E1" />
-                </View>
-              </TouchableOpacity>
+                  <View style={styles.menuItemRight}>
+                    <Text style={styles.menuItemValue}>
+                      {editableData.preferred_language === 'en' ? 'English' : 'Hindi'}
+                    </Text>
+                    <Ionicons name="chevron-forward" size={18} color="#CBD5E1" />
+                  </View>
+                </TouchableOpacity>
+              </View>
             </View>
 
             {/* Notification Preferences Section */}
             <View style={styles.section}>
               <View style={styles.sectionHeader}>
                 <Text style={styles.sectionTitle}>Notifications</Text>
-                {hasChanges && (
-                  <View style={styles.unsavedIndicator}>
-                    <Text style={styles.unsavedText}>Unsaved</Text>
-                  </View>
-                )}
               </View>
-              
-              <View style={styles.menuItem}>
-                <View style={styles.menuItemLeft}>
-                  <View style={[styles.menuIconCircle, { backgroundColor: '#EFF6FF' }]}>
-                    <Ionicons name="briefcase-outline" size={20} color="#2563EB" />
+              <View style={styles.card}>
+                <View style={styles.menuItemInner}>
+                  <View style={styles.menuItemLeft}>
+                    <View style={[styles.menuIconCircle, { backgroundColor: '#EFF6FF' }]}>
+                      <Ionicons name="briefcase-outline" size={20} color="#2563EB" />
+                    </View>
+                    <View style={styles.menuItemTextContainer}>
+                      <Text style={styles.menuItemText}>Task Assignments</Text>
+                      <Text style={styles.menuItemDescription}>New task alerts</Text>
+                    </View>
                   </View>
-                  <View>
-                    <Text style={styles.menuItemText}>Task Assignments</Text>
-                    <Text style={styles.menuItemDescription}>Get notified when new tasks are assigned</Text>
-                  </View>
+                  <Switch
+                    value={editableData.notification_preferences.task_assignments}
+                    onValueChange={(value) =>
+                      setEditableData(prev => ({
+                        ...prev,
+                        notification_preferences: {
+                          ...prev.notification_preferences,
+                          task_assignments: value,
+                        },
+                      }))
+                    }
+                    trackColor={{ false: '#E2E8F0', true: colors.primary }}
+                    thumbColor="#FFFFFF"
+                  />
                 </View>
-                <Switch
-                  value={editableData.notification_preferences.task_assignments}
-                  onValueChange={(value) =>
-                    setEditableData(prev => ({
-                      ...prev,
-                      notification_preferences: {
-                        ...prev.notification_preferences,
-                        task_assignments: value,
-                      },
-                    }))
-                  }
-                  trackColor={{ false: '#E2E8F0', true: colors.primary }}
-                  thumbColor="#FFFFFF"
-                />
-              </View>
 
-              <View style={styles.menuItem}>
-                <View style={styles.menuItemLeft}>
-                  <View style={[styles.menuIconCircle, { backgroundColor: '#FEF2F2' }]}>
-                    <Ionicons name="alert-circle-outline" size={20} color="#EF4444" />
-                  </View>
-                  <View>
-                    <Text style={styles.menuItemText}>Urgent Reports</Text>
-                    <Text style={styles.menuItemDescription}>Immediate alerts for high-priority reports</Text>
-                  </View>
-                </View>
-                <Switch
-                  value={editableData.notification_preferences.urgent_reports}
-                  onValueChange={(value) =>
-                    setEditableData(prev => ({
-                      ...prev,
-                      notification_preferences: {
-                        ...prev.notification_preferences,
-                        urgent_reports: value,
-                      },
-                    }))
-                  }
-                  trackColor={{ false: '#E2E8F0', true: colors.primary }}
-                  thumbColor="#FFFFFF"
-                />
-              </View>
+                <View style={styles.divider} />
 
-              <View style={styles.menuItem}>
-                <View style={styles.menuItemLeft}>
-                  <View style={[styles.menuIconCircle, { backgroundColor: '#F3E8FF' }]}>
-                    <Ionicons name="settings-outline" size={20} color="#A855F7" />
+                <View style={styles.menuItemInner}>
+                  <View style={styles.menuItemLeft}>
+                    <View style={[styles.menuIconCircle, { backgroundColor: '#FEF2F2' }]}>
+                      <Ionicons name="alert-circle-outline" size={20} color="#EF4444" />
+                    </View>
+                    <View style={styles.menuItemTextContainer}>
+                      <Text style={styles.menuItemText}>Urgent Reports</Text>
+                      <Text style={styles.menuItemDescription}>High-priority alerts</Text>
+                    </View>
                   </View>
-                  <View>
-                    <Text style={styles.menuItemText}>System Updates</Text>
-                    <Text style={styles.menuItemDescription}>App updates and maintenance notifications</Text>
-                  </View>
+                  <Switch
+                    value={editableData.notification_preferences.urgent_reports}
+                    onValueChange={(value) =>
+                      setEditableData(prev => ({
+                        ...prev,
+                        notification_preferences: {
+                          ...prev.notification_preferences,
+                          urgent_reports: value,
+                        },
+                      }))
+                    }
+                    trackColor={{ false: '#E2E8F0', true: colors.primary }}
+                    thumbColor="#FFFFFF"
+                  />
                 </View>
-                <Switch
-                  value={editableData.notification_preferences.system_updates}
-                  onValueChange={(value) =>
-                    setEditableData(prev => ({
-                      ...prev,
-                      notification_preferences: {
-                        ...prev.notification_preferences,
-                        system_updates: value,
-                      },
-                    }))
-                  }
-                  trackColor={{ false: '#E2E8F0', true: colors.primary }}
-                  thumbColor="#FFFFFF"
-                />
-              </View>
-
-              <View style={styles.menuItem}>
-                <View style={styles.menuItemLeft}>
-                  <View style={[styles.menuIconCircle, { backgroundColor: '#DCFCE7' }]}>
-                    <Ionicons name="analytics-outline" size={20} color="#22C55E" />
-                  </View>
-                  <View>
-                    <Text style={styles.menuItemText}>Performance Reports</Text>
-                    <Text style={styles.menuItemDescription}>Monthly performance and analytics reports</Text>
-                  </View>
-                </View>
-                <Switch
-                  value={editableData.notification_preferences.performance_reports}
-                  onValueChange={(value) =>
-                    setEditableData(prev => ({
-                      ...prev,
-                      notification_preferences: {
-                        ...prev.notification_preferences,
-                        performance_reports: value,
-                      },
-                    }))
-                  }
-                  trackColor={{ false: '#E2E8F0', true: colors.primary }}
-                  thumbColor="#FFFFFF"
-                />
               </View>
             </View>
 
-            {/* Save Changes Button - Only show when there are changes */}
+            {/* Save Changes Button */}
             {hasChanges && (
               <View style={styles.section}>
                 <TouchableOpacity
@@ -472,108 +499,69 @@ const OfficerProfileContent: React.FC = () => {
                   disabled={!isOnline || isUpdating}
                   activeOpacity={0.8}
                 >
-                  <View style={styles.saveButtonContent}>
-                    {isUpdating ? (
-                      <ActivityIndicator size="small" color="#FFF" />
-                    ) : (
-                      <Ionicons name="checkmark-circle-outline" size={22} color="#FFF" />
-                    )}
-                    <Text style={styles.saveButtonText}>
-                      {isUpdating ? 'Saving...' : isOnline ? 'Save Changes' : 'Offline - Changes Cached'}
-                    </Text>
-                  </View>
+                  {isUpdating ? (
+                    <ActivityIndicator size="small" color="#FFF" />
+                  ) : (
+                    <>
+                      <Ionicons name="checkmark-circle-outline" size={20} color="#FFF" />
+                      <Text style={styles.saveButtonText}>
+                        {isOnline ? 'Save Changes' : 'Offline - Changes Cached'}
+                      </Text>
+                    </>
+                  )}
                 </TouchableOpacity>
               </View>
             )}
 
-            {/* About Section */}
+            {/* Account Information Section */}
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>About</Text>
-              
-              <TouchableOpacity 
-                style={styles.menuItem}
-                onPress={() => Alert.alert('Help & Support', 'Support resources coming soon')}
-              >
-                <View style={styles.menuItemLeft}>
-                  <View style={[styles.menuIconCircle, { backgroundColor: '#FEF2F2' }]}>
-                    <Ionicons name="help-circle-outline" size={20} color="#EF4444" />
+              <Text style={styles.sectionTitle}>Account</Text>
+              <View style={styles.card}>
+                <TouchableOpacity style={styles.menuItemInner} onPress={() => (navigation as any).navigate('HelpSupport')}>
+                  <View style={styles.menuItemLeft}>
+                    <View style={[styles.menuIconCircle, { backgroundColor: '#F0F9FF' }]}>
+                      <Ionicons name="help-circle-outline" size={20} color="#0EA5E9" />
+                    </View>
+                    <Text style={styles.menuItemText}>Help & Support</Text>
                   </View>
-                  <Text style={styles.menuItemText}>Help & Support</Text>
-                </View>
-                <Ionicons name="chevron-forward" size={20} color="#CBD5E1" />
-              </TouchableOpacity>
+                  <Ionicons name="chevron-forward" size={18} color="#CBD5E1" />
+                </TouchableOpacity>
 
-              <TouchableOpacity 
-                style={styles.menuItem}
-                onPress={() => Alert.alert('Terms & Privacy', 'Legal documents coming soon')}
-              >
-                <View style={styles.menuItemLeft}>
-                  <View style={[styles.menuIconCircle, { backgroundColor: '#F3E8FF' }]}>
-                    <Ionicons name="document-text-outline" size={20} color="#A855F7" />
-                  </View>
-                  <Text style={styles.menuItemText}>Terms & Privacy</Text>
-                </View>
-                <Ionicons name="chevron-forward" size={20} color="#CBD5E1" />
-              </TouchableOpacity>
+                <View style={styles.divider} />
 
-              <View style={styles.menuItem}>
-                <View style={styles.menuItemLeft}>
-                  <View style={[styles.menuIconCircle, { backgroundColor: '#F0F9FF' }]}>
-                    <Ionicons name="information-circle-outline" size={20} color="#0EA5E9" />
+                <View style={styles.menuItemInner}>
+                  <View style={styles.menuItemLeft}>
+                    <View style={[styles.menuIconCircle, { backgroundColor: '#F1F5F9' }]}>
+                      <Ionicons name="information-circle-outline" size={20} color="#64748B" />
+                    </View>
+                    <Text style={styles.menuItemText}>App Version</Text>
                   </View>
-                  <Text style={styles.menuItemText}>App Version</Text>
+                  <Text style={styles.menuItemValue}>{APP_CONFIG.appVersion}</Text>
                 </View>
-                <Text style={styles.menuItemValue}>1.0.0</Text>
               </View>
             </View>
 
-            {/* Logout Section */}
+            {/* Logout Button */}
             <View style={styles.section}>
-              <TouchableOpacity 
-                style={styles.logoutButton} 
+              <TouchableOpacity
+                style={styles.logoutButton}
                 onPress={handleLogout}
                 activeOpacity={0.8}
               >
-                <View style={styles.logoutButtonContent}>
-                  <Ionicons name="log-out-outline" size={22} color="#EF4444" />
-                  <Text style={styles.logoutButtonText}>Logout</Text>
-                </View>
+                <Ionicons name="log-out-outline" size={20} color="#EF4444" />
+                <Text style={styles.logoutButtonText}>Logout</Text>
               </TouchableOpacity>
             </View>
           </>
         ) : (
           <View style={styles.emptyState}>
-            <Ionicons name="person-circle-outline" size={64} color="#CCC" />
-            <Text style={styles.emptyText}>
-              {isHydrating ? 'Hydrating from cache...' : 
-               isLoading ? 'Loading profile...' : 
-               'No profile data available offline yet'}
-            </Text>
-            <Text style={styles.emptySubtext}>
-              {isHydrating ? 'Restoring cached data' :
-               isOnline ? 'Try again in a moment' : 'Connect to sync your profile'}
-            </Text>
-            {!isHydrating && (
-              <TouchableOpacity
-                style={styles.retryButton}
-                onPress={refreshProfile}
-                disabled={isLoading}
-              >
-                <Text style={styles.retryButtonText}>
-                  {isLoading ? 'Loading...' : 'Retry'}
-                </Text>
-              </TouchableOpacity>
-            )}
+            <ActivityIndicator size="large" color={colors.primary} />
+            <Text style={styles.emptyText}>Accessing profile...</Text>
           </View>
         )}
 
-        {error && (
-          <View style={styles.errorContainer}>
-            <Ionicons name="alert-circle" size={20} color="#D32F2F" />
-            <Text style={styles.errorText}>{error}</Text>
-            {!isOnline && <Text style={styles.errorHint}>Showing cached data</Text>}
-          </View>
-        )}
+        {/* Navigation Bar Padding */}
+        <View style={{ height: getBottomTabPadding(insets, 80) }} />
       </ScrollView>
     </View>
   );
@@ -584,15 +572,25 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F8FAFC',
   },
+  centered: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 16,
+    color: '#64748B',
+  },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
     paddingTop: 8,
-    paddingBottom: 100, // Space for bottom tab bar + extra padding
   },
 
-  // Profile Header Card - Matching Citizen Design
+  // Profile Header Card
   profileCard: {
     marginHorizontal: 16,
     marginBottom: 24,
@@ -613,17 +611,17 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   avatar: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: 84,
+    height: 84,
+    borderRadius: 42,
     backgroundColor: '#FFF',
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 3,
-    borderColor: '#FFF',
+    borderColor: 'rgba(255,255,255,0.4)',
   },
   avatarText: {
-    fontSize: 32,
+    fontSize: 34,
     fontWeight: '700',
     color: colors.primary,
   },
@@ -632,8 +630,9 @@ const styles = StyleSheet.create({
     bottom: 0,
     right: 0,
     backgroundColor: '#FFF',
-    borderRadius: 12,
+    borderRadius: 14,
     padding: 2,
+    elevation: 2,
   },
   profileName: {
     fontSize: 24,
@@ -645,28 +644,32 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#E3F2FD',
     marginBottom: 4,
+    fontWeight: '500',
   },
   profileDepartment: {
     fontSize: 14,
     color: '#E3F2FD',
-    marginBottom: 16,
+    opacity: 0.9,
+    marginBottom: 12,
   },
   badgeContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
     gap: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.3)',
   },
   badgeText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
     color: '#FFF',
   },
 
-  // Sections - Consistent with Citizen Profile
+  // Sections
   section: {
     marginHorizontal: 16,
     marginBottom: 24,
@@ -678,148 +681,134 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '700',
     color: '#1E293B',
   },
   unsavedIndicator: {
-    backgroundColor: '#FEF3C7',
+    backgroundColor: '#FFF7ED',
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 12,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#FFEDD5',
   },
   unsavedText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
-    color: '#D97706',
+    color: '#EA580C',
   },
 
-  // Menu Items - Consistent with Citizen Profile
-  menuIconCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  menuItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+  // Cards & Menu Items
+  card: {
     backgroundColor: '#FFF',
-    paddingVertical: 16,
-    paddingHorizontal: 16,
-    borderRadius: 12,
-    marginBottom: 8,
-    elevation: 1,
+    borderRadius: 16,
+    paddingVertical: 4,
+    elevation: 2,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
-    shadowRadius: 2,
+    shadowRadius: 4,
+  },
+  menuItemInner: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
   },
   menuItemLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
   },
+  menuIconCircle: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 14,
+  },
+  menuItemTextContainer: {
+    flex: 1,
+  },
   menuItemText: {
     fontSize: 15,
-    fontWeight: '500',
+    fontWeight: '600',
     color: '#1E293B',
   },
   menuItemDescription: {
-    fontSize: 13,
+    fontSize: 12,
     color: '#64748B',
-    marginTop: 2,
+    marginTop: 1,
   },
   menuItemRight: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
   },
   menuItemValue: {
-    fontSize: 14,
+    fontSize: 13,
     color: '#64748B',
-    maxWidth: 120,
+    maxWidth: 150,
   },
-  // Official Information - Individual Cards Like Other Sections
+  divider: {
+    height: 1,
+    backgroundColor: '#F1F5F9',
+    marginLeft: 68,
+  },
+
+  // Official Info Specific
   officialInfoItem: {
-    backgroundColor: '#FFF',
-    paddingVertical: 16,
+    paddingVertical: 14,
     paddingHorizontal: 16,
-    borderRadius: 12,
-    marginBottom: 8,
-    elevation: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
   },
   officialInfoHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
-  },
-  officialInfoLabel: {
-    fontSize: 15,
-    fontWeight: '500',
-    color: '#1E293B',
   },
   officialInfoValue: {
     fontSize: 14,
-    color: '#64748B',
-    marginLeft: 52, // Align with label text (icon width + margin)
-    fontWeight: '400',
+    color: '#1E293B',
+    fontWeight: '500',
+    marginTop: 2,
   },
 
-
-  // Removed admin badge styles - no longer needed
-  
-  // Save Button - Matching Citizen Design
+  // Buttons
   saveButton: {
     backgroundColor: colors.primary,
-    borderRadius: 16,
-    overflow: 'hidden',
+    borderRadius: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    gap: 10,
     elevation: 2,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
   },
   saveButtonDisabled: {
-    backgroundColor: '#9CA3AF',
-    opacity: 0.6,
-  },
-  saveButtonContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: 24,
-    gap: 12,
+    backgroundColor: '#CBD5E1',
+    elevation: 0,
   },
   saveButtonText: {
+    color: '#FFF',
     fontSize: 16,
     fontWeight: '600',
-    color: '#FFF',
   },
-
-  // Logout Button - Matching Citizen Design
   logoutButton: {
-    backgroundColor: '#FEF2F2',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#FEE2E2',
-    overflow: 'hidden',
-  },
-  logoutButtonContent: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FEE2E2',
+    borderRadius: 14,
     paddingVertical: 16,
-    paddingHorizontal: 24,
-    gap: 12,
+    gap: 10,
   },
   logoutButtonText: {
     fontSize: 16,
@@ -827,60 +816,35 @@ const styles = StyleSheet.create({
     color: '#EF4444',
   },
 
-  // Empty State - Consistent with Citizen Profile
+  // Misc
   emptyState: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 24,
+    padding: 40,
+    marginTop: 100,
   },
   emptyText: {
     marginTop: 16,
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#1E293B',
-    textAlign: 'center',
-  },
-  emptySubtext: {
-    fontSize: 14,
-    color: '#94A3B8',
-    textAlign: 'center',
-    marginTop: 8,
-    marginHorizontal: 16,
-  },
-  retryButton: {
-    marginTop: 24,
-    paddingHorizontal: 32,
-    paddingVertical: 12,
-    backgroundColor: colors.primary,
-    borderRadius: 8,
-  },
-  retryButtonText: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#FFF',
+    color: '#64748B',
+    fontWeight: '500',
   },
-
-  // Error Container - Consistent styling
   errorContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFEBEE',
+    backgroundColor: '#FEF2F2',
     padding: 12,
     marginHorizontal: 16,
-    marginTop: 16,
-    borderRadius: 8,
-    gap: 8,
+    marginBottom: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#FEE2E2',
+    gap: 10,
   },
   errorText: {
     flex: 1,
     fontSize: 14,
-    color: '#D32F2F',
-  },
-  errorHint: {
-    marginLeft: 28,
-    marginTop: 4,
-    color: '#9C27B0',
-    fontSize: 12,
+    color: '#DC2626',
   },
 });

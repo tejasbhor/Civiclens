@@ -17,6 +17,7 @@ import { CitizenHeader } from "@/components/layout/CitizenHeader";
 import { useConnectionStatus } from "@/hooks/useConnectionStatus";
 import { logger } from "@/lib/logger";
 import { cn } from "@/lib/utils";
+import { getMediaUrl } from "@/lib/mediaUtils";
 
 interface ReportDetails {
   id: number;
@@ -204,13 +205,7 @@ const TrackReport = () => {
     return { citizen, officerBefore, officerAfter, all: allMedia };
   }, [report?.media]);
 
-  const getMediaUrl = (url: string) => {
-    if (!url) return '';
-    if (url.startsWith('http')) return url;
-    const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
-    const baseUrl = API_BASE.replace('/api/v1', '');
-    return `${baseUrl}${url}`;
-  };
+
 
   const handleMediaClick = (index: number) => {
     setSelectedMediaIndex(index);

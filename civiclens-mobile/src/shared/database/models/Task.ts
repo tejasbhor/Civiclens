@@ -74,7 +74,9 @@ export class TaskModel {
       ]
     );
 
-    return this.findById(result.lastInsertRowId)!;
+    const task = await this.findById(result.lastInsertRowId);
+    if (!task) throw new Error('Failed to create task');
+    return task;
   }
 
   // Find task by ID

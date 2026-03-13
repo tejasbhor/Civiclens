@@ -9,6 +9,7 @@ import { SplashScreen } from '@/features/auth/screens/SplashScreen';
 import { BiometricLockScreen } from '@/features/auth/screens/BiometricLockScreen';
 import { AuthErrorBoundary } from './src/shared/components/AuthErrorBoundary';
 import { useAppInitialization } from '@shared/hooks/useAppInitialization';
+import { pushNotificationService } from '@shared/services/notifications/pushNotificationService';
 
 const log = createLogger('App');
 
@@ -24,7 +25,7 @@ const queryClient = new QueryClient({
 export default function App() {
   const { isReady, error } = useAppInitialization();
   const [isUnlocked, setIsUnlocked] = useState(false);
-  
+
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const isBiometricEnabled = useAuthStore((state) => state.isBiometricEnabled);
 
@@ -39,6 +40,17 @@ export default function App() {
       }
     }
   }, [isReady, isAuthenticated, isBiometricEnabled]);
+
+  // Request push notification permissions and register token when authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      pushNotificationService.registerForPushNotificationsAsync().then((token) => {
+        if (token) {
+          log.info(`Push notification registered successfully.`);
+        }
+      });
+    }
+  }, [isAuthenticated]);
 
   if (error) {
     return (

@@ -51,9 +51,19 @@ class AuditLogger:
             return
         
         # Extract user info
+        # IMPORTANT: Access user attributes safely from __dict__ to avoid
+        # triggering lazy loads which fail in async contexts (MissingGreenlet).
+        # The attributes may already be loaded in the instance __dict__.
         if user:
-            user_id = user.id
-            user_role = user.role.value
+            try:
+                # Read from the already-loaded instance dict (no DB trip)
+                inst_dict = user.__dict__
+                if user_id is None:
+                    user_id = inst_dict.get('id') or user_id
+                role_val = inst_dict.get('role')
+                user_role = role_val.value if role_val is not None else None
+            except Exception:
+                user_role = None
         else:
             user_role = None
         

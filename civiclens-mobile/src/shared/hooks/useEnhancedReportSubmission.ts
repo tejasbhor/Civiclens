@@ -77,7 +77,7 @@ export const useEnhancedReportSubmission = () => {
     });
 
     const healthCheck = await backendHealthCheck.checkHealth();
-    
+
     if (!healthCheck.isBackendReachable) {
       log.warn(`Backend unreachable - offline mode (last checked: ${new Date(healthCheck.lastChecked).toISOString()})`);
       return 'backend_down';
@@ -102,7 +102,7 @@ export const useEnhancedReportSubmission = () => {
 
     try {
       const formData = new FormData();
-      
+
       // Add report fields
       formData.append('title', reportData.title.trim());
       formData.append('description', reportData.description.trim());
@@ -256,7 +256,7 @@ export const useEnhancedReportSubmission = () => {
         stage: 'validating',
         message: 'Validating report data...',
       });
-      
+
       // Basic validation
       if (!reportData.title || reportData.title.trim().length < 5) {
         throw new Error('Title must be at least 5 characters long');
@@ -280,7 +280,12 @@ export const useEnhancedReportSubmission = () => {
           maxHeight: 1920,
           quality: 0.8,
         });
-        compressedPhotos.push(compressed);
+        compressedPhotos.push({
+          uri: compressed.uri,
+          width: compressed.width,
+          height: compressed.height,
+          size: Math.round(compressed.sizeKB * 1024)
+        });
       }
 
       const totalSize = compressedPhotos.reduce((sum, photo) => sum + photo.size, 0);
@@ -300,34 +305,34 @@ export const useEnhancedReportSubmission = () => {
             message: 'Report submitted successfully!',
             percentage: 100,
           });
-          
+
         } catch (error) {
           log.warn('⚠️ Online submission failed, falling back to offline mode:', error);
-          
+
           // Fallback to offline
           result = await submitOffline(reportData, compressedPhotos);
           result.backendUnavailable = true;
-          
+
           setProgress({
             stage: 'queued',
             message: 'Saved offline. Will sync when connection is restored.',
           });
         }
-        
+
       } else {
         // OFFLINE MODE or BACKEND DOWN - Queue for later
         result = await submitOffline(reportData, compressedPhotos);
         result.backendUnavailable = (mode === 'backend_down');
-        
+
         const message = mode === 'backend_down'
           ? 'Server unavailable. Saved offline and will sync automatically when server is back.'
           : 'No internet connection. Saved offline and will sync when you\'re back online.';
-          
+
         setProgress({
           stage: 'queued',
           message,
         });
-        
+
         // Show explicit user notification for offline mode
         Alert.alert(
           '📱 Saved Offline',

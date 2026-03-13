@@ -4,8 +4,10 @@ import { FileStorage, cacheService } from '@shared/services/storage';
 import { networkService } from '@shared/services/network/networkService';
 import { syncManager } from '@shared/services/sync/syncManager';
 import { submissionQueue } from '@shared/services/queue/submissionQueue';
+import { registerBackgroundSync } from '@shared/services/sync/backgroundFetch';
 import { useAuthStore } from '@store/authStore';
 import { createLogger } from '@shared/utils/logger';
+import { APP_CONFIG } from '@/config/appConfig';
 
 const log = createLogger('AppInit');
 
@@ -21,7 +23,7 @@ export function useAppInitialization() {
       const startTime = Date.now();
 
       try {
-        log.info('Initializing CivicLens Mobile');
+        log.info(`Initializing ${APP_CONFIG.appName}`);
 
         // Critical initialization (must complete)
         await Promise.all([
@@ -60,6 +62,11 @@ export function useAppInitialization() {
               submissionQueue.initialize()
                 .then(() => log.info('Submission queue initialized'))
                 .catch(e => log.warn('Submission queue init failed', e))
+            );
+            parallelTasks.push(
+              registerBackgroundSync()
+                .then(() => log.info('Background sync initialized'))
+                .catch(e => log.warn('Background sync init failed', e))
             );
           }
 

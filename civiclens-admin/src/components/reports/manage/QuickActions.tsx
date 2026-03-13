@@ -215,7 +215,7 @@ export function QuickActions({ report, onUpdate }: QuickActionsProps) {
               <div className="flex items-center justify-between">
                 <span className="text-sm text-gray-600">Department:</span>
                 <span className="text-sm font-medium text-gray-900">
-                  {report.department.short || report.department.name}
+                  { (report.department as any).short || report.department.name }
                 </span>
               </div>
             )}

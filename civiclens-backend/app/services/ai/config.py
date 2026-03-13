@@ -79,6 +79,30 @@ class AIConfig:
             "department_name": "Horticulture Department",
             "examples": ["broken bench", "damaged park", "tree cutting needed", "garden maintenance"]
         },
+        "public_safety": {
+            "label": "public safety security law enforcement or emergency prevention",
+            "keywords": ["safety", "security", "police", "crime", "patrol", "street crime",
+                        "loitering", "harassment", "danger", "hazard", "threat", "emergency",
+                        "protection", "surveillance", "cctv", "monitoring", "safety measure"],
+            "department_name": "Security Department",
+            "examples": ["street harassment", "loitering in park", "clogged safety exit", "security concern"]
+        },
+        "environment": {
+            "label": "environmental issues pollution noise or ecological concerns",
+            "keywords": ["environment", "pollution", "noise", "air quality", "smoke", 
+                        "emissions", "waste dumping", "plastic", "trees", "lake", "water bodies",
+                        "eco-friendly", "conservation", "nature", "flora", "fauna"],
+            "department_name": "Environment Department",
+            "examples": ["excessive smoke", "noise pollution", "illegal dumping in lake", "air quality issue"]
+        },
+        "infrastructure": {
+            "label": "general urban infrastructure building or construction related issues",
+            "keywords": ["infrastructure", "building", "construction", "bridge", "tunnel",
+                        "flyover", "public structure", "metro", "station", "development",
+                        "planning", "renovation", "urban", "architecture", "smart city"],
+            "department_name": "Town Planning Department",
+            "examples": ["flyover crack", "station maintenance", "construction debris", "building issue"]
+        },
         "other": {
             "label": "other civic issues not fitting specific categories requiring review",
             "keywords": ["other", "miscellaneous", "general", "complaint", "issue"],
@@ -111,6 +135,9 @@ class AIConfig:
         "electricity": 150,     # Transformer coverage
         "drainage": 200,        # Drainage systems extend
         "public_property": 100, # Parks/benches are localized
+        "public_safety": 150,   # Security issues can be broader
+        "environment": 200,     # Environmental issues affect larger areas
+        "infrastructure": 200,  # Infrastructure projects are large
         "other": 150            # Default
     }
     

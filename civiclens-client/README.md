@@ -1,102 +1,40 @@
-# CivicLens Client - Citizen & Officer Web Portal
+# CivicLens Citizen & Officer Web Portal
 
-Modern web application for citizens to report civic issues and officers to manage and resolve them.
+React + Vite web application for citizens to report civic issues and officers to manage assigned tasks.
 
-## 🚀 Features
-
-### Citizen Portal
-- **Quick Login** - OTP-based instant access
-- **Full Registration** - Complete account with email and password
-- **Submit Reports** - Report civic issues with photos and location
-- **Track Reports** - Real-time status updates and timeline
-- **My Reports** - View all submitted reports
-- **Profile Management** - Update personal information
-
-### Officer Portal
-- **Task Management** - View and manage assigned tasks
-- **Acknowledge Tasks** - Accept responsibility for reports
-- **Start Work** - Begin resolution process
-- **Complete Work** - Submit completion with before/after photos
-- **Dashboard** - Performance metrics and statistics
-
-## 🛠️ Tech Stack
-
-- **React 18** - Modern UI library
-- **TypeScript** - Type-safe development
-- **Vite** - Fast build tool
-- **shadcn/ui** - Beautiful UI components
-- **Tailwind CSS** - Utility-first styling
-- **React Router** - Client-side routing
-- **Axios** - HTTP client
-- **React Query** - Data fetching and caching
-
-## 📦 Installation
+## Setup
 
 ```bash
-# Install dependencies
 npm install
-
-# Start development server
-npm run dev
-
-# Build for production
-npm run build
-
-# Preview production build
-npm run preview
+cp .env.example .env   # set VITE_API_URL if backend is not on localhost:8000
+npm run dev            # http://localhost:5173
 ```
 
-## 🔧 Configuration
+## Tech Stack
 
-Create a `.env` file in the root directory:
+- React 18
+- TypeScript
+- Vite
+- Tailwind CSS
+- shadcn/ui (Radix-based components)
+- React Router
+- Axios
 
-```env
-# Backend API URL
-VITE_API_URL=http://localhost:8000/api/v1
-```
-
-## 🏃 Development
-
-```bash
-# Start the development server
-npm run dev
-```
-
-The application will be available at `http://localhost:5173`
-
-## 📁 Project Structure
+## Structure
 
 ```
 src/
 ├── pages/
-│   ├── citizen/          # Citizen portal pages
-│   └── officer/          # Officer portal pages
-├── components/           # Reusable UI components
-├── services/            # API services
-├── hooks/               # Custom React hooks
-├── lib/                 # Utilities and helpers
-└── App.tsx             # Main application component
+│   ├── citizen/       Citizen portal (report submission, tracking, profile)
+│   └── officer/       Officer portal (task management, work completion)
+├── components/        Reusable UI components (media viewer, layout, modals)
+├── services/          API client and service modules
+├── hooks/             Custom React hooks (auth, connection status)
+├── lib/               Utilities (media URL handling, logging)
+├── contexts/          React contexts (auth)
+└── App.tsx            Main app with routing
 ```
 
-## 🔗 Backend Integration
+## Production
 
-This client connects to the CivicLens FastAPI backend. Make sure the backend is running before starting the client.
-
-**Backend Repository:** `../civiclens-backend`
-
-**Backend API Docs:** http://localhost:8000/docs
-
-## 🧪 Testing
-
-```bash
-# Run linter
-npm run lint
-```
-
-## 📝 License
-
-Private - CivicLens Project
-
-## 🤝 Contributing
-
-This is a private project. Contact the team for contribution guidelines.
+Built as a static SPA and served by nginx inside Docker. Build args inject API URLs at build time via `docker-compose.yml`. The `nginx.conf` handles SPA routing (all paths → `index.html`).

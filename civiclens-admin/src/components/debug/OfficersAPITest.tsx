@@ -93,7 +93,7 @@ export function OfficersAPITest() {
             <p><strong>{officer.full_name || officer.email}</strong></p>
             <p>Department ID: {officer.department_id}</p>
             <p>Role: {officer.role}</p>
-            <p>Employee ID: {officer.employee_id}</p>
+            <p>Employee ID: {(officer as any).employee_id}</p>
           </div>
         ))}
       </div>

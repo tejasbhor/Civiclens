@@ -100,7 +100,7 @@ export function WorkProgressModal({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!workUpdate.work_description.trim()) {
+    if (!workUpdate.work_description?.trim()) {
       setError('Please provide a work description');
       return;
     }

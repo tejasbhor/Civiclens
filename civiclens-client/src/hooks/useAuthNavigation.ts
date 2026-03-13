@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { APP_CONFIG } from '@/config/appConfig';
 
 /**
  * Authentication screen types with their associated data
@@ -117,7 +118,7 @@ export const isOTPScreen = (screen: AuthScreen): boolean => {
 export const getScreenTitle = (screen: AuthScreen): string => {
     switch (screen.type) {
         case 'SELECT_MODE':
-            return 'Welcome to CivicLens';
+            return `Welcome to ${APP_CONFIG.appName}`;
         case 'QUICK_OTP_PHONE':
             return 'Quick Login';
         case 'QUICK_OTP_VERIFY':
@@ -129,7 +130,7 @@ export const getScreenTitle = (screen: AuthScreen): string => {
         case 'PASSWORD_LOGIN':
             return 'Welcome Back';
         default:
-            return 'CivicLens';
+            return APP_CONFIG.appName;
     }
 };
 
@@ -145,12 +146,12 @@ export const getScreenSubtitle = (screen: AuthScreen): string => {
         case 'QUICK_OTP_VERIFY':
             return `OTP sent to ${screen.phone}`;
         case 'REGISTER_FORM':
-            return 'Get access to all CivicLens features';
+            return `Get access to all ${APP_CONFIG.appName} features`;
         case 'REGISTER_VERIFY':
             return `OTP sent to ${screen.phone}`;
         case 'PASSWORD_LOGIN':
             return 'Login to your account';
         default:
-            return 'CivicLens Portal';
+            return `${APP_CONFIG.appName} Portal`;
     }
 };

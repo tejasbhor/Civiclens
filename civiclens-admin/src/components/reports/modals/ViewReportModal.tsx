@@ -111,7 +111,7 @@ export function ViewReportModal({ isOpen, onClose, reportId, admin = false, onUp
                     {/* Footer */}
                     <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex justify-between items-center">
                         <div className="text-xs text-gray-500">
-                            {report && `Last updated: ${new Date(report.updated_at).toLocaleString()}`}
+                            {report && report.updated_at && `Last updated: ${new Date(report.updated_at).toLocaleString()}`}
                         </div>
                         <button
                             onClick={onClose}

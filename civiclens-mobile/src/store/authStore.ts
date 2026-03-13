@@ -90,7 +90,20 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       // Set loading state during logout
       set({ isLoading: true });
 
-      // Clear tokens from secure storage
+      // 1. Unregister push token from backend while we STILL have a session
+      try {
+        const { pushNotificationService } = await import('@shared/services/notifications/pushNotificationService');
+        await pushNotificationService.unregisterFromBackend();
+        
+        // Also clear any existing notifications from the notification tray
+        const Notifications = await import('expo-notifications');
+        await Notifications.dismissAllNotificationsAsync();
+        console.log('✅ Push notification token unregistered and tray cleared');
+      } catch (pushError) {
+        console.warn('Failed to unregister push token:', pushError);
+      }
+
+      // 2. Clear tokens and user data from secure storage
       await SecureStorage.clearAuthTokens();
       await SecureStorage.clearUserData();
 
@@ -113,9 +126,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       try {
         const { useReportStore } = await import('./reportStore');
         const { useDashboardStore } = await import('./dashboardStore');
+        const { useOfficerProfileStore } = await import('./officerProfileStore');
 
         useReportStore.getState().reset();
         useDashboardStore.getState().reset();
+        useOfficerProfileStore.getState().reset();
 
         console.log('✅ Stores reset successfully');
       } catch (storeError) {

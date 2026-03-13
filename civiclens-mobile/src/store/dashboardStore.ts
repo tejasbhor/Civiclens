@@ -99,7 +99,7 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
    */
   fetchDashboardData: async () => {
     const state = get();
-    
+
     // Don't fetch if already loading
     if (state.isLoading) return;
 
@@ -121,7 +121,7 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
     const maxRetries = 3;
     const retryWindow = 60000; // 1 minute
     const now = Date.now();
-    
+
     if (state.retryCount >= maxRetries && state.lastRetryTime && (now - state.lastRetryTime) < retryWindow) {
       console.warn('[Dashboard] Circuit breaker active - too many retries');
       return;
@@ -141,7 +141,7 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
         `/users/me/stats`,
         { ttl: 5 * 60 * 1000, staleWhileRevalidate: true }
       );
-      
+
       // Map backend response to DashboardStats interface
       const stats: DashboardStats = {
         issuesRaised: statsRaw.total_reports || 0,
@@ -149,7 +149,7 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
         resolved: statsRaw.resolved_reports || 0,
         total: statsRaw.total_reports || 0,
       };
-      
+
       if (__DEV__) {
         console.log('[Dashboard] Stats mapped successfully:', stats);
       }
@@ -174,8 +174,12 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
         console.log('[Dashboard] Data loaded successfully (cache-first)');
       }
     } catch (error: any) {
-      console.error('[Dashboard] Failed to fetch data:', error);
-      
+      if (error?.isAxiosError && error.message === 'Network Error') {
+        console.info('[Dashboard] Network unavailable, relying on cached data');
+      } else {
+        console.error('[Dashboard] Failed to fetch data:', error);
+      }
+
       // Handle auth errors specially - don't retry
       if (error?.response?.status === 401 || error?.response?.status === 403) {
         set({
@@ -185,7 +189,7 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
         });
         return;
       }
-      
+
       // Show error but keep existing data if available
       set({
         error: error instanceof Error ? error.message : 'Failed to load dashboard',

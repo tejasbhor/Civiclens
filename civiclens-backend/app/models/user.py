@@ -103,6 +103,7 @@ class User(BaseModel):
     push_notifications = Column(Boolean, default=True)
     sms_notifications = Column(Boolean, default=True)
     email_notifications = Column(Boolean, default=False)
+    device_token = Column(String(255), nullable=True)  # For push notifications
 
     # ============ Government Integration (Future) ============
     aadhaar_linked = Column(Boolean, default=False)

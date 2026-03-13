@@ -30,7 +30,7 @@ import { getMediaUrl } from '@shared/utils/mediaUtils';
 const { width } = Dimensions.get('window');
 
 interface ReportDetailResponse {
-  id: number;
+  id: number | string;
   report_number: string;
   title: string;
   description: string;
@@ -74,7 +74,7 @@ interface ReportDetailResponse {
 export const ReportDetailScreen: React.FC = () => {
   const route = useRoute();
   const insets = useSafeAreaInsets();
-  const { reportId } = route.params as { reportId: number };
+  const { reportId } = route.params as { reportId: number | string };
 
   const [loading, setLoading] = useState(true);
   const [report, setReport] = useState<ReportDetailResponse | null>(null);
@@ -91,16 +91,53 @@ export const ReportDetailScreen: React.FC = () => {
     try {
       setLoading(true);
       setError(null);
-      
+
       // Fetch report details
-      const reportData = await reportApi.getReportDetail(reportId);
-      setReport(reportData);
-      
-      // Try to fetch status history (may not be available for all users)
+      let reportData: ReportDetailResponse;
       try {
-        const { apiClient } = await import('@shared/services/api/apiClient');
-        const historyData = await apiClient.get<any>(`/reports/${reportId}/history`);
-        setStatusHistory(historyData.history || []);
+        if (typeof reportId === 'string' && reportId.startsWith('local_')) {
+          throw new Error('Offline report'); // skip API for offline IDs
+        }
+        reportData = await reportApi.getReportDetail(Number(reportId));
+      } catch (apiError) {
+        console.log('Failed to fetch from API, looking in local store for', reportId);
+        const { useReportStore } = await import('@store/reportStore');
+        const localReport = useReportStore.getState().reports.find(r =>
+          String(r.id) === String(reportId) || String(r.local_id) === String(reportId)
+        );
+
+        if (localReport) {
+          // Format local report to match API response
+          reportData = {
+            ...localReport,
+            id: localReport.id || localReport.local_id || reportId,
+            report_number: localReport.report_number || 'Pending Sync',
+            created_at: localReport.created_at instanceof Date ? localReport.created_at.toISOString() : (localReport.created_at || new Date().toISOString()),
+            updated_at: localReport.updated_at instanceof Date ? localReport.updated_at.toISOString() : (localReport.updated_at || new Date().toISOString()),
+            user: { id: localReport.user_id || 0, full_name: 'You (Offline)', phone: '' },
+            media: localReport.photos ? localReport.photos.map((p: string, i: number) => ({
+              id: i,
+              file_url: p,
+              file_type: 'IMAGE',
+              is_primary: i === 0,
+              upload_source: 'citizen_submission'
+            })) : [],
+          } as unknown as ReportDetailResponse;
+        } else {
+          throw apiError;
+        }
+      }
+      setReport(reportData);
+
+      // Try to fetch status history (may not be available for all users or offline)
+      try {
+        if (!reportData.report_number || reportData.report_number === 'Pending Sync') {
+          setStatusHistory([]);
+        } else {
+          const { apiClient } = await import('@shared/services/api/apiClient');
+          const historyData = await apiClient.get<any>(`/reports/${reportId}/history`);
+          setStatusHistory(historyData.history || []);
+        }
       } catch (histErr) {
         console.log('Status history not available:', histErr);
         setStatusHistory([]);
@@ -214,9 +251,9 @@ export const ReportDetailScreen: React.FC = () => {
         }
       />
 
-      <ScrollView 
-        style={styles.scrollView} 
-        contentContainerStyle={getContentContainerStyle(insets, {})}
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={getContentContainerStyle(insets)}
         showsVerticalScrollIndicator={false}
       >
         {/* Photo Gallery */}
@@ -234,7 +271,7 @@ export const ReportDetailScreen: React.FC = () => {
               {report.media.map((media, index) => {
                 const imageUrl = getMediaUrl(media.file_url);
                 console.log('Loading image:', imageUrl);
-                
+
                 return (
                   <View key={`media-${media.id}-${index}`} style={styles.imageContainer}>
                     <Image
@@ -257,8 +294,8 @@ export const ReportDetailScreen: React.FC = () => {
                                 media.upload_source === 'citizen_submission'
                                   ? '#2196F3'
                                   : media.upload_source === 'officer_before_photo'
-                                  ? '#FF9800'
-                                  : '#4CAF50',
+                                    ? '#FF9800'
+                                    : '#4CAF50',
                             },
                           ]}
                         >
@@ -266,8 +303,8 @@ export const ReportDetailScreen: React.FC = () => {
                             {media.upload_source === 'citizen_submission'
                               ? 'Reported'
                               : media.upload_source === 'officer_before_photo'
-                              ? 'Before Work'
-                              : 'After Work'}
+                                ? 'Before Work'
+                                : 'After Work'}
                           </Text>
                         </View>
                       </View>
@@ -388,7 +425,7 @@ export const ReportDetailScreen: React.FC = () => {
               </View>
             </View>
           </View>
-          
+
           {/* Open in Maps Button */}
           <TouchableOpacity style={styles.openMapsButton} onPress={handleOpenMap}>
             <Ionicons name="navigate" size={20} color="#FFF" />
@@ -399,7 +436,7 @@ export const ReportDetailScreen: React.FC = () => {
         {/* Status Timeline - Collapsible */}
         {statusHistory.length > 0 && (
           <View style={styles.section}>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.collapsibleHeader}
               onPress={() => setIsTimelineExpanded(!isTimelineExpanded)}
               activeOpacity={0.7}
@@ -411,13 +448,13 @@ export const ReportDetailScreen: React.FC = () => {
                   <Text style={styles.timelineBadgeText}>{statusHistory.length}</Text>
                 </View>
               </View>
-              <Ionicons 
-                name={isTimelineExpanded ? "chevron-up" : "chevron-down"} 
-                size={20} 
-                color="#64748B" 
+              <Ionicons
+                name={isTimelineExpanded ? "chevron-up" : "chevron-down"}
+                size={20}
+                color="#64748B"
               />
             </TouchableOpacity>
-            
+
             {isTimelineExpanded && (
               <View style={styles.timeline}>
                 {statusHistory.map((item, index) => (

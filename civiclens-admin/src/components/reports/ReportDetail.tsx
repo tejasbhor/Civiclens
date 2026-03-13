@@ -18,7 +18,7 @@ type Props = {
   hideHeader?: boolean;
 };
 
-const statusTransitions: Record<ReportStatus, ReportStatus[]> = {
+const statusTransitions: Partial<Record<ReportStatus, ReportStatus[]>> = {
   [ReportStatus.RECEIVED]: [ReportStatus.PENDING_CLASSIFICATION, ReportStatus.ASSIGNED_TO_DEPARTMENT],
   [ReportStatus.PENDING_CLASSIFICATION]: [ReportStatus.CLASSIFIED, ReportStatus.ASSIGNED_TO_DEPARTMENT],
   [ReportStatus.CLASSIFIED]: [ReportStatus.ASSIGNED_TO_DEPARTMENT],
@@ -193,7 +193,7 @@ export default function ReportDetail({ reportId, admin = false, onUpdated, hideH
         </head>
         <body>
           <div class="header">
-            <h1>🏛️ CivicLens Report</h1>
+            <h1>CivicLens Report</h1>
             <div class="subtitle">Report #${reportNum}</div>
             <div class="meta">Generated on ${new Date().toLocaleString('en-US', { dateStyle: 'full', timeStyle: 'short' })}</div>
           </div>
@@ -283,7 +283,7 @@ export default function ReportDetail({ reportId, admin = false, onUpdated, hideH
                 ${report.task.officer ? `
                   <div style="background: #f0fdf4; border: 1px solid #86efac; border-radius: 8px; padding: 12px; margin-top: 8px;">
                     <div style="font-weight: 600; color: #166534; margin-bottom: 8px;">Officer: ${report.task.officer.full_name}</div>
-                    ${report.task.officer.employee_id ? `<div style="font-size: 14px; color: #15803d; margin-bottom: 4px;">Employee ID: ${report.task.officer.employee_id}</div>` : ''}
+                    ${(report.task.officer as any).employee_id ? `<div style="font-size: 14px; color: #15803d; margin-bottom: 4px;">Employee ID: ${(report.task.officer as any).employee_id}</div>` : ''}
                     ${report.task.officer.email ? `<div style="font-size: 14px; color: #15803d; margin-bottom: 4px;">Email: ${report.task.officer.email}</div>` : ''}
                     ${report.task.officer.phone ? `<div style="font-size: 14px; color: #15803d; margin-bottom: 4px;">Phone: ${report.task.officer.phone}</div>` : ''}
                     ${report.task.officer.role ? `<div style="font-size: 14px; color: #15803d; margin-bottom: 4px;">Role: ${toLabel(report.task.officer.role)}</div>` : ''}
@@ -369,10 +369,10 @@ export default function ReportDetail({ reportId, admin = false, onUpdated, hideH
           
           <div class="no-print" style="margin-top: 40px; text-align: center; padding: 20px; background: #f9fafb; border-radius: 8px;">
             <button onclick="window.print()" style="padding: 14px 28px; background: #2563eb; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 15px; font-weight: 600; margin-right: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-              🖨️ Print / Save as PDF
+              Print / Save as PDF
             </button>
             <button onclick="window.close()" style="padding: 14px 28px; background: #6b7280; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 15px; font-weight: 600; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-              ✖️ Close
+              Close
             </button>
           </div>
         </body>
@@ -468,17 +468,17 @@ export default function ReportDetail({ reportId, admin = false, onUpdated, hideH
                   <p className="text-sm text-gray-700 mt-1 bg-primary-50 border border-primary-200 rounded-lg p-3 leading-relaxed">{report.classification_notes}</p>
                 </div>
               )}
-              {report.confidence_score && (
+              {report.ai_confidence && (
                 <div>
                   <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">AI Confidence</span>
                   <div className="flex items-center gap-2 mt-1">
                     <div className="flex-1 bg-gray-200 rounded-full h-2">
                       <div
                         className="bg-primary-600 h-2 rounded-full transition-all"
-                        style={{ width: `${Math.round(report.confidence_score * 100)}%` }}
+                        style={{ width: `${Math.round(report.ai_confidence * 100)}%` }}
                       />
                     </div>
-                    <span className="text-sm font-semibold text-gray-900">{Math.round(report.confidence_score * 100)}%</span>
+                    <span className="text-sm font-semibold text-gray-900">{Math.round(report.ai_confidence * 100)}%</span>
                   </div>
                 </div>
               )}

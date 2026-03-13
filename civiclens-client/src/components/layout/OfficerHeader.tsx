@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useState } from "react";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
+import { APP_CONFIG } from "@/config/appConfig";
 
 interface OfficerHeaderProps {
   onRefresh?: () => void;
@@ -30,12 +31,12 @@ export const OfficerHeader = ({ onRefresh, refreshing = false }: OfficerHeaderPr
         <div className="flex items-center justify-between">
           {/* Logo and Branding */}
           <div className="flex items-center gap-3">
-            <div 
+            <div
               className="w-10 h-10 rounded-lg bg-gradient-to-br from-secondary to-accent flex items-center justify-center cursor-pointer transition-transform hover:scale-105"
               onClick={() => navigate('/officer/dashboard')}
               role="button"
               tabIndex={0}
-              aria-label="CivicLens Officer Portal Home"
+              aria-label={`${APP_CONFIG.appName} Officer Portal Home`}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' || e.key === ' ') {
                   navigate('/officer/dashboard');
@@ -45,7 +46,7 @@ export const OfficerHeader = ({ onRefresh, refreshing = false }: OfficerHeaderPr
               <span className="text-lg font-bold text-white">CL</span>
             </div>
             <div>
-              <h1 className="text-lg font-bold text-foreground">CivicLens</h1>
+              <h1 className="text-lg font-bold text-foreground">{APP_CONFIG.appName}</h1>
               <p className="text-xs text-muted-foreground hidden sm:block">Officer Portal</p>
             </div>
           </div>

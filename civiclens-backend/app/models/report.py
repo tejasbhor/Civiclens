@@ -37,6 +37,10 @@ class ReportCategory(str, enum.Enum):
     STREETLIGHT = "streetlight"
     DRAINAGE = "drainage"
     PUBLIC_PROPERTY = "public_property"
+    # New modular categories for white-label support
+    PUBLIC_SAFETY = "public_safety"
+    ENVIRONMENT = "environment"
+    INFRASTRUCTURE = "infrastructure"
     OTHER = "other"
 
 class Report(BaseModel):

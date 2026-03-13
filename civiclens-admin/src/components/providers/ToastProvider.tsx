@@ -9,7 +9,7 @@ import { Toaster } from 'react-hot-toast';
 export function ToastProvider() {
     return (
         <Toaster
-            position="top-right"
+            position="bottom-right"
             toastOptions={{
                 // Default options
                 duration: 4000,

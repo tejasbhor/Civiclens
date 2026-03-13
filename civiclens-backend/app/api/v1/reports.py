@@ -78,67 +78,72 @@ def serialize_report_with_details(report, current_user: Optional[User] = None, b
 
     # Add user (limited fields)
     try:
-        u = getattr(report, "user", None)
-        if u:
-            # Check for PII access authorization
-            # Only owner or privileged users (Officers/Admins) can see phone number
-            is_owner = current_user and current_user.id == u.id
-            is_privileged = current_user and current_user.can_access_admin_portal()
+        # Use __dict__ to avoid triggering MissingGreenlet lazy load queries
+        if hasattr(report, '__dict__') and 'user' in report.__dict__:
+            u = report.__dict__['user']
+            if u:
+                # Check for PII access authorization
+                # Only owner or privileged users (Officers/Admins) can see phone number
+                is_owner = current_user and current_user.id == u.id
+                is_privileged = current_user and current_user.can_access_admin_portal()
 
-            user_data = {
-                "id": u.id,
-                "full_name": getattr(u, "full_name", None),
-                "role": getattr(u, "role", None).value if getattr(u, "role", None) and hasattr(u.role, "value") else str(getattr(u, "role", None)) if getattr(u, "role", None) else None,
-            }
+                user_data = {
+                    "id": u.id,
+                    "full_name": getattr(u, "full_name", None),
+                    "role": getattr(u, "role", None).value if getattr(u, "role", None) and hasattr(u.role, "value") else str(getattr(u, "role", None)) if getattr(u, "role", None) else None,
+                }
 
-            # Only add sensitive PII if authorized
-            if is_owner or is_privileged:
-                user_data["phone"] = getattr(u, "phone", None)
+                # Only add sensitive PII if authorized
+                if is_owner or is_privileged:
+                    user_data["phone"] = getattr(u, "phone", None)
 
-            payload["user"] = user_data
+                payload["user"] = user_data
     except Exception:
         pass
 
     # Add department (limited fields)
     try:
-        d = getattr(report, "department", None)
-        if d:
-            payload["department"] = {
-                "id": d.id,
-                "name": getattr(d, "name", None),
-            }
+        if hasattr(report, '__dict__') and 'department' in report.__dict__:
+            d = report.__dict__['department']
+            if d:
+                payload["department"] = {
+                    "id": d.id,
+                    "name": getattr(d, "name", None),
+                }
     except Exception:
         pass
 
     # Add task (with officer details)
     try:
-        t = getattr(report, "task", None)
-        if t:
-            payload["task"] = {
-                "id": t.id,
-                "status": getattr(t, "status", None).value if getattr(t, "status", None) and hasattr(t.status, "value") else str(getattr(t, "status", None)) if getattr(t, "status", None) else None,
-                "assigned_to": getattr(t, "assigned_to", None),
-                "assigned_by": getattr(t, "assigned_by", None),
-                "priority": getattr(t, "priority", None),
-                "notes": getattr(t, "notes", None),
-                "assigned_at": t.assigned_at.isoformat() if getattr(t, "assigned_at", None) else None,
-                "acknowledged_at": t.acknowledged_at.isoformat() if getattr(t, "acknowledged_at", None) else None,
-                "started_at": t.started_at.isoformat() if getattr(t, "started_at", None) else None,
-                "resolved_at": t.resolved_at.isoformat() if getattr(t, "resolved_at", None) else None,
-                "officer": None,
-            }
-            
-            # Add officer details if loaded
-            officer = getattr(t, "officer", None)
-            if officer:
-                payload["task"]["officer"] = {
-                    "id": officer.id,
-                    "full_name": getattr(officer, "full_name", None),
-                    "email": getattr(officer, "email", None),
-                    "phone": getattr(officer, "phone", None),
-                    "employee_id": getattr(officer, "employee_id", None),
-                    "role": getattr(officer, "role", None).value if getattr(officer, "role", None) and hasattr(officer.role, "value") else str(getattr(officer, "role", None)) if getattr(officer, "role", None) else None,
+        if hasattr(report, '__dict__') and 'task' in report.__dict__:
+            t = report.__dict__['task']
+            if t:
+                payload["task"] = {
+                    "id": t.id,
+                    "status": getattr(t, "status", None).value if getattr(t, "status", None) and hasattr(t.status, "value") else str(getattr(t, "status", None)) if getattr(t, "status", None) else None,
+                    "assigned_to": getattr(t, "assigned_to", None),
+                    "assigned_by": getattr(t, "assigned_by", None),
+                    "priority": getattr(t, "priority", None),
+                    "notes": getattr(t, "notes", None),
+                    "assigned_at": t.assigned_at.isoformat() if getattr(t, "assigned_at", None) else None,
+                    "acknowledged_at": t.acknowledged_at.isoformat() if getattr(t, "acknowledged_at", None) else None,
+                    "started_at": t.started_at.isoformat() if getattr(t, "started_at", None) else None,
+                    "resolved_at": t.resolved_at.isoformat() if getattr(t, "resolved_at", None) else None,
+                    "officer": None,
                 }
+                
+                # Add officer details if loaded
+                if hasattr(t, '__dict__') and 'officer' in t.__dict__:
+                    officer = t.__dict__['officer']
+                    if officer:
+                        payload["task"]["officer"] = {
+                            "id": officer.id,
+                            "full_name": getattr(officer, "full_name", None),
+                            "email": getattr(officer, "email", None),
+                            "phone": getattr(officer, "phone", None),
+                            "employee_id": getattr(officer, "employee_id", None),
+                            "role": getattr(officer, "role", None).value if getattr(officer, "role", None) and hasattr(officer.role, "value") else str(getattr(officer, "role", None)) if getattr(officer, "role", None) else None,
+                        }
     except Exception as e:
         logger.warning(f"Failed to serialize task for report {report.id}: {e}")
         pass
@@ -276,13 +281,14 @@ async def create_report(
         while retry_count < max_retries:
             try:
                 # Generate report_number atomically using Redis
-                city = settings.CITY_CODE or "NMC"
+                city = settings.CITY_CODE or settings.ORG_SHORT_NAME or "MC"
+                prefix = settings.REPORT_NUMBER_PREFIX or "CL"
                 year = datetime.utcnow().year
                 redis = await get_redis()
                 
                 # Increment sequence atomically in Redis
                 seq = await redis.incr(f"seq:report_number:{city}:{year}")
-                report_number = f"CL-{year}-{city}-{seq:05d}"
+                report_number = f"{prefix}-{year}-{city}-{seq:05d}"
                 
                 # Check for explicit duplicate report_number in this session
                 # This prevents hitting DB constraints if we can detect it earlier
@@ -564,10 +570,10 @@ async def get_reports(
 
 @router.get("/map-data", response_model=dict)
 async def get_map_data(
-    status: Optional[ReportStatus] = None,
-    severity: Optional[ReportSeverity] = None,
-    category: Optional[str] = None,
-    department_id: Optional[int] = None,
+    status: Optional[str] = Query(None, description="Comma-separated status list (e.g., received,acknowledged)"),
+    severity: Optional[str] = Query(None, description="Comma-separated severity list (e.g., low,high)"),
+    category: Optional[str] = Query(None, description="Comma-separated category list"),
+    department_id: Optional[int] = Query(None),
     limit: int = Query(1000, ge=1, le=5000, description="Maximum number of reports to return for map"),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -589,8 +595,8 @@ async def get_map_data(
     
     # Build cache key from filters
     cache_key_parts = {
-        'status': status.value if status else None,
-        'severity': severity.value if severity else None,
+        'status': status,
+        'severity': severity,
         'category': category,
         'department_id': department_id,
         'limit': limit
@@ -627,11 +633,20 @@ async def get_map_data(
     
     # Apply filters
     if status:
-        query = query.where(Report.status == status)
+        status_list = [s.strip() for s in status.split(',') if s.strip()]
+        if status_list:
+            query = query.where(Report.status.in_(status_list))
+            
     if severity:
-        query = query.where(Report.severity == severity)
+        severity_list = [s.strip() for s in severity.split(',') if s.strip()]
+        if severity_list:
+            query = query.where(Report.severity.in_(severity_list))
+            
     if category:
-        query = query.where(Report.category == category)
+        category_list = [c.strip() for c in category.split(',') if c.strip()]
+        if category_list:
+            query = query.where(Report.category.in_(category_list))
+            
     if department_id:
         query = query.where(Report.department_id == department_id)
     
@@ -683,6 +698,9 @@ async def get_my_reports(
     request: Request,
     skip: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
+    status: Optional[ReportStatus] = Query(None),
+    severity: Optional[ReportSeverity] = Query(None),
+    category: Optional[str] = Query(None),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -694,8 +712,28 @@ async def get_my_reports(
         window_seconds=60
     )
     
-    reports = await report_crud.get_by_user(db, current_user.id, skip=skip, limit=limit)
+    # Build filters
+    filters = {'user_id': current_user.id}
+    if status:
+        filters['status'] = status
+    if severity:
+        filters['severity'] = severity
+    if category:
+        filters['category'] = category
+        
+    reports = await report_crud.get_multi(
+        db, 
+        skip=skip, 
+        limit=limit, 
+        filters=filters,
+        relationships=['user', 'department', 'media', 'task']
+    )
     
+    # Load task.officer relationship for reports that have tasks
+    for report in reports:
+        if report.task:
+            await db.refresh(report.task, ['officer'])
+
     # Serialize with details (includes media)
     return [serialize_report_with_details(report, current_user) for report in reports]
 

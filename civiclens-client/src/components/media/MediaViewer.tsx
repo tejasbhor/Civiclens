@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ChevronLeft, ChevronRight, X, Download, ZoomIn, ZoomOut, RotateCw } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getMediaUrl } from "@/lib/mediaUtils";
 
 export interface MediaItem {
   id: number;
@@ -37,16 +38,10 @@ export const MediaViewer = ({ media, initialIndex = 0, isOpen, onClose }: MediaV
   }, [isOpen, initialIndex]);
 
   const currentMedia = media[currentIndex];
-  const isImage = currentMedia?.file_type?.toLowerCase() === 'image' || 
-                  currentMedia?.file_url?.match(/\.(jpg|jpeg|png|gif|webp)$/i);
+  const isImage = currentMedia?.file_type?.toLowerCase() === 'image' ||
+    currentMedia?.file_url?.match(/\.(jpg|jpeg|png|gif|webp)$/i);
 
-  const getMediaUrl = (url: string) => {
-    if (!url) return '';
-    if (url.startsWith('http')) return url;
-    const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
-    const baseUrl = API_BASE.replace('/api/v1', '');
-    return `${baseUrl}${url}`;
-  };
+
 
   const getUploadSourceLabel = (source?: string) => {
     switch (source) {

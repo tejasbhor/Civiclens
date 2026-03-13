@@ -11,19 +11,19 @@ interface MapPreviewProps {
 
 export const MapPreview: React.FC<MapPreviewProps> = ({ latitude, longitude, address, onClose }) => {
   const [mapProvider, setMapProvider] = useState<'osm' | 'google' | 'mapmyindia'>('osm');
-  
+
   const osmUrl = `https://www.openstreetmap.org/export/embed.html?bbox=${longitude - 0.01},${latitude - 0.01},${longitude + 0.01},${latitude + 0.01}&layer=mapnik&marker=${latitude},${longitude}`;
   const googleUrl = `https://maps.google.com/maps?q=${latitude},${longitude}&z=15&output=embed`;
   const mapMyIndiaUrl = `https://maps.mapmyindia.com/embed?lat=${latitude}&lng=${longitude}&zoom=15&marker=${latitude},${longitude}`;
-  
+
   const mapUrl = mapProvider === 'osm' ? osmUrl : mapProvider === 'google' ? googleUrl : mapMyIndiaUrl;
-  
+
   // Copy coordinates to clipboard
   const copyCoordinates = () => {
     navigator.clipboard.writeText(`${latitude}, ${longitude}`);
     alert('Coordinates copied to clipboard!');
   };
-  
+
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg shadow-xl max-w-5xl w-full max-h-[90vh] overflow-hidden animate-scale-in">
@@ -76,31 +76,28 @@ export const MapPreview: React.FC<MapPreviewProps> = ({ latitude, longitude, add
           <div className="flex items-center gap-2">
             <button
               onClick={() => setMapProvider('osm')}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                mapProvider === 'osm'
-                  ? 'bg-white text-blue-600 shadow-sm'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${mapProvider === 'osm'
+                ? 'bg-white text-blue-600 shadow-sm'
+                : 'text-gray-600 hover:text-gray-900'
+                }`}
             >
               OpenStreetMap
             </button>
             <button
               onClick={() => setMapProvider('google')}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                mapProvider === 'google'
-                  ? 'bg-white text-blue-600 shadow-sm'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${mapProvider === 'google'
+                ? 'bg-white text-blue-600 shadow-sm'
+                : 'text-gray-600 hover:text-gray-900'
+                }`}
             >
               Google Maps
             </button>
             <button
               onClick={() => setMapProvider('mapmyindia')}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                mapProvider === 'mapmyindia'
-                  ? 'bg-white text-orange-600 shadow-sm'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${mapProvider === 'mapmyindia'
+                ? 'bg-white text-orange-600 shadow-sm'
+                : 'text-gray-600 hover:text-gray-900'
+                }`}
             >
               MapMyIndia
             </button>

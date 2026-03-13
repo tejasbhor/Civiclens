@@ -9,12 +9,31 @@ from pydantic import ValidationError
 from contextlib import asynccontextmanager
 from datetime import datetime
 import os
+import logging
 from app.config import settings
 from app.core.database import init_db, close_db, close_redis, check_redis_connection, check_database_connection
 from app.core.exceptions import CivicLensException
 from app.api.v1 import auth, reports, reports_complete, analytics, users, departments, appeals, escalations, audit, media, feedbacks
 from app.api.v1.auth_extended import router as auth_extended
 from app.api.v1.sync import router as sync_router
+from app.api.v1.health import router as health_router
+
+logger = logging.getLogger(__name__)
+
+# ---- Sentry Error Tracking (optional — set SENTRY_DSN in .env) ----
+if getattr(settings, 'SENTRY_DSN', None):
+    import sentry_sdk
+    from sentry_sdk.integrations.fastapi import FastApiIntegration
+    from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
+    sentry_sdk.init(
+        dsn=settings.SENTRY_DSN,
+        integrations=[FastApiIntegration(), SqlalchemyIntegration()],
+        environment=settings.ENVIRONMENT,
+        release=settings.APP_VERSION,
+        traces_sample_rate=0.1,   # 10% of requests for performance monitoring
+        send_default_pii=False,   # Privacy: don't send user PII to Sentry
+    )
+    logger.info(f"Sentry error tracking enabled (environment={settings.ENVIRONMENT})")
 
 
 @asynccontextmanager
@@ -202,6 +221,7 @@ async def general_exception_handler(request: Request, exc: Exception):
 
 
 # Include routers
+app.include_router(health_router)           # /health, /health/detailed, etc.
 app.include_router(auth, prefix="/api/v1")
 app.include_router(auth_extended, prefix="/api/v1")
 app.include_router(sync_router, prefix="/api/v1")

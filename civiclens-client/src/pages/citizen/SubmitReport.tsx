@@ -15,6 +15,7 @@ import { reportsService } from "@/services/reportsService";
 import { CitizenHeader } from "@/components/layout/CitizenHeader";
 import { logger } from "@/lib/logger";
 import apiClient from "@/services/apiClient";
+import { APP_CONFIG } from "@/config/appConfig";
 
 interface FormData {
   title: string;
@@ -119,7 +120,7 @@ const SubmitReport = () => {
         {
           headers: {
             'Accept-Language': 'en',
-            'User-Agent': 'CivicLens/1.0'
+            'User-Agent': `${APP_CONFIG.appName}/1.0`
           },
           signal: controller.signal
         }

@@ -4,7 +4,6 @@
  * Mirrors citizen dashboard structure with officer-specific functionality
  */
 
-import React, { useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -13,23 +12,27 @@ import {
   RefreshControl,
   TouchableOpacity,
   Dimensions,
-  Platform,
   Alert,
   Modal,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle } from 'react-native-svg';
+import MapView, { Marker, PROVIDER_DEFAULT } from 'react-native-maps';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import * as Location from 'expo-location';
+import React, { useEffect, useMemo, useState, useRef } from 'react';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useOfficerDashboard } from '../../../shared/hooks/useOfficerDashboard';
-import { OfflineIndicator, SyncStatusIndicator, TopNavbar, NotificationBell } from '../../../shared/components';
+import { useOfficerTasks } from '../../../shared/hooks/useOfficerTasks';
+import { OfflineIndicator, SyncStatusIndicator, TopNavbar } from '../../../shared/components';
 import { RoleGuard } from '../../../shared/components/RoleGuard';
 import { networkService } from '../../../shared/services/network/networkService';
 import { colors } from '../../../shared/theme/colors';
 import { UserRole } from '../../../shared/types/user';
 import type { OfficerStackParamList } from '../../../navigation/OfficerTabNavigator';
+import { getTabBarHeight } from '../../../shared/utils/screenPadding';
 
 const { height } = Dimensions.get('window');
 
@@ -46,7 +49,7 @@ export const OfficerDashboardScreen: React.FC = () => {
 const OfficerDashboardContent: React.FC = () => {
   const navigation = useNavigation<OfficerDashboardNavigationProp>();
   const insets = useSafeAreaInsets();
-  
+
   const {
     stats,
     userLocation,
@@ -61,10 +64,63 @@ const OfficerDashboardContent: React.FC = () => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [showQuickActionsModal, setShowQuickActionsModal] = useState(false);
   const [isOnline, setIsOnline] = useState(networkService.isOnline());
-  
+  const [displayLocation, setDisplayLocation] = useState('Detecting zone...');
+  const mapRef = useRef<MapView>(null);
+
+  let hookResult;
+  try {
+    hookResult = useOfficerTasks();
+  } catch (e) {
+    console.warn('Failed to hook tasks', e);
+  }
+  const { tasks = [] } = hookResult || {};
+
+  const [searchQuery, setSearchQuery] = useState('');
+  const [isSearching, setIsSearching] = useState(false);
+
+  useEffect(() => {
+    const fetchCurrentLocation = async () => {
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== 'granted') {
+          setDisplayLocation('Navi Mumbai, Kharghar'); // fallback
+          return;
+        }
+
+        const loc = await Location.getCurrentPositionAsync({});
+        const geocode = await Location.reverseGeocodeAsync({
+          latitude: loc.coords.latitude,
+          longitude: loc.coords.longitude
+        });
+
+        if (geocode && geocode.length > 0) {
+          const place = geocode[0];
+          const area = place.district || place.city || place.subregion || 'Navi Mumbai';
+          const locality = place.name || place.street || place.region || 'Kharghar';
+          const locString = `${area}, ${locality}`;
+          setDisplayLocation(locString);
+
+          if (mapRef.current) {
+            mapRef.current.animateToRegion({
+              latitude: loc.coords.latitude,
+              longitude: loc.coords.longitude,
+              latitudeDelta: 0.05,
+              longitudeDelta: 0.05,
+            });
+          }
+        } else {
+          setDisplayLocation('Navi Mumbai, Kharghar'); // fallback
+        }
+      } catch (error) {
+        console.error('Auto location error:', error);
+        setDisplayLocation('Navi Mumbai, Kharghar'); // fallback
+      }
+    };
+    fetchCurrentLocation();
+  }, []);
+
   // Calculate dynamic heights based on safe area
-  const bottomPadding = Math.max(insets.bottom, 20);
-  const tabBarHeight = 60 + bottomPadding;
+  const tabBarHeight = getTabBarHeight(insets);
   const bottomSheetGap = 8;
   const bottomSheetBottom = tabBarHeight + bottomSheetGap;
 
@@ -106,6 +162,35 @@ const OfficerDashboardContent: React.FC = () => {
     }
   };
 
+  const handleLocateMe = async () => {
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission Denied', 'Allow location access to find your position.');
+        return;
+      }
+      const location = await Location.getCurrentPositionAsync({});
+      mapRef.current?.animateToRegion({
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude,
+        latitudeDelta: 0.05,
+        longitudeDelta: 0.05,
+      });
+      console.log('Officer located:', location.coords);
+    } catch (error) {
+      console.error('Error fetching location:', error);
+      Alert.alert('Location Error', 'Could not fetch your location.');
+    }
+  };
+
+  const handleZoom = async (type: 'in' | 'out') => {
+    const camera = await mapRef.current?.getCamera();
+    if (camera && camera.zoom !== undefined) {
+      camera.zoom += type === 'in' ? 1 : -1;
+      mapRef.current?.animateCamera(camera, { duration: 300 });
+    }
+  };
+
   const totalTasks = stats?.total ?? 0;
 
   const taskBreakdown = useMemo(
@@ -138,121 +223,87 @@ const OfficerDashboardContent: React.FC = () => {
       {/* Enhanced Top Navbar - Officer Dashboard Style */}
       <TopNavbar
         title="Officer Dashboard"
-        subtitle="Municipal Field Officer"
+        subtitle={displayLocation}
         showLocation={true}
-        location="Navi Mumbai, Kharghar"
+        location={displayLocation}
         showNotifications={true}
         showSearch={true}
         onLocationPress={() => console.log('Location picker')}
-        onSearchPress={() => console.log('Search tasks')}
+        isSearching={isSearching}
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        onSearchPress={() => {
+          setIsSearching(!isSearching);
+          if (isSearching) setSearchQuery(''); // clear when closing
+        }}
       />
 
       {/* Status Indicators */}
       <OfflineIndicator />
       <SyncStatusIndicator />
 
-      {/* Map Placeholder - Same as citizen but with task markers */}
-      <View style={styles.mapPlaceholder}>
-        <View style={styles.mapBackground}>
-          <View style={styles.mapGrid}>
-            {[...Array(10)].map((_, i) => (
-              <View 
-                key={`h-${i}`} 
-                style={[styles.gridLine, { top: `${i * 10}%` }]} 
+      {/* Interactive Map */}
+      <MapView
+        ref={mapRef}
+        style={styles.mapContainer}
+        provider={PROVIDER_DEFAULT}
+        initialRegion={{
+          latitude: userLocation?.latitude || 19.0263,
+          longitude: userLocation?.longitude || 73.0645,
+          latitudeDelta: 0.05,
+          longitudeDelta: 0.05,
+        }}
+        showsUserLocation={true}
+      >
+        {/* Render real tasks as markers with search filtering */}
+        {tasks.filter((t: any) => !searchQuery || (t.report && t.report.title.toLowerCase().includes(searchQuery.toLowerCase()))).map((task: any) => {
+          const rep = task.report;
+          if (rep && typeof rep.latitude === 'number' && typeof rep.longitude === 'number') {
+            return (
+              <Marker
+                key={`task-${task.id}`}
+                coordinate={{ latitude: rep.latitude, longitude: rep.longitude }}
+                title={rep.title}
+                description={rep.description}
+                pinColor={
+                  rep.severity === 'critical' || rep.severity === 'high' ? '#D32F2F' :
+                    rep.severity === 'medium' ? '#FBC02D' :
+                      '#388E3C'
+                }
               />
-            ))}
-            {[...Array(10)].map((_, i) => (
-              <View 
-                key={`v-${i}`} 
-                style={[styles.gridLine, { left: `${i * 10}%`, width: 1, height: '100%' }]} 
-              />
-            ))}
-          </View>
-        </View>
+            );
+          }
+          return null;
+        })}
+      </MapView>
 
-        <View style={styles.locationIndicator}>
-          <Ionicons name="location" size={32} color="#2196F3" />
-          <Text style={styles.locationText}>
-            {userLocation ? 'Navi Mumbai, Kharghar' : 'Getting location...'}
-          </Text>
-        </View>
-
-        {/* Task markers instead of report markers */}
-        <View style={styles.markersContainer}>
-          <View style={[styles.markerDot, styles.markerUrgent]}>
-            <Ionicons name="warning" size={16} color="#FFF" />
-          </View>
-          <View style={[styles.markerDot, styles.markerAssigned]}>
-            <Ionicons name="checkmark-circle" size={16} color="#FFF" />
-          </View>
-          <View style={[styles.markerDot, styles.markerCompleted]}>
-            <Ionicons name="checkmark-done" size={16} color="#FFF" />
-          </View>
-        </View>
-
-        <View style={styles.mapInfoOverlay}>
-          <Ionicons name="map-outline" size={40} color="rgba(255,255,255,0.9)" />
-          <Text style={styles.mapInfoTitle}>Task Locations</Text>
-          <Text style={styles.mapInfoSubtitle}>Interactive Map View</Text>
-          <Text style={styles.mapInfoNote}>(Development build required)</Text>
-        </View>
-      </View>
-
-      {/* Production-Ready Top Navbar */}
-      <View style={styles.topNavbar}>
-        <LinearGradient
-          colors={['#1976D2', '#1565C0']}
-          style={styles.navbarGradient}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-        >
-          <View style={styles.navbarTop}>
-            <TouchableOpacity 
-              style={styles.locationButton}
-              activeOpacity={0.7}
-              onPress={() => console.log('Open location picker')}
-            >
-              <Ionicons name="location-sharp" size={18} color="#FFF" />
-              <View style={styles.locationInfo}>
-                <Text style={styles.locationLabel}>Officer Zone</Text>
-                <Text style={styles.locationCity}>Navi Mumbai, Kharghar</Text>
-              </View>
-              <Ionicons name="chevron-down" size={16} color="#FFF" />
-            </TouchableOpacity>
-
-            <View style={styles.navbarActions}>
-              <TouchableOpacity 
-                style={styles.navbarIconButton}
-                onPress={() => console.log('Open language selector')}
-              >
-                <Ionicons name="language" size={22} color="#FFF" />
-              </TouchableOpacity>
-
-              <NotificationBell
-                size={22}
-                variant="navbar"
-                style={styles.navbarIconButton}
-              />
-
-              <TouchableOpacity 
-                style={styles.navbarIconButton}
-                onPress={() => navigation.navigate('Profile')}
-              >
-                <Ionicons name="person-circle" size={26} color="#FFF" />
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          <TouchableOpacity 
-            style={styles.searchBar} 
-            activeOpacity={0.7}
-            onPress={() => console.log('Open task search')}
+      {/* Map Controls (Zoom & Locate) */}
+      <View style={[styles.mapControls, { bottom: bottomSheetBottom + 160 }]}>
+        <View style={styles.zoomGroup}>
+          <TouchableOpacity
+            style={styles.mapControlButton}
+            onPress={() => handleZoom('in')}
+            activeOpacity={0.8}
           >
-            <Ionicons name="search" size={20} color="#64748B" />
-            <Text style={styles.searchPlaceholder}>Search tasks, locations...</Text>
-            <Ionicons name="options" size={20} color="#64748B" />
+            <Ionicons name="add" size={24} color="#1976D2" />
           </TouchableOpacity>
-        </LinearGradient>
+          <View style={styles.controlDivider} />
+          <TouchableOpacity
+            style={styles.mapControlButton}
+            onPress={() => handleZoom('out')}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="remove" size={24} color="#1976D2" />
+          </TouchableOpacity>
+        </View>
+
+        <TouchableOpacity
+          style={[styles.mapControlButton, styles.locateMeButton]}
+          onPress={handleLocateMe}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="locate" size={24} color="#1976D2" />
+        </TouchableOpacity>
       </View>
 
       {/* Bottom Sheet */}
@@ -268,8 +319,8 @@ const OfficerDashboardContent: React.FC = () => {
         {/* COLLAPSED VIEW - Quick Actions Button */}
         {!isExpanded && (
           <View style={styles.collapsedView}>
-            <TouchableOpacity 
-              style={styles.quickActionsButton} 
+            <TouchableOpacity
+              style={styles.quickActionsButton}
               activeOpacity={0.9}
               onPress={handleQuickActions}
             >
@@ -311,15 +362,15 @@ const OfficerDashboardContent: React.FC = () => {
                       <View style={styles.segmentedCircle}>
                         <Svg width={140} height={140}>
                           <Circle cx={70} cy={70} r={55} stroke="#E0E0E0" strokeWidth={12} fill="none" />
-                          
+
                           {(() => {
                             const total = stats.total || 1;
                             const circumference = 2 * Math.PI * 55;
-                            
+
                             const completedPercent = ((stats?.completed || 0) / total) * 100;
                             const progressPercent = ((stats?.inProgress || 0) / total) * 100;
                             const assignedPercent = ((stats?.assigned || 0) / total) * 100;
-                            
+
                             const completedDash = (completedPercent / 100) * circumference;
                             const progressDash = (progressPercent / 100) * circumference;
                             const assignedDash = (assignedPercent / 100) * circumference;
@@ -337,7 +388,7 @@ const OfficerDashboardContent: React.FC = () => {
                                   origin="70, 70"
                                   strokeLinecap="round"
                                 />
-                                
+
                                 <Circle
                                   cx={70} cy={70} r={55}
                                   stroke="#FF9800"
@@ -349,7 +400,7 @@ const OfficerDashboardContent: React.FC = () => {
                                   origin="70, 70"
                                   strokeLinecap="round"
                                 />
-                                
+
                                 <Circle
                                   cx={70} cy={70} r={55}
                                   stroke="#2196F3"
@@ -365,7 +416,7 @@ const OfficerDashboardContent: React.FC = () => {
                             );
                           })()}
                         </Svg>
-                        
+
                         <View style={styles.circleCenter}>
                           {isLoading && !stats ? (
                             <View style={styles.skeletonCircle} />
@@ -393,8 +444,8 @@ const OfficerDashboardContent: React.FC = () => {
                 </View>
 
                 {/* Quick Actions Button */}
-                <TouchableOpacity 
-                  style={styles.primaryButton} 
+                <TouchableOpacity
+                  style={styles.primaryButton}
                   activeOpacity={0.9}
                   onPress={handleQuickActions}
                 >
@@ -411,8 +462,8 @@ const OfficerDashboardContent: React.FC = () => {
 
                 {/* Officer Tools Grid */}
                 <View style={styles.toolsGrid}>
-                  <TouchableOpacity 
-                    style={styles.toolCard} 
+                  <TouchableOpacity
+                    style={styles.toolCard}
                     activeOpacity={0.8}
                     onPress={() => navigation.navigate('Tasks')}
                   >
@@ -423,7 +474,7 @@ const OfficerDashboardContent: React.FC = () => {
                     <Text style={styles.toolSubtitle}>View & Update</Text>
                   </TouchableOpacity>
 
-                  <TouchableOpacity 
+                  <TouchableOpacity
                     style={styles.toolCard}
                     activeOpacity={0.8}
                     onPress={() => navigation.navigate('Stats')}
@@ -440,13 +491,13 @@ const OfficerDashboardContent: React.FC = () => {
               <View style={styles.emptyState}>
                 <Ionicons name="briefcase-outline" size={64} color="#CCC" />
                 <Text style={styles.emptyText}>
-                  {isHydrating ? 'Hydrating from cache...' : 
-                   isLoading ? 'Loading dashboard...' : 
-                   'No task data available offline yet'}
+                  {isHydrating ? 'Hydrating from cache...' :
+                    isLoading ? 'Loading dashboard...' :
+                      'No task data available offline yet'}
                 </Text>
                 <Text style={styles.emptySubtext}>
                   {isHydrating ? 'Restoring cached data' :
-                   isOnline ? 'Try again in a moment' : 'Connect to sync the latest tasks'}
+                    isOnline ? 'Try again in a moment' : 'Connect to sync the latest tasks'}
                 </Text>
                 {!isHydrating && (
                   <TouchableOpacity
@@ -580,110 +631,46 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#E0E0E0',
   },
-  
-  // Map Placeholder
-  mapPlaceholder: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: '#B3D9FF',
-  },
-  mapBackground: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: '#B3D9FF',
-  },
-  mapGrid: {
+
+  // Map
+  mapContainer: {
     ...StyleSheet.absoluteFillObject,
   },
-  gridLine: {
+  mapControls: {
     position: 'absolute',
-    backgroundColor: 'rgba(255, 255, 255, 0.3)',
-    height: 1,
-    width: '100%',
+    right: 16,
+    zIndex: 1, // Lower than bottomSheet
+    gap: 12,
   },
-  locationIndicator: {
-    position: 'absolute',
-    top: 100,
-    left: 20,
-    flexDirection: 'row',
-    alignItems: 'center',
+  zoomGroup: {
     backgroundColor: 'rgba(255, 255, 255, 0.95)',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 20,
+    borderRadius: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 4,
-  },
-  locationText: {
-    marginLeft: 8,
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#333',
-  },
-  markersContainer: {
-    position: 'absolute',
-    top: '45%',
-    left: '50%',
-    transform: [{ translateX: -60 }, { translateY: -20 }],
-    flexDirection: 'row',
-    gap: 30,
-  },
-  markerDot: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 3,
-    borderColor: '#FFF',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
+    shadowOpacity: 0.25,
     shadowRadius: 4,
     elevation: 5,
+    overflow: 'hidden',
   },
-  markerUrgent: {
-    backgroundColor: '#D32F2F',
-  },
-  markerAssigned: {
-    backgroundColor: '#2196F3',
-  },
-  markerCompleted: {
-    backgroundColor: '#4CAF50',
-  },
-  mapInfoOverlay: {
-    position: 'absolute',
-    top: '35%',
-    alignSelf: 'center',
+  mapControlButton: {
+    width: 48,
+    height: 48,
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(25, 118, 210, 0.9)',
-    paddingHorizontal: 32,
-    paddingVertical: 24,
-    borderRadius: 16,
+  },
+  controlDivider: {
+    height: 1,
+    backgroundColor: '#F1F5F9',
+    width: '100%',
+  },
+  locateMeButton: {
+    borderRadius: 24,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  mapInfoTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#FFF',
-    marginTop: 12,
-  },
-  mapInfoSubtitle: {
-    fontSize: 14,
-    color: 'rgba(255, 255, 255, 0.95)',
-    marginTop: 8,
-    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
-  },
-  mapInfoNote: {
-    fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.8)',
-    marginTop: 4,
-    fontStyle: 'italic',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
   },
 
   // Top Navbar
@@ -773,6 +760,7 @@ const styles = StyleSheet.create({
     right: 8,
     maxHeight: height * 0.65,
     backgroundColor: '#FFF',
+    zIndex: 10, // Higher than mapControls
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     borderBottomLeftRadius: 20,

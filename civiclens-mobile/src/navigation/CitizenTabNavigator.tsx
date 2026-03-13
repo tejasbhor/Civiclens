@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { View, Text, StyleSheet, Platform } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
@@ -18,7 +18,8 @@ import {
   EditProfileScreen,
   MyReportsScreen,
 } from '@/features/citizen/screens';
-import { colors } from '@shared/theme/colors';
+import { LegalScreen, HelpSupportScreen } from '@/shared/screens';
+
 
 const ChatScreen = () => (
   <View style={styles.placeholderContainer}>
@@ -46,6 +47,8 @@ export type ProfileStackParamList = {
   ProfileMain: undefined;
   EditProfile: undefined;
   Notifications: undefined;
+  Legal: { type: 'terms' | 'privacy' };
+  HelpSupport: undefined;
 };
 
 export type CitizenTabParamList = {
@@ -85,6 +88,8 @@ const ProfileStackNavigator: React.FC = () => {
       <ProfileStack.Screen name="ProfileMain" component={ProfileScreen} />
       <ProfileStack.Screen name="EditProfile" component={EditProfileScreen} />
       <ProfileStack.Screen name="Notifications" component={NotificationsScreen} />
+      <ProfileStack.Screen name="Legal" component={LegalScreen} />
+      <ProfileStack.Screen name="HelpSupport" component={HelpSupportScreen} />
     </ProfileStack.Navigator>
   );
 };
@@ -93,11 +98,11 @@ const Tab = createBottomTabNavigator<CitizenTabParamList>();
 
 export const CitizenTabNavigator: React.FC = () => {
   const insets = useSafeAreaInsets();
-  
+
   // Calculate proper bottom padding for gesture area
   const bottomPadding = Math.max(insets.bottom, 20); // At least 20px, or use safe area
   const tabBarHeight = 60 + bottomPadding; // Icon area + bottom padding
-  
+
   return (
     <Tab.Navigator
       screenOptions={{

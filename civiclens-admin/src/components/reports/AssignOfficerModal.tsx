@@ -165,7 +165,7 @@ export function AssignOfficerModal({
       }
 
       // Skip workload data for now (causing 500 errors)
-      const workloadMap = {};
+      const workloadMap: Record<number, any> = {};
 
       // Enhance officers with workload data and status
       const enhancedOfficers: OfficerWithWorkload[] = officers.map(officer => ({
@@ -180,7 +180,7 @@ export function AssignOfficerModal({
 
       // Pre-select current officer if assigned
       if (report.task?.assigned_to) {
-        setFormData(prev => ({ ...prev, selectedOfficerId: report.task.assigned_to }));
+        setFormData(prev => ({ ...prev, selectedOfficerId: report.task?.assigned_to ?? null }));
       }
 
     } catch (err: any) {
@@ -276,7 +276,7 @@ export function AssignOfficerModal({
         officer.full_name?.toLowerCase().includes(searchLower) ||
         officer.email?.toLowerCase().includes(searchLower) ||
         officer.phone?.includes(searchTerm) ||
-        officer.employee_id?.toLowerCase().includes(searchLower)
+        (officer as any).employee_id?.toLowerCase().includes(searchLower)
       );
     });
 
@@ -383,8 +383,11 @@ export function AssignOfficerModal({
         notes: formData.notes.trim() || undefined
       });
 
+      // Fetch the updated report to get the new task and officer details
+      const updatedReport = await reportsApi.getReportById(report.id);
+      
       // Show success feedback and close
-      onSuccess(result || report);
+      onSuccess(updatedReport);
       onClose();
 
     } catch (err: any) {
@@ -768,10 +771,10 @@ export function AssignOfficerModal({
                                       <span>{officer.phone}</span>
                                     </div>
                                   )}
-                                  {officer.employee_id && (
+                                  {(officer as any).employee_id && (
                                     <div className="flex items-center gap-1">
                                       <BadgeIcon className="w-3 h-3" />
-                                      <span>ID: {officer.employee_id}</span>
+                                      <span>ID: {(officer as any).employee_id}</span>
                                     </div>
                                   )}
                                 </div>

@@ -53,6 +53,50 @@ export function IntelligentAssignmentModal({ report, onUpdate, onClose, type }: 
   const [autoAssignMode, setAutoAssignMode] = useState<'manual' | 'auto-least-busy' | 'auto-balanced'>('manual');
   const [showWorkloadInfo, setShowWorkloadInfo] = useState(true);
 
+  const getOfficerWorkload = (officerId: number): OfficerWorkload | null => {
+    return officerStats.find(stat => stat.user_id === officerId) || null;
+  };
+
+  // Filter officers by department (only show officers from the report's assigned department)
+  const filteredOfficers = useMemo(() => {
+    if (!report.department_id) return [];
+    
+    return officers.filter(officer => {
+      const matchesSearch = !searchTerm || 
+        officer.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        officer.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        officer.phone?.includes(searchTerm);
+      
+      const matchesDepartment = officer.department_id === report.department_id;
+      const isActive = officer.is_active;
+      
+      return matchesSearch && matchesDepartment && isActive;
+    });
+  }, [officers, report.department_id, searchTerm]);
+
+  // Sort officers by workload for intelligent assignment
+  const sortedOfficersByWorkload = useMemo(() => {
+    return [...filteredOfficers].sort((a, b) => {
+      const aWorkload = getOfficerWorkload(a.id);
+      const bWorkload = getOfficerWorkload(b.id);
+      
+      if (autoAssignMode === 'auto-least-busy') {
+        // Sort by least busy (lowest active reports)
+        const aActive = aWorkload?.active_reports || 0;
+        const bActive = bWorkload?.active_reports || 0;
+        return aActive - bActive;
+      } else if (autoAssignMode === 'auto-balanced') {
+        // Sort by balanced workload (considers both active reports and resolution time)
+        const aScore = aWorkload?.workload_score || 0;
+        const bScore = bWorkload?.workload_score || 0;
+        return aScore - bScore;
+      }
+      
+      // Manual mode - sort by name
+      return (a.full_name || '').localeCompare(b.full_name || '');
+    });
+  }, [filteredOfficers, autoAssignMode, officerStats]);
+
   useEffect(() => {
     loadData();
   }, [type]);
@@ -60,7 +104,7 @@ export function IntelligentAssignmentModal({ report, onUpdate, onClose, type }: 
   // Auto-select officer when auto-assignment mode changes
   useEffect(() => {
     if (type === 'officer' && autoAssignMode !== 'manual' && sortedOfficersByWorkload.length > 0) {
-      setSelectedOfficer(sortedOfficersByWorkload[0].user_id);
+      setSelectedOfficer(sortedOfficersByWorkload[0].id);
     } else if (autoAssignMode === 'manual') {
       setSelectedOfficer(null);
     }
@@ -137,49 +181,7 @@ export function IntelligentAssignmentModal({ report, onUpdate, onClose, type }: 
     return dept?.name || 'Unknown Department';
   };
 
-  const getOfficerWorkload = (officerId: number): OfficerWorkload | null => {
-    return officerStats.find(stat => stat.user_id === officerId) || null;
-  };
 
-  // Filter officers by department (only show officers from the report's assigned department)
-  const filteredOfficers = useMemo(() => {
-    if (!report.department_id) return [];
-    
-    return officers.filter(officer => {
-      const matchesSearch = !searchTerm || 
-        officer.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        officer.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        officer.phone?.includes(searchTerm);
-      
-      const matchesDepartment = officer.department_id === report.department_id;
-      const isActive = officer.is_active;
-      
-      return matchesSearch && matchesDepartment && isActive;
-    });
-  }, [officers, report.department_id, searchTerm]);
-
-  // Sort officers by workload for intelligent assignment
-  const sortedOfficersByWorkload = useMemo(() => {
-    return [...filteredOfficers].sort((a, b) => {
-      const aWorkload = getOfficerWorkload(a.id);
-      const bWorkload = getOfficerWorkload(b.id);
-      
-      if (autoAssignMode === 'auto-least-busy') {
-        // Sort by least busy (lowest active reports)
-        const aActive = aWorkload?.active_reports || 0;
-        const bActive = bWorkload?.active_reports || 0;
-        return aActive - bActive;
-      } else if (autoAssignMode === 'auto-balanced') {
-        // Sort by balanced workload (considers both active reports and resolution time)
-        const aScore = aWorkload?.workload_score || 0;
-        const bScore = bWorkload?.workload_score || 0;
-        return aScore - bScore;
-      }
-      
-      // Manual mode - sort by name
-      return (a.full_name || '').localeCompare(b.full_name || '');
-    });
-  }, [filteredOfficers, autoAssignMode, officerStats]);
 
   const handleAssignDepartment = async () => {
     if (!selectedDepartment || !report.id) return;
