@@ -27,7 +27,7 @@ COPY pyproject.toml uv.lock ./
 # Install dependencies using UV (reproducible with lockfile)
 # We set UV_PROJECT_ENVIRONMENT to install into the system path
 ENV UV_PROJECT_ENVIRONMENT=/usr/local
-RUN uv sync --no-dev --extra-index-url https://download.pytorch.org/whl/cu121
+RUN uv sync --no-dev
 
 
 # ---- Stage 2: Runtime image ----

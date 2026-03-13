@@ -136,6 +136,7 @@ packages = ["app"]
 
 [tool.uv]
 package = false
+index-strategy = "unsafe-best-match"
 
 [[tool.uv.index]]
 name = "pypi"
