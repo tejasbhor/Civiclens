@@ -10,9 +10,9 @@ FROM python:3.11-slim-bookworm AS builder
 
 WORKDIR /app
 
-# System dependencies for psycopg2, Pillow, python-magic
+# System dependencies for psycopg2, Pillow, python-magic, and C-extensions
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc \
+    build-essential \
     libpq-dev \
     libmagic1 \
     libglib2.0-0 \
