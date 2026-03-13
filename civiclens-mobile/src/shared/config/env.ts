@@ -10,6 +10,7 @@ interface EnvConfig {
   GRAPHQL_ENDPOINT: string;
   ENABLE_LOGGING: boolean;
   ENVIRONMENT: Environment;
+  ENABLE_DEMO_OTP: boolean;
 }
 
 // Storage key for custom server URL
@@ -92,6 +93,7 @@ const getEnvConfig = (): EnvConfig => {
     GRAPHQL_ENDPOINT: graphqlEndpoint,
     ENABLE_LOGGING: isDev, // Strictly only dev for production safety
     ENVIRONMENT: env,
+    ENABLE_DEMO_OTP: process.env.EXPO_PUBLIC_ENABLE_DEMO_OTP === 'true',
   };
 };
 

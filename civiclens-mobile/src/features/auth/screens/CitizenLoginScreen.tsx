@@ -167,7 +167,7 @@ export const CitizenLoginScreen = () => {
       setCountdown(300);
 
       showSuccess(
-        `Verification code sent to ${phone}${IS_DEV && response.otp ? ` (Dev OTP: ${response.otp})` : ''}`
+        `Verification code sent to ${phone}${response.otp ? ` (Demo OTP: ${response.otp})` : ''}`
       );
     } catch (err: any) {
       const errorMsg = err.message || 'Failed to send OTP';
@@ -201,7 +201,7 @@ export const CitizenLoginScreen = () => {
       setCountdown(300);
 
       showSuccess(
-        `Verification code sent to email${IS_DEV && response.otp ? ` (Dev OTP: ${response.otp})` : ''}`
+        `Verification code sent to email${response.otp ? ` (Demo OTP: ${response.otp})` : ''}`
       );
     } catch (err: any) {
       const errorMsg = err.message || 'Failed to send Email OTP';
@@ -315,7 +315,7 @@ export const CitizenLoginScreen = () => {
       setCountdown(300);
 
       showSuccess(
-        `Verification code sent${IS_DEV && response.otp ? ` (Dev OTP: ${response.otp})` : ''}`
+        `Verification code sent${response.otp ? ` (Demo OTP: ${response.otp})` : ''}`
       );
     } catch (err: any) {
       const errorMsg = err.message || 'Signup failed';
@@ -636,11 +636,11 @@ export const CitizenLoginScreen = () => {
                   <Text style={styles.errorText}>{error}</Text>
                 ) : null}
 
-                {devOtp && IS_DEV && (
+                {(IS_DEV || ENV.ENABLE_DEMO_OTP) && devOtp ? (
                   <View style={styles.devOtpContainer}>
-                    <Text style={styles.devOtpText}>Dev OTP: {devOtp}</Text>
+                    <Text style={styles.devOtpText}>Demo OTP: {devOtp}</Text>
                   </View>
-                )}
+                ) : null}
 
                 <View style={styles.timerRow}>
                   <Ionicons

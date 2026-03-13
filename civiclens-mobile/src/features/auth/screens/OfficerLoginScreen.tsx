@@ -191,7 +191,7 @@ export const OfficerLoginScreen: React.FC = () => {
           setStep('email-otp');
           setCountdown(300);
           showSuccess(
-            `Verification code sent to ${userProfile.email}${IS_DEV && otpResponse.otp ? ` (Dev OTP: ${otpResponse.otp})` : ''}`
+            `Verification code sent to ${userProfile.email}${(IS_DEV || ENV.ENABLE_DEMO_OTP) && otpResponse.otp ? ` (Dev OTP: ${otpResponse.otp})` : ''}`
           );
         } else {
           // No email on file — skip 2FA and complete login
@@ -259,7 +259,7 @@ export const OfficerLoginScreen: React.FC = () => {
       }
       setCountdown(300);
       showSuccess(
-        `Verification code resent${IS_DEV && otpResponse.otp ? ` (Dev OTP: ${otpResponse.otp})` : ''}`
+        `Verification code resent${(IS_DEV || ENV.ENABLE_DEMO_OTP) && otpResponse.otp ? ` (Dev OTP: ${otpResponse.otp})` : ''}`
       );
     } catch (err: any) {
       showError(err.message || 'Failed to resend code');
@@ -343,7 +343,7 @@ export const OfficerLoginScreen: React.FC = () => {
 
               {otpError ? <Text style={styles.errorText}>{otpError}</Text> : null}
 
-              {devOtp && IS_DEV && (
+              {devOtp && (IS_DEV || ENV.ENABLE_DEMO_OTP) && (
                 <View style={styles.devOtpContainer}>
                   <Text style={styles.devOtpText}>Dev OTP: {devOtp}</Text>
                 </View>

@@ -243,8 +243,8 @@ export default function LoginPage() {
           setTfaEmail(user.email);
           // Hold the password-login tokens so we can revoke the temp session later
           setTempLoginData(loginData);
-          // In dev mode, show the OTP from the backend response
-          if (IS_DEV && otpRes.otp) {
+          // In demo/dev mode, show the OTP from the backend response
+          if ((IS_DEV || APP_CONFIG.enableDemoOtp) && otpRes.otp) {
             setDevOtp(otpRes.otp);
           }
           setStep("tfa");
@@ -282,8 +282,8 @@ export default function LoginPage() {
       const otpRes = await authApi.requestEmailOtp(email.trim());
       setTfaEmail(email.trim());
 
-      // In dev mode, show the OTP inline
-      if (IS_DEV && otpRes.otp) {
+      // In demo/dev mode, show the OTP inline
+      if ((IS_DEV || APP_CONFIG.enableDemoOtp) && otpRes.otp) {
         setDevOtp(otpRes.otp);
       }
 
@@ -563,8 +563,8 @@ export default function LoginPage() {
                 <p className="text-sm font-semibold text-gray-900 mt-0.5">{tfaEmail}</p>
               </div>
 
-              {/* Dev-only OTP Hint */}
-              {IS_DEV && devOtp && (
+              {/* Dev/Demo OTP Hint */}
+              {(IS_DEV || APP_CONFIG.enableDemoOtp) && devOtp && (
                 <div
                   className="rounded-lg p-3 bg-amber-50 border border-amber-200 cursor-pointer hover:bg-amber-100 transition-colors"
                   onClick={handleDevAutoFill}
@@ -573,7 +573,7 @@ export default function LoginPage() {
                   <div className="flex items-center gap-2">
                     <Bug className="w-4 h-4 text-amber-600 flex-shrink-0" />
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs font-semibold text-amber-800">DEV MODE — click to auto-fill</p>
+                      <p className="text-xs font-semibold text-amber-800">DEMO MODE — click to auto-fill</p>
                       <p className="text-lg font-mono font-bold text-amber-900 tracking-widest mt-0.5">
                         {devOtp}
                       </p>

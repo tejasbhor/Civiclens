@@ -74,6 +74,7 @@ services:
       dockerfile: Dockerfile
       args:
         - NEXT_PUBLIC_API_URL=${API_URL:-https://api.civiclens.space/api/v1}
+        - NEXT_PUBLIC_ENABLE_DEMO_OTP=${ENABLE_DEMO_OTP:-true}
     container_name: civiclens-admin
     restart: unless-stopped
     healthcheck:
@@ -93,6 +94,7 @@ services:
       dockerfile: Dockerfile
       args:
         - VITE_API_URL=${API_URL:-https://api.civiclens.space/api/v1}
+        - VITE_ENABLE_DEMO_OTP=${ENABLE_DEMO_OTP:-true}
     container_name: civiclens-client
     restart: unless-stopped
     networks:

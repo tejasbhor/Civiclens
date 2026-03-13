@@ -97,7 +97,7 @@ const CitizenLogin = () => {
       const response = await authService.requestOTP(normalizedPhone);
       toast({
         title: "OTP Sent!",
-        description: response.message + (response.otp ? ` (Dev OTP: ${response.otp})` : ''),
+        description: response.message + (response.otp ? ` (Demo OTP: ${response.otp})` : ''),
       });
       setAuthStep('otp');
 
@@ -146,7 +146,7 @@ const CitizenLogin = () => {
       const response = await authService.requestEmailOTP(email);
       toast({
         title: "OTP Sent!",
-        description: response.message + (response.otp ? ` (Dev OTP: ${response.otp})` : ''),
+        description: response.message + (response.otp ? ` (Demo OTP: ${response.otp})` : ''),
       });
       setAuthStep('email-otp-verify');
 
@@ -294,7 +294,7 @@ const CitizenLogin = () => {
 
       // Show OTP in toast for development
       const otpMessage = response.message +
-        ((response as any).otp ? ` (Dev OTP: ${(response as any).otp})` : '');
+        ((response as any).otp ? ` (Demo OTP: ${(response as any).otp})` : '');
 
       toast({
         title: "Account Created!",

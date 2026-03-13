@@ -39,6 +39,9 @@ export const APP_CONFIG = {
 
     /** Platform description for PDFs and footers */
     platformDescription: process.env.NEXT_PUBLIC_PLATFORM_DESCRIPTION || 'Complaint Management System',
+
+    /** Whether to enable OTP visualization for demo/portfolio (even in production) */
+    enableDemoOtp: process.env.NEXT_PUBLIC_ENABLE_DEMO_OTP === 'true',
 } as const;
 
 /** Admin portal title */
