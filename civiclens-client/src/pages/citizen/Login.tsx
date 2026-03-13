@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Phone, Shield, Mail, User, Lock } from "lucide-react";
+import { ArrowLeft, Phone, Shield, Mail, User, Lock, Eye, EyeOff, Check, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { authService } from "@/services/authService";
 import { useAuth } from "@/contexts/AuthContext";
@@ -19,12 +19,16 @@ const CitizenLogin = () => {
   const [phone, setPhone] = useState("");
   const [otp, setOtp] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [countdown, setCountdown] = useState(300);
   const [loading, setLoading] = useState(false);
   const [demoOtp, setDemoOtp] = useState<string | null>(null);
+  const [showRules, setShowRules] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
   const { login, user, loading: authLoading } = useAuth();
@@ -175,6 +179,19 @@ const CitizenLogin = () => {
     }
   };
 
+  const validatePassword = (pass: string) => {
+    return {
+      length: pass.length >= 8,
+      upper: /[A-Z]/.test(pass),
+      lower: /[a-z]/.test(pass),
+      number: /[0-9]/.test(pass),
+      special: /[!@#$%^&*(),.?":{}|<>]/.test(pass),
+    };
+  };
+
+  const passwordRules = validatePassword(password);
+  const isPasswordValid = Object.values(passwordRules).every(Boolean);
+
   const handleVerifyOtp = async () => {
     if (otp.length !== 6) {
       toast({
@@ -276,10 +293,20 @@ const CitizenLogin = () => {
       return;
     }
 
-    if (password.length < 8) {
+    if (!isPasswordValid) {
       toast({
         title: "Weak Password",
-        description: "Password must be at least 8 characters",
+        description: "Please fulfill all password requirements",
+        variant: "destructive"
+      });
+      setShowRules(true);
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      toast({
+        title: "Passwords Don't Match",
+        description: "Please make sure both passwords are the same",
         variant: "destructive"
       });
       return;
@@ -597,11 +624,13 @@ const CitizenLogin = () => {
                     <span className="font-mono font-semibold text-primary">{formatTime(countdown)}</span>
                   </div>
                   {demoOtp && (
-                    <div className="mt-3 p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-center gap-3">
-                      <span className="text-amber-600 text-lg">🔑</span>
-                      <div>
-                        <p className="text-xs font-medium text-amber-700 uppercase tracking-wide">Demo Mode — Your OTP</p>
-                        <p className="font-mono text-2xl font-bold text-amber-800 tracking-widest mt-0.5">{demoOtp}</p>
+                    <div className="mt-4 p-4 bg-primary/5 border border-primary/20 rounded-xl flex items-center gap-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
+                      <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+                        <Shield className="w-6 h-6" />
+                      </div>
+                      <div className="flex-1 text-left">
+                        <p className="text-[10px] font-bold text-primary uppercase tracking-[0.2em]">Live Demo OTP</p>
+                        <p className="font-mono text-3xl font-black text-primary tracking-[0.2em]">{demoOtp}</p>
                       </div>
                     </div>
                   )}
@@ -798,19 +827,69 @@ const CitizenLogin = () => {
 
                 <div>
                   <label className="text-sm font-medium text-foreground mb-2 block">Create Password *</label>
-                  <Input
-                    type="password"
-                    placeholder="Minimum 8 characters"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    disabled={loading}
-                  />
+                  <div className="relative">
+                    <Input
+                      type={showPassword ? "text" : "password"}
+                      placeholder="Enter a strong password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      onFocus={() => setShowRules(true)}
+                      disabled={loading}
+                      className="pr-10"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    >
+                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+
+                  {showRules && (
+                    <div className="mt-3 p-4 bg-muted/30 rounded-xl border border-border/50 space-y-2 animate-in fade-in slide-in-from-top-2 duration-300">
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Password Requirements</p>
+                      <div className="grid grid-cols-1 gap-1.5">
+                        <RuleItem label="Minimum 8 characters" valid={passwordRules.length} />
+                        <RuleItem label="At least one uppercase letter" valid={passwordRules.upper} />
+                        <RuleItem label="At least one lowercase letter" valid={passwordRules.lower} />
+                        <RuleItem label="At least one number" valid={passwordRules.number} />
+                        <RuleItem label="At least one special character" valid={passwordRules.special} />
+                      </div>
+                    </div>
+                  )}
                 </div>
 
-                <div className="bg-muted/50 p-3 rounded-lg text-sm">
-                  <p className="text-muted-foreground">
-                    📱 You'll receive an OTP to verify your phone number after registration.
-                  </p>
+                <div>
+                  <label className="text-sm font-medium text-foreground mb-2 block">Confirm Password *</label>
+                  <div className="relative">
+                    <Input
+                      type={showConfirmPassword ? "text" : "password"}
+                      placeholder="Confirm your password"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      disabled={loading}
+                      className="pr-10"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    >
+                      {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="bg-primary/5 p-4 rounded-xl border border-primary/10 text-sm">
+                  <div className="flex gap-3">
+                    <div className="w-5 h-5 rounded-full bg-primary/10 flex items-center justify-center text-primary mt-0.5">
+                      <Shield className="w-3 h-3" />
+                    </div>
+                    <p className="text-muted-foreground leading-relaxed">
+                      Verification required. You will receive an OTP to confirm your phone number after registration.
+                    </p>
+                  </div>
                 </div>
 
                 <div className="pt-2">
@@ -890,5 +969,14 @@ const CitizenLogin = () => {
     </div>
   );
 };
+
+const RuleItem = ({ label, valid }: { label: string; valid: boolean }) => (
+  <div className="flex items-center gap-2 text-xs">
+    <div className={`w-4 h-4 rounded-full flex items-center justify-center ${valid ? 'bg-green-500/10 text-green-500' : 'bg-muted text-muted-foreground'}`}>
+      {valid ? <Check className="w-2.5 h-2.5" /> : <div className="w-1 h-1 rounded-full bg-current" />}
+    </div>
+    <span className={valid ? "text-foreground font-medium" : "text-muted-foreground"}>{label}</span>
+  </div>
+);
 
 export default CitizenLogin;
