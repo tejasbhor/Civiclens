@@ -1,6 +1,10 @@
 # CivicLens Deployment Guide
 
-This guide covers deploying CivicLens in production environments.
+This guide covers deploying CivicLens in general production environments.
+
+> [!IMPORTANT]
+> **Deploying on AWS EC2 (Small Instance)?**
+> Please follow the [AWS Production Setup Guide](./AWS_PRODUCTION_SETUP.md) instead. It contains critical memory optimizations and "Safe Build" scripts specific to your cloud environment.
 
 ## 📋 Table of Contents
 
