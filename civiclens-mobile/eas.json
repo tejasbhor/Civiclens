@@ -27,7 +27,8 @@
         "EXPO_PUBLIC_ENV": "production",
         "EXPO_PUBLIC_API_BASE_URL": "https://api.civiclens.space/api/v1",
         "EXPO_PUBLIC_WS_URL": "wss://api.civiclens.space/api/v1/ws",
-        "EXPO_PUBLIC_MINIO_URL": "https://api.civiclens.space"
+        "EXPO_PUBLIC_MINIO_URL": "https://api.civiclens.space",
+        "EXPO_PUBLIC_ENABLE_DEMO_OTP": "true"
       }
     },
     "production": {
@@ -40,7 +41,8 @@
         "EXPO_PUBLIC_ENV": "production",
         "EXPO_PUBLIC_API_BASE_URL": "https://api.civiclens.space/api/v1",
         "EXPO_PUBLIC_WS_URL": "wss://api.civiclens.space/api/v1/ws",
-        "EXPO_PUBLIC_MINIO_URL": "https://api.civiclens.space"
+        "EXPO_PUBLIC_MINIO_URL": "https://api.civiclens.space",
+        "EXPO_PUBLIC_ENABLE_DEMO_OTP": "true"
       }
     }
   },
