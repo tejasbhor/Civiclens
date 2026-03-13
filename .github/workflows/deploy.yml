@@ -88,7 +88,7 @@ jobs:
         working-directory: civiclens-backend
         run: |
           pip install uv
-          uv pip install --system -r requirements.txt
+          uv sync
 
       - name: Run tests
         working-directory: civiclens-backend
@@ -102,10 +102,10 @@ jobs:
           MINIO_SECRET_KEY: minioadmin
           ENVIRONMENT: test
         run: |
-          pytest tests/ -v --tb=short || true
+          uv run pytest tests/ -v --tb=short
 
   # ============================================================
-  # 3. Build & Push Docker Images (ARM64 for OCI)
+  # 3. Build & Push Docker Images (ARM64 for OCI/AWS Graviton)
   # ============================================================
   build-backend:
     name: Build Backend Image
@@ -184,6 +184,7 @@ jobs:
             ghcr.io/${{ env.REPO }}/civiclens-admin:sha-${{ github.sha }}
           build-args: |
             NEXT_PUBLIC_API_URL=https://api.civiclens.space/api/v1
+            NEXT_PUBLIC_ENABLE_DEMO_OTP=true
           cache-from: type=gha,scope=admin
           cache-to: type=gha,mode=max,scope=admin
 
@@ -225,11 +226,12 @@ jobs:
             ghcr.io/${{ env.REPO }}/civiclens-client:sha-${{ github.sha }}
           build-args: |
             VITE_API_URL=https://api.civiclens.space/api/v1
+            VITE_ENABLE_DEMO_OTP=true
           cache-from: type=gha,scope=client
           cache-to: type=gha,mode=max,scope=client
 
   # ============================================================
-  # 4. Deploy to OCI Production
+  # 4. Deploy to AWS Production
   # ============================================================
   deploy:
     name: Deploy to Production
@@ -251,13 +253,13 @@ jobs:
 
             # GHCR requires lowercase repository names
             export REPO=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
-            export DOCKER_REGISTRY="ghcr.io/$REPO/"
+            export DOCKER_REGISTRY="ghcr.io/$REPO"
 
-            echo "📦 Pulling latest images from $DOCKER_REGISTRY..."
-            docker compose pull backend admin client
+            echo "📦 Pulling latest images from GHCR..."
+            docker compose pull backend ai-worker admin client
 
             echo "🔄 Recreating application containers..."
-            docker compose up -d --no-deps --force-recreate backend admin client caddy
+            docker compose up -d --no-deps --force-recreate backend ai-worker admin client caddy
 
             echo "🗃️ Running database migrations..."
             docker compose exec -T backend alembic upgrade head
@@ -269,14 +271,15 @@ jobs:
 
       - name: Verify deployment
         run: |
-          sleep 20
+          echo "Waiting for services to stabilize..."
+          sleep 30
           echo "Checking API..."
-          curl -sf https://api.civiclens.space/health || exit 1
+          curl -sf https://api.civiclens.space/health || (echo "API check failed" && exit 1)
           echo ""
           echo "Checking Citizen Portal..."
-          curl -sf https://civiclens.space || exit 1
+          curl -sf https://civiclens.space || (echo "Client check failed" && exit 1)
           echo ""
           echo "Checking Admin Dashboard..."
-          curl -sf https://admin.civiclens.space || exit 1
+          curl -sf https://admin.civiclens.space || (echo "Admin check failed" && exit 1)
           echo ""
           echo "✅ All services verified!"
