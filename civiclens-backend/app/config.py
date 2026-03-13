@@ -52,6 +52,7 @@ class Settings(BaseSettings):
     # OTP
     OTP_EXPIRY_MINUTES: int = 5
     OTP_MAX_ATTEMPTS: int = 3  # Max OTP requests per hour
+    ENABLE_DEMO_OTP: bool = False  # If True, returns OTP in API response for demo/portfolio
     
     # Rate Limiting
     RATE_LIMIT_ENABLED: bool = True

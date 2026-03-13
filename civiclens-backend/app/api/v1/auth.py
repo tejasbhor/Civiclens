@@ -79,7 +79,7 @@ async def request_email_otp(
 
     return {
         "message": "OTP sent successfully to email",
-        "otp": otp if settings.DEBUG else None,
+        "otp": otp if (settings.DEBUG or settings.ENABLE_DEMO_OTP) else None,
         "expires_in_minutes": settings.OTP_EXPIRY_MINUTES
     }
 
@@ -239,7 +239,7 @@ async def request_otp(
 
     return {
         "message": "OTP sent successfully",
-        "otp": otp if settings.DEBUG else None,
+        "otp": otp if (settings.DEBUG or settings.ENABLE_DEMO_OTP) else None,
         "expires_in_minutes": settings.OTP_EXPIRY_MINUTES
     }
 
@@ -370,7 +370,7 @@ async def citizen_signup(
     return {
         "message": "Account created successfully. Please verify your phone number.",
         "user_id": user.id,
-        "otp": otp if settings.DEBUG else None,
+        "otp": otp if (settings.DEBUG or settings.ENABLE_DEMO_OTP) else None,
         "expires_in_minutes": settings.OTP_EXPIRY_MINUTES
     }
 

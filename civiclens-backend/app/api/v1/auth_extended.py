@@ -212,7 +212,7 @@ async def request_password_reset(
         # For development, return token
         return {
             "message": "Password reset token sent",
-            "reset_token": reset_token if settings.DEBUG else None,
+            "reset_token": reset_token if (settings.DEBUG or settings.ENABLE_DEMO_OTP) else None,
             "expires_in_minutes": settings.PASSWORD_RESET_TOKEN_EXPIRY_MINUTES
         }
     
