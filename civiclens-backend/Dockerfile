@@ -25,9 +25,9 @@ RUN pip install --no-cache-dir uv
 COPY pyproject.toml uv.lock ./
 
 # Install dependencies using UV (reproducible with lockfile)
-# Note: --system installs into the python environment directly
-# The --extra-index-url ensures we get the CUDA version if available
-RUN uv sync --system --no-dev --extra-index-url https://download.pytorch.org/whl/cu121
+# We set UV_PROJECT_ENVIRONMENT to install into the system path
+ENV UV_PROJECT_ENVIRONMENT=/usr/local
+RUN uv sync --no-dev --frozen --extra-index-url https://download.pytorch.org/whl/cu121
 
 
 # ---- Stage 2: Runtime image ----
