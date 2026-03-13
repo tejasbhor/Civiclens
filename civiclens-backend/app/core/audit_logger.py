@@ -10,6 +10,7 @@ from app.models.audit_log import AuditLog, AuditAction, AuditStatus
 from app.models.user import User
 from app.config import settings
 from app.core.enhanced_security import get_client_ip, sanitize_user_agent
+from app.core.database import AsyncSessionLocal
 
 
 class AuditLogger:
@@ -222,6 +223,50 @@ class AuditLogger:
             description=description,
             metadata=metadata
         )
+
+
+    async def log_login_success_bg(
+        self,
+        user_id: int,
+        user_role: str,
+        ip_address: str,
+        user_agent: str,
+        login_method: str = "password"
+    ):
+        """Background task to log successful login without blocking response"""
+        async with AsyncSessionLocal() as db:
+            audit_log = AuditLog(
+                user_id=user_id,
+                user_role=user_role,
+                action=AuditAction.LOGIN_SUCCESS,
+                status=AuditStatus.SUCCESS,
+                ip_address=ip_address,
+                user_agent=user_agent,
+                description=f"User logged in via {login_method}",
+                extra_data={"login_method": login_method}
+            )
+            db.add(audit_log)
+            await db.commit()
+
+    async def log_login_failure_bg(
+        self,
+        phone: str,
+        ip_address: str,
+        user_agent: str,
+        reason: str = "Invalid credentials"
+    ):
+        """Background task to log failed login attempt without blocking response"""
+        async with AsyncSessionLocal() as db:
+            audit_log = AuditLog(
+                action=AuditAction.LOGIN_FAILURE,
+                status=AuditStatus.FAILURE,
+                ip_address=ip_address,
+                user_agent=user_agent,
+                description=f"Failed login attempt for {phone}: {reason}",
+                extra_data={"phone": phone, "reason": reason}
+            )
+            db.add(audit_log)
+            await db.commit()
 
 
 # Global audit logger instance

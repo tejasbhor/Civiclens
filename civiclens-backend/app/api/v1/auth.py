@@ -119,8 +119,18 @@ async def verify_email_otp(
         user.id
     )
     
-    # Log successful OTP login
-    await audit_logger.log_login_success(db, user, http_request, "email_otp")
+    # Audit logging in background (non-blocking)
+    from app.core.enhanced_security import get_client_ip, sanitize_user_agent
+    ip = get_client_ip(http_request)
+    ua = sanitize_user_agent(http_request.headers.get("user-agent", ""))
+    background_tasks.add_task(
+        audit_logger.log_login_success_bg,
+        user_id=user.id,
+        user_role=user.role.value,
+        ip_address=ip,
+        user_agent=ua,
+        login_method="email_otp"
+    )
 
     # Generate JTIs for session tracking
     access_jti = generate_jti()
@@ -275,8 +285,18 @@ async def verify_otp(
         user.id
     )
     
-    # Log successful OTP login (keep synchronous for security audit trail)
-    await audit_logger.log_login_success(db, user, http_request, "otp")
+    # Audit logging in background (non-blocking)
+    from app.core.enhanced_security import get_client_ip, sanitize_user_agent
+    ip = get_client_ip(http_request)
+    ua = sanitize_user_agent(http_request.headers.get("user-agent", ""))
+    background_tasks.add_task(
+        audit_logger.log_login_success_bg,
+        user_id=user.id,
+        user_role=user.role.value,
+        ip_address=ip,
+        user_agent=ua,
+        login_method="otp"
+    )
 
     # Generate JTIs for session tracking
     access_jti = generate_jti()
@@ -427,8 +447,18 @@ async def verify_phone_after_signup(
     # Delete OTP from Redis
     await redis_client.delete(redis_key)
     
-    # Log successful verification
-    await audit_logger.log_login_success(db, user, http_request, "signup_verification")
+    # Audit logging in background
+    from app.core.enhanced_security import get_client_ip, sanitize_user_agent
+    ip = get_client_ip(http_request)
+    ua = sanitize_user_agent(http_request.headers.get("user-agent", ""))
+    background_tasks.add_task(
+        audit_logger.log_login_success_bg,
+        user_id=user.id,
+        user_role=user.role.value,
+        ip_address=ip,
+        user_agent=ua,
+        login_method="signup_verification"
+    )
     
     # Generate JTIs for session tracking
     access_jti = generate_jti()
@@ -466,6 +496,7 @@ async def verify_phone_after_signup(
 async def login(
     request: LoginRequest,
     http_request: Request,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db)
 ):
     """Login with phone and password with rate limiting and account lockout"""
@@ -483,9 +514,15 @@ async def login(
         attempts = await account_security.record_failed_login(request.phone)
         remaining = settings.MAX_LOGIN_ATTEMPTS - attempts
         
-        # Log failed login
-        await audit_logger.log_login_failure(
-            db, request.phone, http_request,
+        # Log failure in background
+        from app.core.enhanced_security import get_client_ip, sanitize_user_agent
+        ip = get_client_ip(http_request)
+        ua = sanitize_user_agent(http_request.headers.get("user-agent", ""))
+        background_tasks.add_task(
+            audit_logger.log_login_failure_bg,
+            phone=request.phone,
+            ip_address=ip,
+            user_agent=ua,
             reason="Invalid credentials"
         )
         
@@ -502,31 +539,40 @@ async def login(
     # Validate portal access based on user role
     is_valid, error_message = validate_portal_access(user.role, request.portal_type)
     if not is_valid:
-        # Log portal access violation
-        await audit_logger.log_action(
-            db=db,
-            user_id=user.id,
-            action=AuditAction.LOGIN_FAILED,
-            status=AuditStatus.FAILURE,
-            details={
-                "reason": "Portal access denied",
-                "user_role": user.role.value,
-                "attempted_portal": request.portal_type.value,
-                "ip_address": http_request.client.host if http_request.client else None
-            },
-            ip_address=http_request.client.host if http_request.client else None,
-            user_agent=http_request.headers.get("user-agent")
+        # Log portal access violation in background
+        from app.core.enhanced_security import get_client_ip, sanitize_user_agent
+        ip = get_client_ip(http_request)
+        ua = sanitize_user_agent(http_request.headers.get("user-agent", ""))
+        background_tasks.add_task(
+            audit_logger.log_login_failure_bg,
+            phone=request.phone,
+            ip_address=ip,
+            user_agent=ua,
+            reason=f"Portal access denied: {error_message}"
         )
         raise UnauthorizedException(error_message)
     
     # Clear failed login attempts on successful login
     await account_security.clear_failed_login(request.phone)
-
-    # Update login stats
-    await user_crud.update_login_stats(db, user.id)
     
-    # Log successful login
-    await audit_logger.log_login_success(db, user, http_request, "password")
+    # Update login stats in background
+    background_tasks.add_task(
+        update_login_stats_bg,
+        user.id
+    )
+
+    # Audit success in background
+    from app.core.enhanced_security import get_client_ip, sanitize_user_agent
+    ip = get_client_ip(http_request)
+    ua = sanitize_user_agent(http_request.headers.get("user-agent", ""))
+    background_tasks.add_task(
+        audit_logger.log_login_success_bg,
+        user_id=user.id,
+        user_role=user.role.value,
+        ip_address=ip,
+        user_agent=ua,
+        login_method="password"
+    )
 
     # Generate JTIs
     access_jti = generate_jti()

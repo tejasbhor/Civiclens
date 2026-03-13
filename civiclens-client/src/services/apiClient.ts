@@ -95,6 +95,13 @@ apiClient.interceptors.response.use(
 
     // Handle 401 Unauthorized
     if (error.response?.status === 401 && originalRequest && !originalRequest._retry) {
+      // Don't attempt refresh for auth endpoints (login, verify, etc.)
+      if (originalRequest.url?.includes('/auth/login') || 
+          originalRequest.url?.includes('/auth/verify') || 
+          originalRequest.url?.includes('/auth/signup')) {
+        return Promise.reject(error);
+      }
+
       // If already refreshing, queue this request
       if (isRefreshing) {
         return new Promise((resolve, reject) => {

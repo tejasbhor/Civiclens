@@ -1,10 +1,21 @@
 import { useState, useEffect, useCallback } from "react";
+import { 
+  Shield, 
+  Lock, 
+  Phone, 
+  Eye, 
+  EyeOff, 
+  ArrowLeft, 
+  AlertCircle, 
+  Loader2, 
+  ShieldCheck,
+  LayoutGrid
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Shield, Eye, EyeOff, Loader2, AlertCircle, CheckCircle2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { authService } from "@/services/authService";
@@ -113,24 +124,21 @@ const OfficerLogin = () => {
   }, [password, validatePassword]);
 
   const handleLogin = async () => {
-    // Clear previous errors
+    // Clear previous server-side errors
     setPhoneError(null);
     setPasswordError(null);
 
-    // Validate inputs
+    // Validate inputs locally
     const phoneValidation = validatePhoneNumber(phone);
     const passwordValidation = validatePassword(password);
 
     if (!phoneValidation.valid || !passwordValidation.valid) {
-      if (!phoneValidation.valid) {
-        setPhoneError(phoneValidation.error || null);
-      }
-      if (!passwordValidation.valid) {
-        setPasswordError(passwordValidation.error || null);
-      }
+      if (!phoneValidation.valid) setPhoneError(phoneValidation.error || null);
+      if (!passwordValidation.valid) setPasswordError(passwordValidation.error || null);
+      
       toast({
         title: "Validation Error",
-        description: "Please correct the errors in the form before submitting.",
+        description: "Please check your login details.",
         variant: "destructive"
       });
       return;
@@ -157,252 +165,272 @@ const OfficerLogin = () => {
       // Show success toast
       toast({
         title: "Login Successful",
-        description: "Welcome to the Officer Portal",
+        description: `Welcome back, Officer`,
       });
 
-      // The useEffect hook will handle redirect when user state is updated
-      // No need to navigate here - let the useEffect handle it
     } catch (error: any) {
-      let errorMessage = "Invalid credentials. Please verify your phone number and password and try again.";
+      console.error("Officer login failed:", error);
+      let errorMessage = "Invalid credentials. Please verify your phone number and password.";
 
       if (error.response?.data?.detail?.includes('Citizen Portal')) {
-        // Portal mismatch - user is a citizen trying to access officer portal
         errorMessage = error.response.data.detail;
         toast({
           title: "Wrong Portal",
           description: errorMessage,
           variant: "destructive",
-          duration: 6000,
+          duration: 9000,
         });
+        return;
       } else if (error.response?.status === 401) {
-        errorMessage = error.response?.data?.detail || "Invalid phone number or password. Please check your credentials and try again.";
-        setPasswordError("Invalid password");
-        toast({
-          title: "Login Failed",
-          description: errorMessage,
-          variant: "destructive"
-        });
+        errorMessage = error.response?.data?.detail || "Invalid phone number or password.";
+        setPasswordError("Incorrect password");
       } else if (error.response?.status === 429) {
-        errorMessage = "Too many login attempts. Please wait a few minutes before trying again.";
-        toast({
-          title: "Login Failed",
-          description: errorMessage,
-          variant: "destructive"
-        });
+        errorMessage = "Too many login attempts. Please wait a few minutes.";
       } else if (error.response?.status === 423) {
-        errorMessage = "Your account has been temporarily locked. Please contact your administrator for assistance.";
-        toast({
-          title: "Account Locked",
-          description: errorMessage,
-          variant: "destructive"
-        });
+        errorMessage = "Your account is temporarily locked. Please contact IT support.";
       } else if (error.response?.status === 422) {
-        errorMessage = "Invalid phone number format. Please enter a valid phone number.";
-        setPhoneError("Invalid phone number format");
-        toast({
-          title: "Validation Error",
-          description: errorMessage,
-          variant: "destructive"
-        });
+        errorMessage = "Input validation failed. Please check your phone format.";
+        setPhoneError("Invalid format");
       } else if (error.message === 'Network Error' || error.isNetworkError) {
-        errorMessage = "Unable to connect to the server. Please check your internet connection and try again.";
-        toast({
-          title: "Connection Error",
-          description: errorMessage,
-          variant: "destructive"
-        });
-      } else {
-        toast({
-          title: "Login Failed",
-          description: errorMessage,
-          variant: "destructive"
-        });
+        errorMessage = "Server unreachable. Please check your internet connection.";
       }
+
+      toast({
+        title: "Login Failed",
+        description: errorMessage,
+        variant: "destructive"
+      });
+      setPassword(""); // Clear password for security
     } finally {
       setLoading(false);
     }
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !loading) {
-      handleLogin();
-    }
-  };
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted flex flex-col">
-      {/* Header */}
-      <header className="border-b bg-card/50 backdrop-blur-sm">
-        <div className="container mx-auto px-4 py-4 flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate('/')}>
-            <ArrowLeft className="w-5 h-5" />
-          </Button>
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-secondary to-accent flex items-center justify-center">
-              <Shield className="w-5 h-5 text-white" />
-            </div>
-            <div>
-              <h1 className="font-bold text-foreground">Officer Login</h1>
-              <p className="text-xs text-muted-foreground">{APP_CONFIG.appName} Portal</p>
-            </div>
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-black flex flex-col items-center justify-center p-4 relative overflow-hidden">
+      {/* Decorative Elements */}
+      <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
+        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary/5 rounded-full blur-[100px]" />
+        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-secondary/5 rounded-full blur-[100px]" />
+      </div>
+
+      {/* Header / Back Navigation */}
+      <div className="absolute top-8 left-8 z-20">
+        <Button 
+          variant="ghost" 
+          size="sm" 
+          onClick={() => navigate('/')}
+          className="text-muted-foreground hover:text-white transition-colors gap-2"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Back to Portal Selection
+        </Button>
+      </div>
+
+      <div className="w-full max-w-md relative z-10">
+        <div className="text-center mb-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
+          <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-primary/10 mb-6 group transition-all duration-500 hover:bg-primary/20 hover:scale-105 border border-primary/20 shadow-xl shadow-primary/10">
+            <Shield className="w-10 h-10 text-primary transition-transform duration-500 group-hover:rotate-12" />
           </div>
+          <h1 className="text-4xl font-extrabold tracking-tight mb-3 text-white">
+            Officer <span className="text-primary italic">Portal</span>
+          </h1>
+          <p className="text-slate-400 font-medium tracking-wide text-sm">
+            SECURE ACCESS FOR NAVI MUMBAI PERSONNEL
+          </p>
         </div>
-      </header>
 
-      {/* Main Content */}
-      <div className="flex-1 flex items-center justify-center px-4 py-12">
-        <Card className="w-full max-w-md p-8">
-          <div className="text-center mb-8">
-            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-secondary to-accent flex items-center justify-center mx-auto mb-4">
-              <Shield className="w-8 h-8 text-white" />
-            </div>
-            <h2 className="text-2xl font-bold text-foreground mb-2">Officer Portal</h2>
-            <p className="text-muted-foreground">Sign in to manage tasks and resolve issues</p>
-          </div>
-
+        <Card className="p-8 shadow-2xl border-white/5 bg-slate-900/60 backdrop-blur-2xl animate-in zoom-in-95 duration-500">
           <div className="space-y-6">
-            <div>
-              <Label htmlFor="phone" className="flex items-center gap-2">
-                Phone Number <span className="text-destructive">*</span>
+            <div className="space-y-2">
+              <Label htmlFor="phone" className="text-[10px] font-bold text-slate-400 tracking-widest uppercase ml-1">
+                Authorized Mobile
               </Label>
-              <div className="mt-2">
-                <div className="relative">
-                  <div className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm font-medium">
-                    +91
-                  </div>
-                  <Input
-                    id="phone"
-                    type="tel"
-                    placeholder="9876543210"
-                    value={phone}
-                    onChange={(e) => {
-                      // Only allow digits
-                      const value = e.target.value.replace(/\D/g, '').slice(0, 10);
-                      setPhone(value);
-                    }}
-                    onKeyPress={handleKeyPress}
-                    disabled={loading}
-                    className={`pl-12 ${phoneError ? 'border-destructive focus-visible:ring-destructive' : ''}`}
-                    aria-required="true"
-                    aria-invalid={!!phoneError}
-                    aria-describedby={phoneError ? "phone-error" : "phone-help"}
-                  />
+              <div className="relative group">
+                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-primary transition-colors flex items-center gap-2 border-r border-slate-700 pr-3">
+                  <Phone className="w-4 h-4" />
+                  <span className="text-xs font-bold">+91</span>
                 </div>
-                {phoneError ? (
-                  <div id="phone-error" className="flex items-center gap-1 mt-1.5 text-xs text-destructive" role="alert">
-                    <AlertCircle className="w-3.5 h-3.5" />
-                    <span>{phoneError}</span>
-                  </div>
-                ) : (
-                  <p id="phone-help" className="text-xs text-muted-foreground mt-1.5">
-                    Enter your 10-digit phone number
-                  </p>
-                )}
+                <Input
+                  id="phone"
+                  type="tel"
+                  placeholder="9876543210"
+                  className="pl-20 h-14 bg-slate-950/40 border-slate-700 focus:border-primary focus:ring-primary/20 transition-all rounded-xl text-white placeholder:text-slate-600 font-mono"
+                  value={phone}
+                  onChange={(e) => {
+                    const value = e.target.value.replace(/\D/g, '').slice(0, 10);
+                    setPhone(value);
+                  }}
+                  disabled={loading}
+                  aria-invalid={!!phoneError}
+                />
               </div>
+              {phoneError && (
+                <p className="text-[10px] font-bold text-destructive mt-1 ml-1 animate-in slide-in-from-left-2 uppercase tracking-tight">{phoneError}</p>
+              )}
             </div>
 
-            <div>
-              <Label htmlFor="password" className="flex items-center gap-2">
-                Password <span className="text-destructive">*</span>
-              </Label>
-              <div className="relative mt-2">
+            <div className="space-y-2">
+              <div className="flex justify-between items-center ml-1">
+                <Label htmlFor="password" className="text-[10px] font-bold text-slate-400 tracking-widest uppercase">
+                  Encrypted Password
+                </Label>
+              </div>
+              <div className="relative group">
+                <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-primary transition-colors pr-3 border-r border-slate-700 h-6 flex items-center">
+                  <Lock className="w-4 h-4" />
+                </div>
                 <Input
                   id="password"
                   type={showPassword ? "text" : "password"}
-                  placeholder="Enter your password"
+                  placeholder="••••••••"
+                  className="pl-14 pr-12 h-14 bg-slate-950/40 border-slate-700 focus:border-primary focus:ring-primary/20 transition-all rounded-xl text-white placeholder:text-slate-600"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  onKeyPress={handleKeyPress}
+                  onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
                   disabled={loading}
-                  className={`pr-10 ${passwordError ? 'border-destructive focus-visible:ring-destructive' : ''}`}
-                  aria-required="true"
                   aria-invalid={!!passwordError}
-                  aria-describedby={passwordError ? "password-error" : undefined}
                 />
                 <Button
                   type="button"
                   variant="ghost"
                   size="icon"
-                  className="absolute right-0 top-0 h-full hover:bg-transparent"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 h-10 w-10 hover:bg-slate-800 rounded-lg transition-colors"
                   onClick={() => setShowPassword(!showPassword)}
                   disabled={loading}
-                  aria-label={showPassword ? "Hide password" : "Show password"}
                 >
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  {showPassword ? <EyeOff className="w-4 h-4 text-slate-400" /> : <Eye className="w-4 h-4 text-slate-400" />}
                 </Button>
               </div>
               {passwordError && (
-                <div id="password-error" className="flex items-center gap-1 mt-1.5 text-xs text-destructive" role="alert">
-                  <AlertCircle className="w-3.5 h-3.5" />
-                  <span>{passwordError}</span>
-                </div>
+                <p className="text-[10px] font-bold text-destructive mt-1 ml-1 animate-in slide-in-from-left-2 uppercase tracking-tight">{passwordError}</p>
               )}
             </div>
 
-            <div className="flex justify-between items-center text-sm">
-              <label className="flex items-center gap-2 cursor-pointer group">
-                <input
-                  type="checkbox"
-                  className="rounded border-input cursor-pointer"
-                  checked={rememberMe}
-                  onChange={(e) => setRememberMe(e.target.checked)}
-                  disabled={loading}
-                />
-                <span className="text-muted-foreground group-hover:text-foreground transition-colors">
-                  Remember me
-                </span>
+            <div className="flex justify-between items-center py-1">
+              <label className="flex items-center gap-3 cursor-pointer group select-none">
+                <div className="relative flex items-center justify-center">
+                  <input
+                    type="checkbox"
+                    className="peer sr-only"
+                    checked={rememberMe}
+                    onChange={(e) => setRememberMe(e.target.checked)}
+                    disabled={loading}
+                  />
+                  <div className="w-5 h-5 border-2 border-slate-700 rounded-lg bg-slate-950/20 peer-checked:bg-primary peer-checked:border-primary transition-all"></div>
+                  <div className="absolute opacity-0 peer-checked:opacity-100 transition-opacity">
+                    <ShieldCheck className="w-3 h-3 text-slate-950" />
+                  </div>
+                </div>
+                <span className="text-xs font-medium text-slate-400 group-hover:text-slate-200 transition-colors">Keep me signed in</span>
               </label>
               <Button
                 variant="link"
-                className="p-0 h-auto text-sm"
+                className="p-0 h-auto text-xs font-bold text-primary/80 hover:text-primary transition-colors uppercase tracking-widest"
                 onClick={() => {
                   toast({
-                    title: "Password Reset",
-                    description: "Please contact your administrator to reset your password.",
+                    title: "Access Restricted",
+                    description: "Please visit the Department IT Cell for password reset services.",
                   });
                 }}
                 disabled={loading}
               >
-                Forgot Password?
+                Reset Access?
               </Button>
             </div>
 
             <Button
               onClick={handleLogin}
-              className="w-full"
-              size="lg"
-              disabled={loading || !!phoneError || !!passwordError || !phone || !password}
+              className="w-full h-14 text-sm font-black rounded-xl shadow-2xl shadow-primary/20 hover:shadow-primary/40 transition-all active:scale-[0.98] uppercase tracking-widest"
+              disabled={loading || !phone || !password}
             >
               {loading ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Signing In...
-                </>
+                <div className="flex items-center gap-3">
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  <span>Decrypting...</span>
+                </div>
               ) : (
-                <>
-                  <Shield className="w-4 h-4 mr-2" />
-                  Sign In
-                </>
+                <div className="flex items-center gap-2">
+                  <ShieldCheck className="w-5 h-5" />
+                  <span>Initialize Secure Session</span>
+                </div>
               )}
             </Button>
 
-            <div className="bg-muted/50 p-4 rounded-lg border border-muted">
-              <div className="flex items-start gap-2 text-sm">
-                <Shield className="w-4 h-4 text-secondary mt-0.5 flex-shrink-0" />
-                <div>
-                  <p className="font-medium text-foreground mb-1">Secure Portal</p>
-                  <p className="text-xs text-muted-foreground">
-                    This portal is restricted to authorized government personnel only.
-                    All access attempts are logged and monitored.
-                  </p>
+            {/* Premium Sandbox Credentials Section */}
+            <div className="relative pt-6 pb-2">
+              <div className="absolute inset-x-0 top-0 flex items-center justify-center">
+                <div className="bg-slate-800/50 backdrop-blur px-3 py-1 rounded-full border border-slate-700 text-[9px] font-black text-slate-400 uppercase tracking-[0.2em]">
+                  Live Sandbox Access
                 </div>
               </div>
             </div>
+
+            <div className="grid grid-cols-2 gap-3 animate-in fade-in slide-in-from-top-2 duration-1000">
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-16 flex flex-col items-start justify-center px-4 bg-slate-800/20 border-slate-700 hover:bg-slate-800/40 hover:border-slate-600 rounded-2xl group transition-all text-left"
+                onClick={() => {
+                  setPhone("9876543210");
+                  setPassword("Officer@123");
+                  setPhoneError(null);
+                  setPasswordError(null);
+                  toast({
+                    title: "Authorized Login",
+                    description: "Field Officer credentials applied.",
+                  });
+                }}
+                disabled={loading}
+              >
+                <div className="flex items-center gap-1.5 mb-1 group-hover:translate-x-1 transition-transform">
+                  <LayoutGrid className="w-3 h-3 text-secondary" />
+                  <span className="text-[9px] font-black text-secondary uppercase tracking-wider">Field Officer</span>
+                </div>
+                <span className="text-xs font-mono text-white font-bold tracking-tight">9876543210</span>
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-16 flex flex-col items-start justify-center px-4 bg-slate-800/20 border-slate-700 hover:bg-slate-800/40 hover:border-slate-600 rounded-2xl group transition-all text-left"
+                onClick={() => {
+                  setPhone("9999999999");
+                  setPassword("Admin123!");
+                  setPhoneError(null);
+                  setPasswordError(null);
+                  toast({
+                    title: "Admin Sandbox",
+                    description: "Super Admin credentials applied.",
+                  });
+                }}
+                disabled={loading}
+              >
+                <div className="flex items-center gap-1.5 mb-1 group-hover:translate-x-1 transition-transform">
+                  <Shield className="w-3 h-3 text-primary" />
+                  <span className="text-[9px] font-black text-primary uppercase tracking-wider">System Admin</span>
+                </div>
+                <span className="text-xs font-mono text-white font-bold tracking-tight">9999999999</span>
+              </Button>
+            </div>
+            
+            <div className="flex items-center gap-3 px-4 pt-2 opacity-40">
+              <div className="h-px flex-1 bg-slate-700" />
+              <div className="flex gap-2">
+                 <div className="w-1.5 h-1.5 rounded-full bg-slate-600 animate-pulse" />
+                 <div className="w-1.5 h-1.5 rounded-full bg-slate-600 animate-pulse delay-75" />
+                 <div className="w-1.5 h-1.5 rounded-full bg-slate-600 animate-pulse delay-150" />
+              </div>
+              <div className="h-px flex-1 bg-slate-700" />
+            </div>
+
+            <p className="text-[9px] text-center text-slate-500 font-medium leading-relaxed px-4">
+              All interactions within the <span className="text-slate-400">NMMC CivicLens Enterprise</span> environment are encrypted and audited for security compliance. Unauthorized access is strictly prohibited.
+            </p>
           </div>
         </Card>
       </div>
 
-      <footer className="border-t bg-card/50 py-6 text-center text-sm text-muted-foreground">
+      <footer className="mt-12 text-center text-[10px] text-slate-500 font-bold uppercase tracking-[0.3em] opacity-40">
         {getCopyrightText()}
       </footer>
     </div>
