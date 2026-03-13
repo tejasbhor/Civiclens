@@ -86,7 +86,7 @@ services:
 
   # ---- Infrastructure Services ----
   postgres:
-    image: postgis/postgis:15-3.3-alpine
+    image: postgis/postgis:15-3.3
     container_name: civiclens-postgres
     restart: unless-stopped
     env_file: .env
