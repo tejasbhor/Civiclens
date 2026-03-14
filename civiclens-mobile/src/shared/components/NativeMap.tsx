@@ -1,6 +1,6 @@
-import React, { forwardRef, useImperativeHandle, useRef, useState, useEffect } from 'react';
-import { StyleSheet, View, TouchableOpacity, Text, Platform, ActivityIndicator } from 'react-native';
-import MapView, { Marker, PROVIDER_GOOGLE, PROVIDER_DEFAULT, Region, Callout, UrlTile } from 'react-native-maps';
+import React, { forwardRef, useImperativeHandle, useRef, useState } from 'react';
+import { StyleSheet, View, Text, ActivityIndicator } from 'react-native';
+import MapView, { Marker, PROVIDER_DEFAULT, Region, Callout, UrlTile } from 'react-native-maps';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '@shared/theme/colors';
 
@@ -41,7 +41,11 @@ const NativeMap = forwardRef<NativeMapRef, NativeMapProps>(
         mapRef.current?.animateToRegion(region, duration);
       },
       fitToCoordinates: (coordinates, options = { edgePadding: { top: 50, right: 50, bottom: 50, left: 50 }, animated: true }) => {
-        mapRef.current?.fitToElements(true);
+        if (coordinates && coordinates.length > 0) {
+          mapRef.current?.fitToCoordinates(coordinates, options);
+        } else {
+          mapRef.current?.fitToElements({ animated: true });
+        }
       },
       zoomIn: () => {
         mapRef.current?.getCamera().then(camera => {
@@ -73,7 +77,7 @@ const NativeMap = forwardRef<NativeMapRef, NativeMapProps>(
       <View style={[styles.container, style]}>
         <MapView
           ref={mapRef}
-          provider={PROVIDER_DEFAULT} // Use default to avoid Google Maps specific errors if key is missing
+          provider={PROVIDER_DEFAULT} 
           style={styles.map}
           initialRegion={initialRegion}
           showsUserLocation={showsUserLocation}
@@ -81,16 +85,27 @@ const NativeMap = forwardRef<NativeMapRef, NativeMapProps>(
           showsCompass={false}
           onMapReady={() => setIsMapReady(true)}
           onRegionChangeComplete={onRegionChangeComplete}
-          loadingEnabled={true}
+          loadingEnabled={false}
           loadingIndicatorColor={colors.primary}
           loadingBackgroundColor={colors.backgroundSecondary}
-          mapType={useOsmTiles ? "none" : "standard"} // If using OSM, set mapType to none
+          mapType={useOsmTiles ? "none" : "standard"}
+          // @ts-ignore - showsZoomControls is Android specific but valid
+          showsZoomControls={false}
+          rotateEnabled={true}
+          pitchEnabled={true}
         >
           {useOsmTiles && (
             <UrlTile
-              urlTemplate="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              /** 
+               * CartoDB Voyager: Best free-forever map for production feel.
+               * Based on OSM data but with a clean, Google-like aesthetic.
+               */
+              urlTemplate="https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png"
               maximumZ={19}
+              minimumZ={0}
               flipY={false}
+              tileSize={256}
+              offlineMode={false}
             />
           )}
           {markers.map((marker) => (
@@ -118,31 +133,6 @@ const NativeMap = forwardRef<NativeMapRef, NativeMapProps>(
             </Marker>
           ))}
         </MapView>
-        
-        {!isMapReady && (
-          <View style={styles.loaderContainer}>
-            <ActivityIndicator size="large" color={colors.primary} />
-          </View>
-        )}
-
-        <View style={styles.controls}>
-          <TouchableOpacity 
-            style={styles.controlButton}
-            onPress={() => {
-              // Custom zoom in logic if needed, or rely on native
-            }}
-          >
-            <Ionicons name="add" size={24} color={colors.textPrimary} />
-          </TouchableOpacity>
-          <TouchableOpacity 
-            style={styles.controlButton}
-            onPress={() => {
-              // Custom zoom out logic
-            }}
-          >
-            <Ionicons name="remove" size={24} color={colors.textPrimary} />
-          </TouchableOpacity>
-        </View>
       </View>
     );
   }
@@ -196,22 +186,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#666',
   },
-  controls: {
-    position: 'absolute',
-    right: 16,
-    top: 60,
-    backgroundColor: 'rgba(255,255,255,0.9)',
-    borderRadius: 8,
-    padding: 4,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  controlButton: {
-    padding: 8,
-  }
 });
 
 export default NativeMap;
