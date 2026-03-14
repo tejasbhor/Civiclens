@@ -145,7 +145,11 @@ export const OTPVerificationScreen = ({ phone, onSuccess }: OTPVerificationScree
           {otp.map((digit, index) => (
             <TextInput
               key={index}
-              ref={ref => (inputRefs.current[index] = ref)}
+                ref={(ref: TextInput | null) => {
+                  if (ref) {
+                    inputRefs.current[index] = ref;
+                  }
+                }}
               style={[styles.otpInput, digit && styles.otpInputFilled]}
               value={digit}
               onChangeText={value => handleOtpChange(value, index)}

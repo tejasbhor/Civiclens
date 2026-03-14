@@ -105,7 +105,7 @@ jobs:
           uv run pytest tests/ -v --tb=short
 
   # ============================================================
-  # 3. Build & Push Docker Images (ARM64 for OCI/AWS Graviton)
+  # 3. Build & Push Docker Images (ARM64 for OCI)
   # ============================================================
   build-backend:
     name: Build Backend Image
@@ -231,10 +231,10 @@ jobs:
           cache-to: type=gha,mode=max,scope=client
 
   # ============================================================
-  # 4. Deploy to AWS Production
+  # 4. Deploy to OCI Production
   # ============================================================
   deploy:
-    name: Deploy to Production
+    name: Deploy to OCI Production
     runs-on: ubuntu-latest
     needs: [build-backend, build-admin, build-client]
     environment:

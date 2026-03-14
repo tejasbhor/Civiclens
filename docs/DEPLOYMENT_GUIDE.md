@@ -3,8 +3,8 @@
 This guide covers deploying CivicLens in general production environments.
 
 > [!IMPORTANT]
-> **Deploying on AWS EC2 (Small Instance)?**
-> Please follow the [AWS Production Setup Guide](./AWS_PRODUCTION_SETUP.md) instead. It contains critical memory optimizations and "Safe Build" scripts specific to your cloud environment.
+> **Deploying on Oracle Cloud (OCI ARM)?**
+> Please follow the [OCI Production Setup Guide](./OCI_PRODUCTION_SETUP.md) instead. It contains critical optimizations and setup scripts for the ARM64 environment.
 
 ## 📋 Table of Contents
 

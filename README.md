@@ -30,7 +30,7 @@ docs/                  Database schema docs, security guide, deployment guide
 
 ## 🌐 Live Demo
 
-The platform is live and fully accessible on **AWS EC2 (Graviton/ARM64)**:
+The platform is live and fully accessible on **Oracle Cloud Infrastructure (OCI ARM64)**:
 - 🏛️ **Citizen Portal**: [https://civiclens.space](https://civiclens.space)
 - 📊 **Admin Dashboard**: [https://admin.civiclens.space](https://admin.civiclens.space)
 - 🔌 **API Documentation**: [https://api.civiclens.space/docs](https://api.civiclens.space/docs)
@@ -39,7 +39,7 @@ The platform is live and fully accessible on **AWS EC2 (Graviton/ARM64)**:
 
 ## 🏗️ Architecture
 
-The production stack runs on an **AWS EC2 (t4g.small)** instance using Docker Compose. Caddy terminates TLS and routes traffic:
+The production stack runs on an **Oracle Cloud OCI (VM.Standard.A1.Flex)** instance using Docker Compose. Caddy terminates TLS and routes traffic:
 
 ```
                     Internet
@@ -146,7 +146,7 @@ Scan the QR code with Expo Go on your phone. Use your machine's local IP (not `l
 
 ## Production Deployment
 
-The production setup is fully containerized with Docker Compose. For the specific AWS EC2 (Small Instance) configuration used for the live demo, see the [AWS Production Setup Guide](docs/AWS_PRODUCTION_SETUP.md).
+The production setup is fully containerized with Docker Compose. For the specific Oracle Cloud (OCI ARM64) configuration used for the live demo, see the [OCI Production Setup Guide](docs/OCI_PRODUCTION_SETUP.md).
 
 ### Key Files
 
@@ -192,7 +192,7 @@ Production API URLs are configured in `eas.json` and injected at build time.
 
 - [Database Schema](docs/DATABASE_SCHEMA_SUMMARY.md)
 - [Database Setup](docs/SETUP_DATABASE.md)
-- [AWS Production Setup](docs/AWS_PRODUCTION_SETUP.md)
+- [OCI Production Setup](docs/OCI_PRODUCTION_SETUP.md)
 - [Deployment Guide](docs/DEPLOYMENT_GUIDE.md)
 - [Security Guide](docs/SECURITY_TESTING_GUIDE.md)
 - [AI Pipeline Setup](docs/AI_SETUP_STEPS.md)
