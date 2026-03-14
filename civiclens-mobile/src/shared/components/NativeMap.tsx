@@ -86,7 +86,7 @@ const NativeMap = forwardRef<NativeMapRef, NativeMapProps>(
           loadingEnabled={false}
           loadingIndicatorColor={colors.primary}
           loadingBackgroundColor={colors.backgroundSecondary}
-          mapType={useOsmTiles ? "standard" : "standard"}
+          mapType={useOsmTiles ? "none" : "standard"}
           // @ts-ignore - showsZoomControls is Android specific but valid
           showsZoomControls={false}
           rotateEnabled={true}
