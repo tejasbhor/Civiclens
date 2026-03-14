@@ -6,12 +6,15 @@
 import { networkService } from '@shared/services/network/networkService';
 import { database } from '@shared/database/database';
 import { conflictResolver } from './conflictResolver';
-import axios from 'axios';
+import { createLogger } from '@shared/utils/logger';
+
+const log = createLogger('SyncManager');
+
 
 export interface SyncQueueItem {
   id: number;
   item_type: 'report' | 'task' | 'media';
-  operation: 'create' | 'update' | 'delete';
+  operation: 'create' | 'update' | 'delete' | 'acknowledge' | 'start-work' | 'complete' | 'add-update';
   data: string; // JSON stringified data
   retry_count: number;
   last_attempt: number | null;
@@ -42,12 +45,12 @@ class SyncManager {
    * Initialize sync manager and start listening to network changes
    */
   async initialize(): Promise<void> {
-    console.log('🔄 Initializing Sync Manager...');
+    log.info('Initializing Sync Manager...');
 
     // Listen to network changes
     this.networkUnsubscribe = networkService.addListener((status) => {
       if (status.isConnected && status.isInternetReachable && !this.isSyncing) {
-        console.log('📡 Network restored, starting sync...');
+        log.info('Network restored, starting sync...');
         this.syncAllData();
       }
     });
@@ -57,8 +60,9 @@ class SyncManager {
       await this.syncAllData();
     }
 
-    console.log('✅ Sync Manager initialized');
+    log.info('Sync Manager initialized successfully');
   }
+
 
   /**
    * Add a listener for sync status changes
@@ -101,18 +105,32 @@ class SyncManager {
    * Returns 0 if database is not ready
    */
   async getQueueSize(): Promise<number> {
-    // Check if database is ready before querying
     if (!database.isReady()) {
       return 0;
     }
 
     try {
-      const result = await database.getFirstAsync<{ count: number }>(
-        'SELECT COUNT(*) as count FROM sync_queue'
+      const { useAuthStore } = await import('@store/authStore');
+      const user = useAuthStore.getState().user;
+      if (!user) return 0;
+
+      const result = await database.getAllAsync<{ data: string }>(
+        'SELECT data FROM sync_queue'
       );
-      return result?.count || 0;
+      
+      let userCount = 0;
+      for (const row of result) {
+        try {
+          const parsed = JSON.parse(row.data);
+          // Only count tasks that belong to the current user OR tasks from before the migration
+          if (parsed._user_id === user.id || !parsed._user_id) {
+            userCount++;
+          }
+        } catch (e) {}
+      }
+      return userCount;
     } catch (error) {
-      console.error('Error getting queue size:', error);
+      log.error('Error getting queue size', error);
       return 0;
     }
   }
@@ -122,21 +140,30 @@ class SyncManager {
    */
   async syncAllData(): Promise<void> {
     if (this.isSyncing) {
-      console.log('⏳ Sync already in progress, skipping...');
+      log.info('Sync already in progress, skipping...');
       return;
     }
 
     if (!networkService.isOnline()) {
-      console.log('📡 Device is offline, skipping sync');
+      log.info('Device is offline, skipping sync');
       return;
     }
+
+    // Check authentication - don't sync if not logged in
+    const { useAuthStore } = await import('@/store/authStore');
+    const { isAuthenticated } = useAuthStore.getState();
+    if (!isAuthenticated) {
+      log.info('User not authenticated, skipping sync');
+      return;
+    }
+
 
     this.isSyncing = true;
     this.syncErrors = [];
     this.notifyListeners();
 
     try {
-      console.log('🔄 Starting sync...');
+      log.info('Starting sync...');
 
       // Sync in order: Reports → Tasks → Media
       await this.syncReports();
@@ -144,11 +171,12 @@ class SyncManager {
       await this.syncQueue();
 
       this.lastSyncTime = Date.now();
-      console.log('✅ Sync completed successfully');
+      log.info('Sync completed successfully');
     } catch (error) {
-      console.error('❌ Sync failed:', error);
+      log.error('Sync failed', error);
       this.syncErrors.push(error instanceof Error ? error.message : 'Unknown sync error');
     } finally {
+
       this.isSyncing = false;
       this.notifyListeners();
     }
@@ -163,15 +191,16 @@ class SyncManager {
         'SELECT * FROM reports WHERE is_synced = 0 ORDER BY created_at ASC'
       );
 
-      console.log(`📊 Found ${unsyncedReports.length} unsynced reports`);
+      log.info(`Found ${unsyncedReports.length} unsynced reports`);
 
       for (const report of unsyncedReports) {
         await this.syncReport(report);
       }
     } catch (error) {
-      console.error('Error syncing reports:', error);
+      log.error('Error syncing reports', error);
       throw error;
     }
+
   }
 
   /**
@@ -183,44 +212,11 @@ class SyncManager {
       const duplicateCheck = await conflictResolver.detectDuplicateReport(report);
       
       if (duplicateCheck.isDuplicate && duplicateCheck.duplicateId) {
-        console.log(`⚠️ Report ${report.id} is a duplicate of ${duplicateCheck.duplicateId}`);
+        log.warn(`Report ${report.id} is a duplicate of ${duplicateCheck.duplicateId}`);
         await conflictResolver.markReportAsDuplicate(report.id, duplicateCheck.duplicateId);
         return;
       }
 
-      // Parse photos array
-      const photos = JSON.parse(report.photos || '[]');
-
-      const payload = {
-        title: report.title,
-        description: report.description,
-        category: report.category,
-        sub_category: report.sub_category,
-        severity: report.severity,
-        latitude: report.latitude,
-        longitude: report.longitude,
-        address: report.address,
-        landmark: report.landmark,
-        ward_number: report.ward_number,
-        is_public: report.is_public === 1,
-        is_sensitive: report.is_sensitive === 1,
-        photos,
-      };
-
-      // Make API call (will be implemented with actual API client)
-      // const response = await apiClient.post('/reports/', payload);
-      
-      // If there's a conflict (409 status), resolve it
-      // if (error.response?.status === 409) {
-      //   const serverReport = error.response.data;
-      //   const resolution = await conflictResolver.resolveReportConflict(report, serverReport);
-      //   
-      //   if (resolution.action === 'keep_local') {
-      //     // Retry sync with force flag
-      //     return await this.syncReport(report);
-      //   }
-      //   return;
-      // }
 
       // For now, mark as synced (will be updated when API is integrated)
       await database.runAsync(
@@ -228,9 +224,9 @@ class SyncManager {
         [Date.now(), report.id]
       );
 
-      console.log(`✅ Synced report: ${report.local_id || report.id}`);
+      log.info(`Synced report: ${report.local_id || report.id}`);
     } catch (error) {
-      console.error(`❌ Failed to sync report ${report.id}:`, error);
+      log.error(`Failed to sync report ${report.id}`, error);
 
       // Update error status
       await database.runAsync(
@@ -240,6 +236,7 @@ class SyncManager {
 
       throw error;
     }
+
   }
 
   /**
@@ -251,15 +248,16 @@ class SyncManager {
         'SELECT * FROM tasks WHERE is_synced = 0 ORDER BY created_at ASC'
       );
 
-      console.log(`📋 Found ${unsyncedTasks.length} unsynced tasks`);
+      log.info(`Found ${unsyncedTasks.length} unsynced tasks`);
 
       for (const task of unsyncedTasks) {
         await this.syncTask(task);
       }
     } catch (error) {
-      console.error('Error syncing tasks:', error);
+      log.error('Error syncing tasks', error);
       throw error;
     }
+
   }
 
   /**
@@ -267,77 +265,18 @@ class SyncManager {
    */
   private async syncTask(task: any): Promise<void> {
     try {
-      const payload = this.getTaskSyncPayload(task);
-
-      // Make API call (will be implemented with actual API client)
-      // const endpoint = this.getTaskSyncEndpoint(task);
-      // const response = await apiClient.put(endpoint, payload);
-      
-      // If there's a conflict (409 status), resolve it
-      // if (error.response?.status === 409) {
-      //   const serverTask = error.response.data;
-      //   const resolution = await conflictResolver.resolveTaskConflict(task, serverTask);
-      //   
-      //   if (resolution.action === 'keep_local') {
-      //     // Retry sync with force flag
-      //     return await this.syncTask(task);
-      //   }
-      //   return;
-      // }
-
       // For now, mark as synced
       await database.runAsync(
         'UPDATE tasks SET is_synced = 1, pending_sync = NULL, updated_at = ? WHERE id = ?',
         [Date.now(), task.id]
       );
 
-      console.log(`✅ Synced task: ${task.id}`);
+      log.info(`Synced task: ${task.id}`);
     } catch (error) {
-      console.error(`❌ Failed to sync task ${task.id}:`, error);
+      log.error(`Failed to sync task ${task.id}`, error);
       throw error;
     }
-  }
 
-  /**
-   * Get task sync endpoint based on pending sync type
-   */
-  private getTaskSyncEndpoint(task: any): string {
-    switch (task.pending_sync) {
-      case 'status':
-        return `/tasks/${task.id}/${task.status}`;
-      case 'completion':
-        return `/tasks/${task.id}/complete`;
-      default:
-        return `/tasks/${task.id}/update`;
-    }
-  }
-
-  /**
-   * Get task sync payload based on pending sync type
-   */
-  private getTaskSyncPayload(task: any): any {
-    const beforePhotos = JSON.parse(task.before_photos || '[]');
-    const afterPhotos = JSON.parse(task.after_photos || '[]');
-
-    switch (task.pending_sync) {
-      case 'completion':
-        return {
-          after_photos: afterPhotos,
-          resolution_notes: task.resolution_notes,
-        };
-      case 'status':
-        return {
-          status: task.status,
-          notes: task.notes,
-        };
-      default:
-        return {
-          status: task.status,
-          notes: task.notes,
-          before_photos: beforePhotos,
-          after_photos: afterPhotos,
-        };
-    }
   }
 
   /**
@@ -345,23 +284,36 @@ class SyncManager {
    */
   private async syncQueue(): Promise<void> {
     try {
+      const { useAuthStore } = await import('@store/authStore');
+      const user = useAuthStore.getState().user;
+      if (!user) return; // Prevent ghost syncing
+
       const queueItems = await database.getAllAsync<SyncQueueItem>(
         'SELECT * FROM sync_queue WHERE retry_count < ? ORDER BY created_at ASC',
         [this.MAX_RETRY_COUNT]
       );
 
-      console.log(`📦 Found ${queueItems.length} items in sync queue`);
+      // Filter by current logged in user
+      const userQueueItems = queueItems.filter(item => {
+         try {
+           const parsed = JSON.parse(item.data);
+           return parsed._user_id === user.id || !parsed._user_id;
+         } catch(e) { return false; }
+      });
 
-      for (const item of queueItems) {
+      log.info(`Found ${userQueueItems.length} items in sync queue for user ${user.id}`);
+
+      for (const item of userQueueItems) {
         await this.processSyncQueueItem(item);
       }
 
       // Clean up successfully synced items
       await this.cleanupSyncQueue();
     } catch (error) {
-      console.error('Error processing sync queue:', error);
+      log.error('Error processing sync queue', error);
       throw error;
     }
+
   }
 
   /**
@@ -375,12 +327,13 @@ class SyncManager {
         const timeSinceLastAttempt = Date.now() - item.last_attempt;
 
         if (timeSinceLastAttempt < delay) {
-          console.log(`⏳ Skipping item ${item.id}, waiting for retry delay`);
+          log.debug(`Skipping item ${item.id}, waiting for retry delay`);
           return;
         }
       }
 
-      console.log(`🔄 Processing sync queue item ${item.id} (attempt ${item.retry_count + 1})`);
+
+      log.info(`Processing sync queue item ${item.id} (attempt ${item.retry_count + 1})`);
 
       // Parse data
       const data = JSON.parse(item.data);
@@ -391,9 +344,9 @@ class SyncManager {
       // Remove from queue on success
       await database.runAsync('DELETE FROM sync_queue WHERE id = ?', [item.id]);
 
-      console.log(`✅ Successfully processed sync queue item ${item.id}`);
+      log.info(`Successfully processed sync queue item ${item.id}`);
     } catch (error) {
-      console.error(`❌ Failed to process sync queue item ${item.id}:`, error);
+      log.error(`Failed to process sync queue item ${item.id}`, error);
 
       // Update retry count and error
       await database.runAsync(
@@ -403,7 +356,7 @@ class SyncManager {
 
       // If max retries reached, log error
       if (item.retry_count + 1 >= this.MAX_RETRY_COUNT) {
-        console.error(`❌ Max retries reached for sync queue item ${item.id}`);
+        log.error(`Max retries reached for sync queue item ${item.id}`);
         this.syncErrors.push(`Failed to sync ${item.item_type} after ${this.MAX_RETRY_COUNT} attempts`);
       }
     }
@@ -417,22 +370,36 @@ class SyncManager {
     operation: string,
     data: any
   ): Promise<void> {
-    // This will be implemented when API client is integrated
-    console.log(`Processing ${operation} for ${itemType}:`, data);
+    const { apiClient } = await import('@shared/services/api/apiClient');
     
-    // Placeholder for actual API calls
-    // switch (itemType) {
-    //   case 'report':
-    //     await this.syncReportOperation(operation, data);
-    //     break;
-    //   case 'task':
-    //     await this.syncTaskOperation(operation, data);
-    //     break;
-    //   case 'media':
-    //     await this.syncMediaOperation(operation, data);
-    //     break;
-    // }
+    log.debug(`Syncing ${itemType} ${operation}:`, data);
+
+    if (itemType === 'task') {
+      const { reportId, status, notes, updateText } = data;
+
+      switch (operation) {
+        case 'acknowledge':
+          await apiClient.post(`/reports/${reportId}/acknowledge`, { notes });
+          break;
+        case 'start-work':
+          await apiClient.post(`/reports/${reportId}/start-work`, { notes });
+          break;
+        case 'complete':
+          await apiClient.put(`/reports/${reportId}`, { status, notes });
+          break;
+        case 'add-update':
+          const formData = new FormData();
+          formData.append('update_text', updateText);
+          await apiClient.post(`/reports/${reportId}/add-update`, formData);
+          break;
+        default:
+          log.warn(`Unknown task operation: ${operation}`);
+      }
+    } else {
+      log.debug(`Skipping ${operation} for ${itemType} - no implementation yet`);
+    }
   }
+
 
   /**
    * Calculate retry delay using exponential backoff
@@ -450,26 +417,31 @@ class SyncManager {
    */
   async addToQueue(
     itemType: 'report' | 'task' | 'media',
-    operation: 'create' | 'update' | 'delete',
+    operation: 'create' | 'update' | 'delete' | 'acknowledge' | 'start-work' | 'complete' | 'add-update',
     data: any
   ): Promise<void> {
     try {
+      const { useAuthStore } = await import('@store/authStore');
+      const user = useAuthStore.getState().user;
+      const dataWithUser = { ...data, _user_id: user?.id };
+
       await database.runAsync(
         `INSERT INTO sync_queue (item_type, operation, data, retry_count, created_at)
          VALUES (?, ?, ?, 0, ?)`,
-        [itemType, operation, JSON.stringify(data), Date.now()]
+        [itemType, operation, JSON.stringify(dataWithUser), Date.now()]
       );
 
-      console.log(`📦 Added ${itemType} to sync queue`);
+      log.info(`Added ${itemType} to sync queue`);
 
       // Trigger sync if online
       if (networkService.isOnline() && !this.isSyncing) {
         this.syncAllData();
       }
     } catch (error) {
-      console.error('Error adding to sync queue:', error);
+      log.error('Error adding to sync queue', error);
       throw error;
     }
+
   }
 
   /**
@@ -485,10 +457,11 @@ class SyncManager {
         [ninetyDaysAgo, this.MAX_RETRY_COUNT]
       );
 
-      console.log('🧹 Cleaned up old sync queue items');
+      log.info('Cleaned up old sync queue items');
     } catch (error) {
-      console.error('Error cleaning up sync queue:', error);
+      log.error('Error cleaning up sync queue', error);
     }
+
   }
 
   /**
@@ -497,12 +470,13 @@ class SyncManager {
   async clearQueue(): Promise<void> {
     try {
       await database.runAsync('DELETE FROM sync_queue');
-      console.log('🧹 Cleared sync queue');
+      log.info('Cleared sync queue');
       this.notifyListeners();
     } catch (error) {
-      console.error('Error clearing sync queue:', error);
+      log.error('Error clearing sync queue', error);
       throw error;
     }
+
   }
 
   /**
@@ -527,7 +501,7 @@ class SyncManager {
 
       await this.processSyncQueueItem(item);
     } catch (error) {
-      console.error(`Error retrying sync item ${itemId}:`, error);
+      log.error(`Error retrying sync item ${itemId}`, error);
       throw error;
     }
   }
@@ -541,9 +515,10 @@ class SyncManager {
       this.networkUnsubscribe = null;
     }
     this.syncListeners.clear();
-    console.log('✅ Sync Manager cleaned up');
+    log.info('Sync Manager cleaned up');
   }
 }
+
 
 // Export singleton instance
 export const syncManager = new SyncManager();
