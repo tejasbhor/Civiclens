@@ -236,8 +236,14 @@ export default function LoginPage() {
 
       // Step 3: For non-super-admin roles, require email OTP as 2FA
       try {
-        const user = await authApi.getCurrentUser();
-        if (user.email) {
+        // We use the raw axios call here or handle error specifically to avoid 
+        // the global interceptor redirecting us while we are mid-login.
+        const user = await authApi.getCurrentUser().catch(err => {
+          console.warn("MFA Check: Could not fetch detailed profile, attempting to continue...", err);
+          return loginData; // Fallback to basic data from login response if /me fails
+        });
+
+        if (user && user.email) {
           // Send OTP to user's email
           const otpRes = await authApi.requestEmailOtp(user.email);
           setTfaEmail(user.email);
@@ -254,12 +260,13 @@ export default function LoginPage() {
           });
           return;
         }
-      } catch {
-        // getCurrentUser failed — fall through to finish login without TFA
-        // (this can happen if the admin has no email set)
+      } catch (mfaError) {
+        console.error("MFA Step failed:", mfaError);
+        // If MFA request fails but we have loginData, we might 
+        // proceed or show a specific error.
       }
 
-      // No email on account — complete login without TFA
+      // No email on account or MFA step failed — complete login without TFA
       finishLogin(loginData);
     } catch (e: any) {
       setLoading(false);

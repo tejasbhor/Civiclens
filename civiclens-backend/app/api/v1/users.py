@@ -108,7 +108,7 @@ async def get_my_officer_profile(
 ):
     """Get current officer's profile with performance stats"""
     # Ensure user is an officer
-    if current_user.role not in [UserRole.NODAL_OFFICER, UserRole.ADMIN, UserRole.AUDITOR]:
+    if current_user.role not in [UserRole.NODAL_OFFICER, UserRole.ADMIN, UserRole.AUDITOR, UserRole.SUPER_ADMIN]:
         raise ForbiddenException("Officer access required")
     
     # Get department name if available
@@ -214,7 +214,7 @@ async def get_officer_stats(
     """
     # Verify user is an officer
     # Handle both uppercase and lowercase role values for compatibility
-    allowed_roles = ["NODAL_OFFICER", "ADMIN", "AUDITOR", "nodal_officer", "admin", "auditor"]
+    allowed_roles = ["NODAL_OFFICER", "ADMIN", "AUDITOR", "SUPER_ADMIN", "nodal_officer", "admin", "auditor", "super_admin"]
     if current_user.role not in allowed_roles:
         raise HTTPException(
             status_code=403,
@@ -272,7 +272,7 @@ async def get_officer_location(
     """
     # Verify user is an officer
     # Handle both uppercase and lowercase role values for compatibility
-    allowed_roles = ["NODAL_OFFICER", "ADMIN", "AUDITOR", "nodal_officer", "admin", "auditor"]
+    allowed_roles = ["NODAL_OFFICER", "ADMIN", "AUDITOR", "SUPER_ADMIN", "nodal_officer", "admin", "auditor", "super_admin"]
     if current_user.role not in allowed_roles:
         raise HTTPException(
             status_code=403,
@@ -305,7 +305,7 @@ async def update_my_officer_profile(
 ):
     """Update current officer's profile (editable fields only)"""
     # Ensure user is an officer
-    if current_user.role not in [UserRole.NODAL_OFFICER, UserRole.ADMIN, UserRole.AUDITOR]:
+    if current_user.role not in [UserRole.NODAL_OFFICER, UserRole.ADMIN, UserRole.AUDITOR, UserRole.SUPER_ADMIN]:
         raise ForbiddenException("Officer access required")
     
     redis = await get_redis()

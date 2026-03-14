@@ -416,6 +416,7 @@ async def citizen_signup(
 async def verify_phone_after_signup(
     request: PhoneVerifyRequest,
     http_request: Request,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db)
 ):
     """Verify phone number after signup and return tokens"""

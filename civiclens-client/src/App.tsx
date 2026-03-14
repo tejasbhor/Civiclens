@@ -1,5 +1,4 @@
-import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
+import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
@@ -28,6 +27,8 @@ const TaskDetail = lazy(() => import("./pages/officer/TaskDetail"));
 const StartWork = lazy(() => import("./pages/officer/StartWork"));
 const CompleteWork = lazy(() => import("./pages/officer/CompleteWork"));
 const OfficerNotifications = lazy(() => import("./pages/officer/Notifications"));
+const VerifyEmail = lazy(() => import("./pages/auth/VerifyEmail"));
+const VerifyPhone = lazy(() => import("./pages/auth/VerifyPhone"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 // Configure React Query with better error handling
@@ -56,7 +57,6 @@ const App = () => (
           <TooltipProvider>
             <ConnectionStatus />
             <Toaster />
-            <Sonner />
             <BrowserRouter>
               <Suspense fallback={<PageLoader />}>
                 <Routes>
@@ -173,7 +173,8 @@ const App = () => (
                     }
                   />
 
-                  {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+                  <Route path="/auth/verify-email" element={<VerifyEmail />} />
+                  <Route path="/auth/verify-phone" element={<VerifyPhone />} />
                   <Route path="*" element={<NotFound />} />
                 </Routes>
               </Suspense>

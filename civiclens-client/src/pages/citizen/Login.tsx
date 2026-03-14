@@ -21,7 +21,7 @@ import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { useNavigate } from "react-router-dom";
-import { useToast } from "@/hooks/use-toast";
+import { showToast } from "@/lib/utils/toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { authService } from "@/services/authService";
 import { isCitizen } from "@/utils/authHelpers";
@@ -189,7 +189,7 @@ const CitizenLogin = () => {
   const [otpActive, setOtpActive] = useState(false);
 
   const navigate = useNavigate();
-  const { toast } = useToast();
+  // const { toast } = useToast(); // Removed in favor of showToast utility
   const { login, user, loading: authLoading } = useAuth();
   const strength = usePasswordStrength(password);
   const { remaining, formatted: countdown } = useCountdown(300, otpActive);
@@ -232,7 +232,7 @@ const CitizenLogin = () => {
   // ── Request phone OTP ───────────────────────────────────────────────────────
   const handleRequestOtp = async () => {
     if (phone.length !== 10) {
-      toast({ title: "Invalid Number", description: "Enter a valid 10-digit mobile number.", variant: "destructive" });
+      showToast.error("Invalid Number", { description: "Enter a valid 10-digit mobile number." });
       return;
     }
     setLoading(true);
@@ -243,9 +243,9 @@ const CitizenLogin = () => {
       setOtpActive(true);
       setOtp(""); // Only clear the input field, not the demo state
       setScreen({ id: "otp-verify", phone: np });
-      toast({ title: "OTP Sent", description: res.message });
+      showToast.success("OTP Sent", { description: res.message });
     } catch (err: any) {
-      toast({ title: "Failed to Send OTP", description: err.response?.data?.detail || "Please try again.", variant: "destructive" });
+      showToast.error("Failed to Send OTP", { description: err.response?.data?.detail || "Please try again." });
     } finally {
       setLoading(false);
     }
@@ -254,17 +254,17 @@ const CitizenLogin = () => {
   // ── Verify phone OTP ────────────────────────────────────────────────────────
   const handleVerifyOtp = async (targetPhone: string) => {
     if (otp.length !== 6) {
-      toast({ title: "Invalid OTP", description: "Enter the 6-digit code.", variant: "destructive" });
+      showToast.error("Invalid OTP", { description: "Enter the 6-digit code." });
       return;
     }
     setLoading(true);
     try {
       const res = await authService.verifyOTP(targetPhone, otp);
       await login(res.access_token, res.refresh_token);
-      toast({ title: "Welcome!", description: "Logged in successfully." });
+      showToast.success("Welcome!", { description: "Logged in successfully." });
       navigate("/citizen/dashboard");
     } catch (err: any) {
-      toast({ title: "Verification Failed", description: err.response?.data?.detail || "Incorrect OTP.", variant: "destructive" });
+      showToast.error("Verification Failed", { description: err.response?.data?.detail || "Incorrect OTP." });
       setOtp("");
     } finally {
       setLoading(false);
@@ -274,19 +274,19 @@ const CitizenLogin = () => {
   // ── Register & send OTP ─────────────────────────────────────────────────────
   const handleRegister = async () => {
     if (!firstName.trim() || !lastName.trim()) {
-      toast({ title: "Name Required", description: "Enter your first and last name.", variant: "destructive" });
+      showToast.error("Name Required", { description: "Enter your first and last name." });
       return;
     }
     if (phone.length !== 10) {
-      toast({ title: "Invalid Number", description: "Enter a valid 10-digit mobile number.", variant: "destructive" });
+      showToast.error("Invalid Number", { description: "Enter a valid 10-digit mobile number." });
       return;
     }
     if (!strength.length) {
-      toast({ title: "Weak Password", description: "Password must be at least 8 characters.", variant: "destructive" });
+      showToast.error("Weak Password", { description: "Password must be at least 8 characters." });
       return;
     }
     if (password !== confirmPassword) {
-      toast({ title: "Passwords Don't Match", description: "Both passwords must be identical.", variant: "destructive" });
+      showToast.error("Passwords Don't Match", { description: "Both passwords must be identical." });
       return;
     }
     setLoading(true);
@@ -303,10 +303,12 @@ const CitizenLogin = () => {
       if ((res as any).otp) setDemoOtp((res as any).otp);
       setOtpActive(true);
       setOtp(""); // Only clear the input field
-      setScreen({ id: "register-verify", phone: np });
-      toast({ title: "Account Created!", description: "Verify your phone to continue." });
+      
+      // Navigate to dedicated verification page for phone parity
+      navigate(`/auth/verify-phone?phone=${encodeURIComponent(np)}${res.otp ? `&otp=${res.otp}` : ""}`);
+      showToast.success("Account Created!", { description: "Verify your phone to continue." });
     } catch (err: any) {
-      toast({ title: "Registration Failed", description: err.response?.data?.detail || "Please try again.", variant: "destructive" });
+      showToast.error("Registration Failed", { description: err.response?.data?.detail || "Please try again." });
     } finally {
       setLoading(false);
     }
@@ -315,17 +317,17 @@ const CitizenLogin = () => {
   // ── Verify register OTP ─────────────────────────────────────────────────────
   const handleVerifyRegisterOtp = async (targetPhone: string) => {
     if (otp.length !== 6) {
-      toast({ title: "Invalid OTP", description: "Enter the 6-digit code.", variant: "destructive" });
+      showToast.error("Invalid OTP", { description: "Enter the 6-digit code." });
       return;
     }
     setLoading(true);
     try {
       const res = await authService.verifyPhone(targetPhone, otp);
       await login(res.access_token, res.refresh_token);
-      toast({ title: `Welcome to ${APP_CONFIG.appName}!`, description: "Your account has been verified." });
+      showToast.success(`Welcome to ${APP_CONFIG.appName}!`, { description: "Your account has been verified." });
       navigate("/citizen/dashboard");
     } catch (err: any) {
-      toast({ title: "Verification Failed", description: err.response?.data?.detail || "Incorrect OTP.", variant: "destructive" });
+      showToast.error("Verification Failed", { description: err.response?.data?.detail || "Incorrect OTP." });
       setOtp("");
     } finally {
       setLoading(false);
@@ -335,7 +337,7 @@ const CitizenLogin = () => {
   // ── Password login ──────────────────────────────────────────────────────────
   const handlePasswordLogin = async () => {
     if (phone.length !== 10 || !password) {
-      toast({ title: "Missing Details", description: "Enter your registered phone and password.", variant: "destructive" });
+      showToast.error("Missing Details", { description: "Enter your registered phone and password." });
       return;
     }
     setLoading(true);
@@ -343,11 +345,11 @@ const CitizenLogin = () => {
       const np = normalizePhone(phone);
       const res = await authService.login(np, password, "citizen");
       await login(res.access_token, res.refresh_token);
-      toast({ title: "Welcome Back!", description: "Login successful." });
+      showToast.success("Welcome Back!", { description: "Login successful." });
       navigate("/citizen/dashboard");
     } catch (err: any) {
       const msg = err.response?.data?.detail || "Incorrect phone or password.";
-      toast({ title: "Login Failed", description: msg, variant: "destructive" });
+      showToast.error("Login Failed", { description: msg });
       setPassword("");
     } finally {
       setLoading(false);
@@ -357,7 +359,7 @@ const CitizenLogin = () => {
   // ── Request email OTP ───────────────────────────────────────────────────────
   const handleRequestEmailOtp = async () => {
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      toast({ title: "Invalid Email", description: "Enter a valid email address.", variant: "destructive" });
+      showToast.error("Invalid Email", { description: "Enter a valid email address." });
       return;
     }
     setLoading(true);
@@ -367,9 +369,9 @@ const CitizenLogin = () => {
       setOtpActive(true);
       setOtp(""); // Only clear the input field
       setScreen({ id: "email-verify", email: email.trim() });
-      toast({ title: "OTP Sent", description: res.message });
+      showToast.success("OTP Sent", { description: res.message });
     } catch (err: any) {
-      toast({ title: "Failed to Send OTP", description: err.response?.data?.detail || "Please try again.", variant: "destructive" });
+      showToast.error("Failed to Send OTP", { description: err.response?.data?.detail || "Please try again." });
     } finally {
       setLoading(false);
     }
@@ -378,17 +380,17 @@ const CitizenLogin = () => {
   // ── Verify email OTP ────────────────────────────────────────────────────────
   const handleVerifyEmailOtp = async (targetEmail: string) => {
     if (otp.length !== 6) {
-      toast({ title: "Invalid OTP", description: "Enter the 6-digit code.", variant: "destructive" });
+      showToast.error("Invalid OTP", { description: "Enter the 6-digit code." });
       return;
     }
     setLoading(true);
     try {
       const res = await authService.verifyEmailOTP(targetEmail, otp);
       await login(res.access_token, res.refresh_token);
-      toast({ title: "Welcome!", description: "Logged in successfully." });
+      showToast.success("Welcome!", { description: "Logged in successfully." });
       navigate("/citizen/dashboard");
     } catch (err: any) {
-      toast({ title: "Verification Failed", description: err.response?.data?.detail || "Incorrect OTP.", variant: "destructive" });
+      showToast.error("Verification Failed", { description: err.response?.data?.detail || "Incorrect OTP." });
       setOtp("");
     } finally {
       setLoading(false);
@@ -406,9 +408,9 @@ const CitizenLogin = () => {
         setOtpActive(false);
         setTimeout(() => setOtpActive(true), 50);
         setOtp("");
-        toast({ title: "OTP Resent", description: res.message });
+        showToast.success("OTP Sent", { description: res.message });
       } catch (err: any) {
-        toast({ title: "Failed to Resend", description: err.response?.data?.detail || "Please try again.", variant: "destructive" });
+        showToast.error("Failed to Resend", { description: err.response?.data?.detail || "Please try again." });
       } finally {
         setLoading(false);
       }
@@ -420,9 +422,9 @@ const CitizenLogin = () => {
         setOtpActive(false);
         setTimeout(() => setOtpActive(true), 50);
         setOtp("");
-        toast({ title: "OTP Resent", description: res.message });
+        showToast.success("OTP Resent", { description: res.message });
       } catch (err: any) {
-        toast({ title: "Failed to Resend", description: err.response?.data?.detail || "Please try again.", variant: "destructive" });
+        showToast.error("Failed to Resend", { description: err.response?.data?.detail || "Please try again." });
       } finally {
         setLoading(false);
       }

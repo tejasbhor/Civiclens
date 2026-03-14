@@ -98,31 +98,29 @@ class ApiClient {
 
       switch (status) {
         case 401:
-          toast.error('Session expired. Please login again.');
-          this.removeToken();
-          localStorage.removeItem('auth_token');
-          localStorage.removeItem('refresh_token');
-          localStorage.removeItem('user_role');
-          localStorage.removeItem('user_id');
-          if (typeof window !== 'undefined') {
+          // Only show toast and redirect if NOT on the login page to avoid loops
+          if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/auth/')) {
+            toast.error('Session expired. Please login again.');
+            this.removeToken();
+            localStorage.removeItem('auth_token');
+            localStorage.removeItem('refresh_token');
+            localStorage.removeItem('user_role');
+            localStorage.removeItem('user_id');
             window.dispatchEvent(new Event(AUTH_LOGOUT_EVENT));
             window.location.href = '/auth/login';
           }
           break;
         case 403:
           if (data && data.detail === 'Not authenticated') {
-            toast.error('Session expired or invalid. Please login again.');
-            this.removeToken();
-            localStorage.removeItem('auth_token');
-            localStorage.removeItem('refresh_token');
-            localStorage.removeItem('user_role');
-            localStorage.removeItem('user_id');
-            if (typeof window !== 'undefined') {
+            if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/auth/')) {
+              toast.error('Session expired or invalid. Please login again.');
+              this.removeToken();
               window.dispatchEvent(new Event(AUTH_LOGOUT_EVENT));
               window.location.href = '/auth/login';
             }
           } else {
-            toast.error('You do not have permission to perform this action.');
+            // This is a legitimate permission error, not a session issue
+            toast.error(data?.detail || 'You do not have permission to perform this action.');
           }
           break;
         case 404:

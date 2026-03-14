@@ -32,24 +32,22 @@ const Toaster = ({ ...props }: ToasterProps) => {
     <Sonner
       theme={getTheme()}
       className="toaster group"
-      position="top-right"
+      position="top-center"
       richColors
       closeButton
-      offset="64px" // Offset from top to account for navbar (64px = 4rem)
+      duration={5000}
+      offset="80px" // Increased offset to clear headers comfortably
       toastOptions={{
         classNames: {
           toast:
-            "group toast group-[.toaster]:bg-background group-[.toaster]:text-foreground group-[.toaster]:border-border group-[.toaster]:shadow-lg",
-          description: "group-[.toast]:text-muted-foreground",
+            "group toast group-[.toaster]:bg-background group-[.toaster]:text-foreground group-[.toaster]:border-border group-[.toaster]:shadow-xl group-[.toaster]:rounded-xl group-[.toaster]:p-4",
+          description: "group-[.toast]:text-muted-foreground group-[.toast]:text-xs",
           actionButton: "group-[.toast]:bg-primary group-[.toast]:text-primary-foreground",
           cancelButton: "group-[.toast]:bg-muted group-[.toast]:text-muted-foreground",
         },
         style: {
           zIndex: 9999,
         },
-      }}
-      style={{
-        zIndex: 9999,
       }}
       {...props}
     />

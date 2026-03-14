@@ -18,7 +18,7 @@ import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { useNavigate } from "react-router-dom";
-import { useToast } from "@/hooks/use-toast";
+import { showToast } from "@/lib/utils/toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { authService } from "@/services/authService";
 import { isOfficer, isCitizen } from "@/utils/authHelpers";
@@ -117,7 +117,7 @@ const OfficerLogin = () => {
   const [otpActive, setOtpActive] = useState(false);
 
   const navigate = useNavigate();
-  const { toast } = useToast();
+  // const { toast } = useToast(); // Removed in favor of showToast utility
   const { login, user, loading: authLoading } = useAuth();
   const { remaining, formatted: countdown } = useCountdown(300, otpActive);
 
@@ -187,8 +187,7 @@ const OfficerLogin = () => {
           setOtpActive(true);
           setOtp("");
           setScreen("otp");
-          toast({
-            title: "Verification Required",
+          showToast.info("Verification Required", {
             description: `A code was sent to ${profile.email}`,
           });
           return;
@@ -204,12 +203,12 @@ const OfficerLogin = () => {
       } else {
         localStorage.removeItem("remember_me");
       }
-      toast({ title: "Login Successful", description: "Welcome back, Officer." });
+      showToast.success("Login Successful", { description: "Welcome back, Officer." });
     } catch (err: any) {
       let msg = "Invalid credentials. Please check your phone and password.";
       if (err.response?.data?.detail?.includes("Citizen Portal")) {
         msg = err.response.data.detail;
-        toast({ title: "Wrong Portal", description: msg, variant: "destructive", duration: 8000 });
+        showToast.error("Wrong Portal", { description: msg, duration: 8000 });
         return;
       } else if (err.response?.status === 401) {
         msg = err.response?.data?.detail || "Incorrect phone or password.";
@@ -224,7 +223,7 @@ const OfficerLogin = () => {
       } else if (err.message === "Network Error" || err.isNetworkError) {
         msg = "Server unreachable. Check your internet connection.";
       }
-      toast({ title: "Login Failed", description: msg, variant: "destructive" });
+      showToast.error("Login Failed", { description: msg });
       setPassword("");
     } finally {
       setLoading(false);
@@ -234,7 +233,7 @@ const OfficerLogin = () => {
   // ── OTP verification ─────────────────────────────────────────────────────────
   const handleVerifyOtp = async () => {
     if (otp.length !== 6) {
-      toast({ title: "Invalid Code", description: "Enter the 6-digit verification code.", variant: "destructive" });
+      showToast.error("Invalid Code", { description: "Enter the 6-digit verification code." });
       return;
     }
     setLoading(true);
@@ -247,13 +246,11 @@ const OfficerLogin = () => {
         } else {
           localStorage.removeItem("remember_me");
         }
-        toast({ title: "Login Successful", description: "Welcome back, Officer." });
+        showToast.success("Login Successful", { description: "Welcome back, Officer." });
       }
     } catch (err: any) {
-      toast({
-        title: "Verification Failed",
-        description: err.response?.data?.detail || "Invalid or expired code.",
-        variant: "destructive",
+      showToast.error("Verification Failed", {
+        description: err.response?.data?.detail || "Invalid or expired code."
       });
       setOtp("");
     } finally {
@@ -271,9 +268,9 @@ const OfficerLogin = () => {
       setOtpActive(false);
       setTimeout(() => setOtpActive(true), 50);
       setOtp("");
-      toast({ title: "OTP Resent", description: `A new code was sent to ${officerEmail}` });
+      showToast.success("OTP Resent", { description: `A new code was sent to ${officerEmail}` });
     } catch {
-      toast({ title: "Error", description: "Failed to resend verification code.", variant: "destructive" });
+      showToast.error("Error", { description: "Failed to resend verification code." });
     } finally {
       setLoading(false);
     }
@@ -285,7 +282,7 @@ const OfficerLogin = () => {
     setPassword(pw);
     setPhoneError(null);
     setPasswordError(null);
-    toast({ title: "Sandbox Credentials Applied", description: `${label} credentials filled in.` });
+    showToast.success("Sandbox Credentials Applied", { description: `${label} credentials filled in.` });
   };
 
   // ─────────────────────────────────────────────────────────────────────────────
@@ -395,8 +392,7 @@ const OfficerLogin = () => {
                         size="sm"
                         className="h-auto p-0 text-xs text-muted-foreground"
                         onClick={() =>
-                          toast({
-                            title: "Password Reset",
+                          showToast.info("Password Reset", {
                             description: "Please contact your Department IT Cell for password reset assistance.",
                           })
                         }

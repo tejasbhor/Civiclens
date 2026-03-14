@@ -9,16 +9,18 @@ import {
   RefreshCw, Activity, Timer, FileText, Users, BarChart3, Target,
   AlertTriangle, Edit, KeyRound, Clock
 } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import { Input } from "@/components/ui/input";
+import { showToast } from "@/lib/utils/toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { officerService, OfficerStats } from "@/services/officerService";
+import { userService } from "@/services/userService";
 import { OfficerHeader } from "@/components/layout/OfficerHeader";
 import { useConnectionStatus } from "@/hooks/useConnectionStatus";
 import { logger } from "@/lib/logger";
 
 const OfficerProfile = () => {
   const navigate = useNavigate();
-  const { toast } = useToast();
+  // const { toast } = useToast(); // Removed in favor of showToast utility
   const { user, logout, loading: authLoading } = useAuth();
   const { isBackendReachable } = useConnectionStatus();
   
@@ -62,6 +64,15 @@ const OfficerProfile = () => {
     return 'An unexpected error occurred. Please try again.';
   }, []);
 
+  const [verificationStatus, setVerificationStatus] = useState<{
+    email: { value: string | null; verified: boolean; last_sent_at: string | null };
+    phone: { value: string | null; verified: boolean; last_sent_at: string | null };
+  } | null>(null);
+  const [verifyingEmail, setVerifyingEmail] = useState(false);
+  const [verifyingPhone, setVerifyingPhone] = useState(false);
+  const [emailToken, setEmailToken] = useState("");
+  const [phoneOTP, setPhoneOTP] = useState("");
+
   const loadProfileData = useCallback(async () => {
     if (!user) return;
 
@@ -96,19 +107,25 @@ const OfficerProfile = () => {
           setError(extractErrorMessage(statsData.reason));
         }
       }
+
+      // Load verification status
+      try {
+        const vData = await userService.getVerificationStatus();
+        setVerificationStatus(vData);
+      } catch (vErr) {
+        logger.error('Failed to load verification status:', vErr);
+      }
     } catch (err: any) {
       logger.error('Profile load error:', err);
       const errorMsg = extractErrorMessage(err);
       setError(errorMsg);
-      toast({
-        title: "Failed to Load Profile",
-        description: errorMsg,
-        variant: "destructive"
+      showToast.error("Failed to Load Profile", {
+        description: errorMsg
       });
     } finally {
       setLoading(false);
     }
-  }, [user, extractErrorMessage, toast, error]);
+  }, [user, extractErrorMessage, error]);
 
   // Initial load
   useEffect(() => {
@@ -128,19 +145,105 @@ const OfficerProfile = () => {
     setRefreshing(true);
     await loadProfileData();
     setRefreshing(false);
-    toast({
-      title: "Refreshed",
+    showToast.success("Refreshed", {
       description: "Profile data updated successfully."
     });
-  }, [loadProfileData, toast]);
+  }, [loadProfileData]);
 
   const handleLogout = async () => {
     await logout();
-    toast({
-      title: "Logged Out",
+    showToast.success("Logged Out", {
       description: "You have been logged out successfully",
     });
     navigate('/');
+  };
+
+  const handleSendEmailVerification = async () => {
+    try {
+      setVerifyingEmail(true);
+      const result = await userService.sendEmailVerification();
+      showToast.success("Verification Email Sent", {
+        description: "Please check your email for the verification link."
+      });
+      if (result.debug_token) {
+        setEmailToken(result.debug_token);
+      }
+      loadProfileData();
+    } catch (error: any) {
+      logger.error('Failed to send email verification:', error);
+      showToast.error("Failed to Send Email", {
+        description: extractErrorMessage(error)
+      });
+    } finally {
+      setVerifyingEmail(false);
+    }
+  };
+
+  const handleVerifyEmail = async () => {
+    if (!emailToken) {
+      showToast.error("Token Required", { description: "Please enter the verification token." });
+      return;
+    }
+    try {
+      setVerifyingEmail(true);
+      await userService.verifyEmail(emailToken);
+      showToast.success("Email Verified", {
+        description: "Your email has been verified successfully."
+      });
+      setEmailToken("");
+      loadProfileData();
+    } catch (error: any) {
+      logger.error('Failed to verify email:', error);
+      showToast.error("Verification Failed", {
+        description: extractErrorMessage(error)
+      });
+    } finally {
+      setVerifyingEmail(false);
+    }
+  };
+
+  const handleSendPhoneVerification = async () => {
+    try {
+      setVerifyingPhone(true);
+      const result = await userService.sendPhoneVerification();
+      showToast.success("Verification OTP Sent", {
+        description: "Please check your phone for the OTP."
+      });
+      if (result.debug_otp) {
+        setPhoneOTP(result.debug_otp);
+      }
+      loadProfileData();
+    } catch (error: any) {
+      logger.error('Failed to send phone verification:', error);
+      showToast.error("Failed to Send OTP", {
+        description: extractErrorMessage(error)
+      });
+    } finally {
+      setVerifyingPhone(false);
+    }
+  };
+
+  const handleVerifyPhone = async () => {
+    if (!phoneOTP) {
+      showToast.error("OTP Required", { description: "Please enter the OTP." });
+      return;
+    }
+    try {
+      setVerifyingPhone(true);
+      await userService.verifyPhone(phoneOTP);
+      showToast.success("Phone Verified", {
+        description: "Your phone number has been verified successfully."
+      });
+      setPhoneOTP("");
+      loadProfileData();
+    } catch (error: any) {
+      logger.error('Failed to verify phone:', error);
+      showToast.error("Verification Failed", {
+        description: extractErrorMessage(error)
+      });
+    } finally {
+      setVerifyingPhone(false);
+    }
   };
 
   const formatDate = useCallback((dateString: string): string => {
@@ -388,7 +491,7 @@ const OfficerProfile = () => {
         </Card>
 
         {/* Account Information */}
-            <Card className="p-6">
+        <Card className="p-6">
               <div className="flex items-center gap-2 mb-6">
                 <User className="w-5 h-5 text-primary" />
                 <h3 className="text-xl font-semibold text-foreground">Account Information</h3>
@@ -408,30 +511,107 @@ const OfficerProfile = () => {
               </Badge>
             </div>
                 
-                <div className="flex justify-between items-center p-4 bg-muted/50 rounded-lg border">
-                  <div className="flex items-center gap-3">
-                    <CheckCircle2 className="w-5 h-5 text-muted-foreground" />
-                    <div>
-                      <span className="text-sm font-medium text-foreground">Phone Verification</span>
-                      <p className="text-xs text-muted-foreground">Phone number verification status</p>
-                    </div>
+            {/* Phone Verification */}
+            <div className="p-4 bg-muted/50 rounded-lg border">
+              <div className="flex justify-between items-start mb-3">
+                <div className="flex items-center gap-3">
+                  <Phone className="w-5 h-5 text-muted-foreground" />
+                  <div>
+                    <span className="text-sm font-medium text-foreground">Phone Verification</span>
+                    <p className="text-xs text-muted-foreground">{profile?.phone || user?.phone}</p>
+                  </div>
+                </div>
+                <Badge variant={verificationStatus?.phone.verified ? "default" : "outline"}
+                       className={verificationStatus?.phone.verified ? "bg-green-500/10 text-green-600 border-green-500/20" : "text-amber-600 border-amber-200"}>
+                  <div className="flex items-center gap-1">
+                    {verificationStatus?.phone.verified ? <CheckCircle2 className="w-3 h-3" /> : <Clock className="w-3 h-3" />}
+                    {verificationStatus?.phone.verified ? 'Verified' : 'Not Verified'}
+                  </div>
+                </Badge>
               </div>
-                  <Badge variant={profile?.phone_verified ? "default" : "outline"}>
-                    {profile?.phone_verified ? 'Verified' : 'Not Verified'}
-              </Badge>
+              
+              {!verificationStatus?.phone.verified && (
+                <div className="mt-3 space-y-2">
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="OTP"
+                      value={phoneOTP}
+                      onChange={(e) => setPhoneOTP(e.target.value)}
+                      className="h-9 text-sm"
+                      maxLength={6}
+                    />
+                    <Button 
+                      onClick={handleVerifyPhone}
+                      disabled={verifyingPhone || !phoneOTP}
+                      size="sm"
+                      className="h-9 px-4"
+                    >
+                      {verifyingPhone ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Verify'}
+                    </Button>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleSendPhoneVerification}
+                    disabled={verifyingPhone}
+                    className="w-full h-8 text-xs text-secondary hover:text-secondary-foreground"
+                  >
+                    {verifyingPhone ? <Loader2 className="w-3 h-3 mr-2 animate-spin" /> : <RefreshCw className="w-3 h-3 mr-2" />}
+                    Resend OTP
+                  </Button>
+                </div>
+              )}
             </div>
                 
-                <div className="flex justify-between items-center p-4 bg-muted/50 rounded-lg border">
-                  <div className="flex items-center gap-3">
-                    <Mail className="w-5 h-5 text-muted-foreground" />
-                    <div>
-                      <span className="text-sm font-medium text-foreground">Email Verification</span>
-                      <p className="text-xs text-muted-foreground">Email address verification status</p>
-                    </div>
+            {/* Email Verification */}
+            <div className="p-4 bg-muted/50 rounded-lg border">
+              <div className="flex justify-between items-start mb-3">
+                <div className="flex items-center gap-3">
+                  <Mail className="w-5 h-5 text-muted-foreground" />
+                  <div>
+                    <span className="text-sm font-medium text-foreground">Email Verification</span>
+                    <p className="text-xs text-muted-foreground">{profile?.email || 'No email set'}</p>
+                  </div>
+                </div>
+                <Badge variant={verificationStatus?.email.verified ? "default" : "outline"}
+                       className={verificationStatus?.email.verified ? "bg-green-500/10 text-green-600 border-green-500/20" : "text-amber-600 border-amber-200"}>
+                  <div className="flex items-center gap-1">
+                    {verificationStatus?.email.verified ? <CheckCircle2 className="w-3 h-3" /> : <Clock className="w-3 h-3" />}
+                    {verificationStatus?.email.verified ? 'Verified' : 'Not Verified'}
+                  </div>
+                </Badge>
               </div>
-                  <Badge variant={profile?.email_verified ? "default" : "outline"}>
-                    {profile?.email_verified ? 'Verified' : 'Not Verified'}
-              </Badge>
+              
+              {!verificationStatus?.email.verified && (profile?.email || user?.email) && (
+                <div className="mt-3 space-y-2">
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="Token"
+                      value={emailToken}
+                      onChange={(e) => setEmailToken(e.target.value)}
+                      className="h-9 text-sm"
+                    />
+                    <Button 
+                      onClick={handleVerifyEmail}
+                      disabled={verifyingEmail || !emailToken}
+                      size="sm"
+                      className="h-9 px-4"
+                    >
+                      {verifyingEmail ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Verify'}
+                    </Button>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleSendEmailVerification}
+                    disabled={verifyingEmail}
+                    className="w-full h-8 text-xs text-secondary hover:text-secondary-foreground"
+                  >
+                    {verifyingEmail ? <Loader2 className="w-3 h-3 mr-2 animate-spin" /> : <Mail className="w-3 h-3 mr-2" />}
+                    Send Verification Email
+                  </Button>
+                </div>
+              )}
             </div>
                 
                 <div className="flex justify-between items-center p-4 bg-muted/50 rounded-lg border">
@@ -495,8 +675,7 @@ const OfficerProfile = () => {
                   variant="outline" 
                   className="w-full justify-start"
                   onClick={() => {
-                    toast({
-                      title: "Coming Soon",
+                    showToast.info("Coming Soon", {
                       description: "Profile editing will be available in a future update.",
                     });
                   }}
@@ -508,8 +687,7 @@ const OfficerProfile = () => {
                   variant="outline" 
                   className="w-full justify-start"
                   onClick={() => {
-                    toast({
-                      title: "Coming Soon",
+                    showToast.info("Coming Soon", {
                       description: "Password change will be available in a future update.",
                     });
                   }}
