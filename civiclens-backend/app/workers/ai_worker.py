@@ -9,6 +9,14 @@ import logging
 import signal
 import sys
 import os
+
+# Limit thread usage for PyTorch/Numpy to avoid thrashing on small ARM cores
+os.environ["OMP_NUM_THREADS"] = "1"
+os.environ["MKL_NUM_THREADS"] = "1"
+os.environ["OPENBLAS_NUM_THREADS"] = "1"
+os.environ["VECLIB_MAXIMUM_THREADS"] = "1"
+os.environ["NUMEXPR_NUM_THREADS"] = "1"
+
 from datetime import datetime
 from sqlalchemy import select
 from app.core.database import AsyncSessionLocal, get_redis

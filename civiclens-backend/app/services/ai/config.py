@@ -10,8 +10,8 @@ from typing import Dict, List
 class AIConfig:
     """AI Configuration matching your existing enums and departments"""
     
-    # Model Configuration
-    ZERO_SHOT_MODEL = "facebook/bart-large-mnli"
+    # Model Configuration (Optimized for low-RAM environments)
+    ZERO_SHOT_MODEL = "valhalla/distilbart-mnli-12-3" # Much lighter than facebook/bart-large-mnli
     SENTENCE_TRANSFORMER_MODEL = "all-MiniLM-L6-v2"
     MODEL_CACHE_DIR = os.path.join(os.getcwd(), "models", "cache")
     AI_MODEL_VERSION = "v1.0.0-civiclens-navimumbai"
@@ -168,7 +168,7 @@ class AIConfig:
     
     # Processing Settings
     MAX_TEXT_LENGTH = 512
-    BATCH_SIZE = 8
+    BATCH_SIZE = 4 # Reduced from 8 to limit memory spikes
     ENABLE_DUPLICATE_DETECTION = True  # ✅ ENABLED for Production
     ENABLE_AUTO_ASSIGNMENT = True  # Enabled for automatic department assignment
     ENABLE_AUTO_OFFICER_ASSIGNMENT = True  # Enabled for automatic officer assignment
