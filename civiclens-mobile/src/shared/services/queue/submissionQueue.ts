@@ -180,6 +180,10 @@ class SubmissionQueue {
       formData.append('is_public', reportData.is_public.toString());
       formData.append('is_sensitive', reportData.is_sensitive.toString());
 
+      if (item.localReportId) {
+        formData.append('local_id', item.localReportId);
+      }
+
       if (reportData.landmark) {
         formData.append('landmark', reportData.landmark.trim());
       }
@@ -210,19 +214,37 @@ class SubmissionQueue {
       log.info(`Item processed successfully: ${item.id} -> Report ${responseData?.id}`);
 
       // Update local report with server data if we have a localReportId
-      if (item.localReportId && responseData?.id) {
+      const localIdToSync = responseData?.local_id || item.localReportId;
+      if (localIdToSync && responseData?.id) {
         try {
+          // 1. Update SQLite directly (Primary Source)
+          const { database } = await import('@shared/database/database');
+          await database.runAsync(
+            'UPDATE reports SET id = ?, report_number = ?, is_synced = 1, sync_error = NULL, updated_at = ? WHERE local_id = ?',
+            [responseData.id, responseData.report_number, Date.now(), localIdToSync]
+          );
+
+          // 2. Update Zustand store (Memory Source)
           const { useReportStore } = await import('@store/reportStore');
           const updateLocalReport = useReportStore.getState().updateLocalReport;
+          const getUnsyncedCount = useReportStore.getState().getUnsyncedCount;
+          
           if (updateLocalReport) {
-            updateLocalReport(item.localReportId, {
+            updateLocalReport(localIdToSync, {
               id: responseData.id,
               report_number: responseData.report_number,
               is_synced: true,
             });
           }
+          
+          // Re-calculate unsynced count to update UI
+          if (getUnsyncedCount) {
+            await getUnsyncedCount();
+          }
+
+          log.info(`Local report ${localIdToSync} marked as synced in DB and Store`);
         } catch (error) {
-          log.error('Failed to update local report:', error);
+          log.error('Failed to update local report after sync success:', error);
         }
       }
 
@@ -292,14 +314,16 @@ class SubmissionQueue {
     }
   }
 
-  /**
-   * Get current queue status
-   */
   getQueueStatus(): QueueStatus {
-    const pending = this.queue.filter(item => item.status === 'pending').length;
-    const processing = this.queue.filter(item => item.status === 'processing').length;
-    const completed = this.queue.filter(item => item.status === 'completed').length;
-    const failed = this.queue.filter(item => item.status === 'failed').length;
+    const user = useAuthStore.getState().user;
+    const userId = user ? user.id : null;
+
+    const userQueue = this.queue.filter(item => item.user_id === userId);
+
+    const pending = userQueue.filter(item => item.status === 'pending').length;
+    const processing = userQueue.filter(item => item.status === 'processing').length;
+    const completed = userQueue.filter(item => item.status === 'completed').length;
+    const failed = userQueue.filter(item => item.status === 'failed').length;
 
     return {
       pending,
