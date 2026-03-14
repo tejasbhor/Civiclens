@@ -56,7 +56,8 @@ services:
     deploy:
       resources:
         limits:
-          memory: 4G # Adjusted for t4g.medium
+          cpus: '0.60' # ~15% limit on a 4-core ARM instance
+          memory: 2G # Strict 2GB memory boundary
     depends_on:
       redis:
         condition: service_healthy
