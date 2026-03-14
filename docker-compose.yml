@@ -17,6 +17,11 @@ services:
       - civiclens_caddy_config:/config
     networks:
       - civiclens_net
+    deploy:
+      resources:
+        limits:
+          cpus: '0.05'
+          memory: 100M
 
   # ---- Backend API Server ----
   backend:
@@ -43,6 +48,11 @@ services:
     volumes:
       - civiclens_logs:/app/logs
       - civiclens_media:/app/media
+    deploy:
+      resources:
+        limits:
+          cpus: '0.15'
+          memory: 300M
 
   # ---- AI Worker Engine ----
   ai-worker:
@@ -56,8 +66,8 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.60' # ~15% limit on a 4-core ARM instance
-          memory: 2G # Strict 2GB memory boundary
+          cpus: '0.35'
+          memory: 1400M
     depends_on:
       redis:
         condition: service_healthy
@@ -87,6 +97,11 @@ services:
       - civiclens_net
     ports:
       - "3000:3000"
+    deploy:
+      resources:
+        limits:
+          cpus: '0.05'
+          memory: 300M
 
   # ---- Citizen Portal (React/Vite) ----
   client:
@@ -100,6 +115,11 @@ services:
     restart: unless-stopped
     networks:
       - civiclens_net
+    deploy:
+      resources:
+        limits:
+          cpus: '0.05'
+          memory: 100M
 
   # ---- Infrastructure Services ----
   postgres:
@@ -121,6 +141,11 @@ services:
       retries: 5
     networks:
       - civiclens_net
+    deploy:
+      resources:
+        limits:
+          cpus: '0.08'
+          memory: 300M
 
   redis:
     image: redis:7-alpine
@@ -134,6 +159,11 @@ services:
       interval: 10s
     networks:
       - civiclens_net
+    deploy:
+      resources:
+        limits:
+          cpus: '0.03'
+          memory: 100M
 
   minio:
     image: minio/minio:latest
@@ -145,6 +175,11 @@ services:
       - civiclens_minio_data:/data
     networks:
       - civiclens_net
+    deploy:
+      resources:
+        limits:
+          cpus: '0.04'
+          memory: 200M
 
 networks:
   civiclens_net:
