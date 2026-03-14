@@ -31,7 +31,7 @@
       "package": "com.civiclens.mobile",
       "config": {
         "googleMaps": {
-          "apiKey": ""
+          "apiKey": "AIzaSy_DUMMY_KEY_TO_BYPASS_CRASH_ON_ANDROID"
         }
       },
       "permissions": [
