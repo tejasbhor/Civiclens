@@ -29,26 +29,26 @@ export const Toast: React.FC<ToastProps> = ({
   const opacity = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    if (visible) {
-      Animated.parallel([
-        Animated.timing(translateY, {
-          toValue: 0,
-          duration: 300,
-          useNativeDriver: true,
-        }),
-        Animated.timing(opacity, {
-          toValue: 1,
-          duration: 300,
-          useNativeDriver: true,
-        }),
-      ]).start();
+    if (!visible) return;
 
-      const timer = setTimeout(() => {
-        hideToast();
-      }, duration);
+    Animated.parallel([
+      Animated.timing(translateY, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+      Animated.timing(opacity, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+    ]).start();
 
-      return () => clearTimeout(timer);
-    }
+    const timer = setTimeout(() => {
+      hideToast();
+    }, duration);
+
+    return () => clearTimeout(timer);
   }, [visible]);
 
   const hideToast = () => {

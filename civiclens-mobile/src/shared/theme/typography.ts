@@ -28,6 +28,49 @@ export const typography = {
     normal: 1.5,
     relaxed: 1.75,
   },
+
+  h1: {
+    fontFamily: 'System',
+    fontSize: 30,
+    fontWeight: '700' as const,
+    color: '#1E293B',
+  },
+  h2: {
+    fontFamily: 'System',
+    fontSize: 24,
+    fontWeight: '700' as const,
+    color: '#1E293B',
+  },
+  h3: {
+    fontFamily: 'System',
+    fontSize: 20,
+    fontWeight: '600' as const,
+    color: '#1E293B',
+  },
+  body: {
+    fontFamily: 'System',
+    fontSize: 16,
+    fontWeight: '400' as const,
+    color: '#1E293B',
+  },
+  bodyBold: {
+    fontFamily: 'System',
+    fontSize: 16,
+    fontWeight: '600' as const,
+    color: '#1E293B',
+  },
+  caption: {
+    fontFamily: 'System',
+    fontSize: 12,
+    fontWeight: '400' as const,
+    color: '#64748B',
+  },
+  label: {
+    fontFamily: 'System',
+    fontSize: 14,
+    fontWeight: '500' as const,
+    color: '#64748B',
+  },
 };
 
 export type Typography = typeof typography;

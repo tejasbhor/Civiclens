@@ -63,9 +63,9 @@ const NativeMap = forwardRef<NativeMapRef, NativeMapProps>(
 
     const getMarkerColor = (type?: string) => {
       switch (type) {
-        case 'resolved': return colors.status.resolved;
-        case 'issue': return colors.status.pending;
-        default: return colors.primary.main;
+        case 'resolved': return colors.success;
+        case 'issue': return colors.error;
+        default: return colors.primary;
       }
     };
 
@@ -82,8 +82,8 @@ const NativeMap = forwardRef<NativeMapRef, NativeMapProps>(
           onMapReady={() => setIsMapReady(true)}
           onRegionChangeComplete={onRegionChangeComplete}
           loadingEnabled={true}
-          loadingIndicatorColor={colors.primary.main}
-          loadingBackgroundColor="#f5f5f5"
+          loadingIndicatorColor={colors.primary}
+          loadingBackgroundColor={colors.backgroundSecondary}
           mapType={useOsmTiles ? "none" : "standard"} // If using OSM, set mapType to none
         >
           {useOsmTiles && (
@@ -121,7 +121,7 @@ const NativeMap = forwardRef<NativeMapRef, NativeMapProps>(
         
         {!isMapReady && (
           <View style={styles.loaderContainer}>
-            <ActivityIndicator size="large" color={colors.primary.main} />
+            <ActivityIndicator size="large" color={colors.primary} />
           </View>
         )}
 
@@ -132,7 +132,7 @@ const NativeMap = forwardRef<NativeMapRef, NativeMapProps>(
               // Custom zoom in logic if needed, or rely on native
             }}
           >
-            <Ionicons name="add" size={24} color={colors.text.primary} />
+            <Ionicons name="add" size={24} color={colors.textPrimary} />
           </TouchableOpacity>
           <TouchableOpacity 
             style={styles.controlButton}
@@ -140,7 +140,7 @@ const NativeMap = forwardRef<NativeMapRef, NativeMapProps>(
               // Custom zoom out logic
             }}
           >
-            <Ionicons name="remove" size={24} color={colors.text.primary} />
+            <Ionicons name="remove" size={24} color={colors.textPrimary} />
           </TouchableOpacity>
         </View>
       </View>

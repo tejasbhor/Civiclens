@@ -1,0 +1,25 @@
+Got it! Now that we have the correct password (**`CivicLens_Redis_Sec_!`**), here are the exact commands to unblock yourself. 
+
+Run these directly in your Ubuntu terminal:
+
+### 1. Disable Rate Limiting Globally (Best for the Demo)
+This will modify your configuration so the system stops checking limits entirely. 
+```bash
+sed -i 's/^RATE_LIMIT_ENABLED=.*/RATE_LIMIT_ENABLED=false/' /opt/civiclens/.env && sudo docker compose restart backend
+```
+
+---
+
+### 2. Clear Existing Limits in Redis
+If you want to keep rate limiting **on** but just want to clear your current "blocked" status, run this:
+```bash
+sudo docker compose exec redis redis-cli -a 'CivicLens_Redis_Sec_!' FLUSHDB
+```
+*(The single quotes are important because of the `!` at the end).*
+
+---
+
+### 💡 Recommendation
+For your demo, I suggest running **Command #1**. It ensures you won't get any "Try again in X seconds" messages no matter how many times you click the buttons while showing off the features. 
+
+You can always turn it back on later by changing `false` to `true` in that same command.
