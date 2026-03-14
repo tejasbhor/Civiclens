@@ -42,7 +42,7 @@ const NativeMap = forwardRef<NativeMapRef, NativeMapProps>(
     const webViewRef = useRef<WebView>(null);
 
     // Initial HTML setup for Leaflet
-    const INITIAL_ZOOM = 13; // Approximation based on standard delta
+    const INITIAL_ZOOM = 17; // Zoomed in for street/building visibility (~50-100m)
     
     // Make sure quotes, string interpolations, and newlines don't break JS syntax inside inject
     const htmlContent = `
@@ -122,7 +122,7 @@ const NativeMap = forwardRef<NativeMapRef, NativeMapProps>(
 
     useImperativeHandle(ref, () => ({
       animateToRegion: (region, duration) => {
-        const z = 13; // We can estimate zoom here or use map.getZoom()
+        const z = 17; // Closer zoom for fly-to
         webViewRef.current?.injectJavaScript(`map.flyTo([${region.latitude}, ${region.longitude}], ${z}); true;`);
       },
       fitToCoordinates: (coordinates) => {
