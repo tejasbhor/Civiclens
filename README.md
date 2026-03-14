@@ -30,10 +30,7 @@ The platform is deployed on **Oracle Cloud Infrastructure (OCI ARM64)** with aut
 
 | Build | Platform | Download |
 |---|---|---|
-| Preview (latest) | Android | [**Download APK**](https://expo.dev/accounts/tejas.dev/projects/civiclens-mobile/builds/e9fd74ca-7303-480e-af32-52c7df458c92) |
-
-> Once the EAS build finishes, visit the link above and click **Download build artifact** to get the `.apk`. The app connects directly to the production API at `https://api.civiclens.space` — no local backend needed.
-
+| Preview (latest) | Android | [**Download APK**](https://github.com/tejasbhor/Civiclens/releases/download/v1.0.0-preview/civiclens-v1.0.0-preview.apk) |
 ### Install Instructions (Android Sideload)
 
 1. **Download** the `.apk` from the link above.
