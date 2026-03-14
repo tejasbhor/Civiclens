@@ -1,7 +1,6 @@
-import React, { forwardRef, useImperativeHandle, useRef } from 'react';
-import { StyleSheet, View, Text } from 'react-native';
-import MapView, { Marker, PROVIDER_DEFAULT, Region, Callout, UrlTile } from 'react-native-maps';
-import { Ionicons } from '@expo/vector-icons';
+import React, { forwardRef, useImperativeHandle, useRef, useEffect } from 'react';
+import { StyleSheet, View } from 'react-native';
+import { WebView } from 'react-native-webview';
 import { colors } from '@shared/theme/colors';
 
 export interface MapMarker {
@@ -12,6 +11,13 @@ export interface MapMarker {
   description?: string;
   type?: 'issue' | 'resolved' | 'user';
   metadata?: any;
+}
+
+export interface Region {
+  latitude: number;
+  longitude: number;
+  latitudeDelta: number;
+  longitudeDelta: number;
 }
 
 interface NativeMapProps {
@@ -33,159 +39,139 @@ export interface NativeMapRef {
 
 const NativeMap = forwardRef<NativeMapRef, NativeMapProps>(
   ({ initialRegion, markers = [], showsUserLocation = true, onMarkerPress, onRegionChangeComplete, style, useOsmTiles = true }, ref) => {
-    const mapRef = useRef<MapView>(null);
+    const webViewRef = useRef<WebView>(null);
+
+    // Initial HTML setup for Leaflet
+    const INITIAL_ZOOM = 13; // Approximation based on standard delta
+    
+    // Make sure quotes, string interpolations, and newlines don't break JS syntax inside inject
+    const htmlContent = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    body { padding: 0; margin: 0; }
+    html, body, #map { height: 100%; width: 100%; border-radius: 12px; }
+    .custom-marker { background: transparent; border: none; }
+    .marker-inner {
+      width: 24px; height: 24px; border-radius: 12px; border: 2px solid white;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.3); display: flex; justify-content: center; align-items: center;
+    }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  <script>
+    var map = L.map('map', { zoomControl: false }).setView([${initialRegion.latitude}, ${initialRegion.longitude}], ${INITIAL_ZOOM});
+    
+    L.tileLayer('https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png', {
+      maxZoom: 19,
+      attribution: '© OpenStreetMap contributors © CARTO'
+    }).addTo(map);
+
+    var mapMarkers = {};
+
+    function addMarkers(markerData) {
+      for (var id in mapMarkers) { map.removeLayer(mapMarkers[id]); }
+      mapMarkers = {};
+      
+      markerData.forEach(function(m) {
+        var color = m.type === 'resolved' ? '${colors.success}' : (m.type === 'issue' ? '${colors.error}' : '${colors.primary}');
+        var iconHtml = '<div class="marker-inner" style="background-color: ' + color + ';">' + 
+           '<div style="width: 8px; height: 8px; background: white; border-radius: 4px;"></div></div>';
+
+        var icon = L.divIcon({ className: 'custom-marker', html: iconHtml, iconSize: [24, 24], iconAnchor: [12, 12] });
+        
+        var popupContent = '<b>' + (m.title||'') + '</b><br/>' + (m.description||'');
+        var marker = L.marker([m.latitude, m.longitude], {icon: icon})
+          .bindPopup(popupContent)
+          .on('click', function() { window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'markerPress', id: m.id })); })
+          .addTo(map);
+
+        mapMarkers[m.id] = marker;
+      });
+    }
+
+    window.addMarkers = addMarkers;
+
+    map.on('moveend', function() {
+        var center = map.getCenter();
+        var bounds = map.getBounds();
+        var latDelta = bounds.getNorth() - bounds.getSouth();
+        var lngDelta = bounds.getEast() - bounds.getWest();
+        window.ReactNativeWebView.postMessage(JSON.stringify({
+            type: 'regionChange',
+            region: { latitude: center.lat, longitude: center.lng, latitudeDelta: latDelta, longitudeDelta: lngDelta }
+        }));
+    });
+  </script>
+</body>
+</html>
+    `;
+
+    useEffect(() => {
+      // Send markers when they change
+      if (webViewRef.current) {
+        const injectedScript = `window.addMarkers(${JSON.stringify(markers)}); true;`;
+        webViewRef.current.injectJavaScript(injectedScript);
+      }
+    }, [markers]);
 
     useImperativeHandle(ref, () => ({
-      animateToRegion: (region, duration = 1000) => {
-        mapRef.current?.animateToRegion(region, duration);
+      animateToRegion: (region, duration) => {
+        const z = 13; // We can estimate zoom here or use map.getZoom()
+        webViewRef.current?.injectJavaScript(`map.flyTo([${region.latitude}, ${region.longitude}], ${z}); true;`);
       },
-      fitToCoordinates: (coordinates, options = { edgePadding: { top: 50, right: 50, bottom: 50, left: 50 }, animated: true }) => {
+      fitToCoordinates: (coordinates) => {
         if (coordinates && coordinates.length > 0) {
-          mapRef.current?.fitToCoordinates(coordinates, options);
-        } else {
-          mapRef.current?.fitToElements({ animated: true });
+          webViewRef.current?.injectJavaScript(`
+            var b = L.latLngBounds();
+            ${JSON.stringify(coordinates)}.forEach(function(c) { b.extend([c.latitude, c.longitude]); });
+            map.fitBounds(b, { padding: [50, 50] });
+            true;
+          `);
         }
       },
-      zoomIn: () => {
-        mapRef.current?.getCamera().then(camera => {
-          mapRef.current?.setCamera({
-            ...camera,
-            zoom: (camera.zoom || 13) + 1
-          });
-        });
-      },
-      zoomOut: () => {
-        mapRef.current?.getCamera().then(camera => {
-          mapRef.current?.setCamera({
-            ...camera,
-            zoom: (camera.zoom || 13) - 1
-          });
-        });
-      }
+      zoomIn: () => { webViewRef.current?.injectJavaScript(`map.zoomIn(); true;`); },
+      zoomOut: () => { webViewRef.current?.injectJavaScript(`map.zoomOut(); true;`); }
     }));
 
-    const getMarkerColor = (type?: string) => {
-      switch (type) {
-        case 'resolved': return colors.success;
-        case 'issue': return colors.error;
-        default: return colors.primary;
-      }
+    const onMessage = (event: any) => {
+      try {
+        const data = JSON.parse(event.nativeEvent.data);
+        if (data.type === 'markerPress' && onMarkerPress) {
+          const markerId = data.id;
+          const foundMarker = markers.find(m => m.id === markerId);
+          if (foundMarker) onMarkerPress(foundMarker);
+        } else if (data.type === 'regionChange' && onRegionChangeComplete) {
+          onRegionChangeComplete(data.region);
+        }
+      } catch (e) {}
     };
 
     return (
       <View style={[styles.container, style]}>
-        <MapView
-          ref={mapRef}
-          provider={PROVIDER_DEFAULT} 
+        <WebView
+          ref={webViewRef}
+          source={{ html: htmlContent }}
           style={styles.map}
-          initialRegion={initialRegion}
-          showsUserLocation={showsUserLocation}
-          showsMyLocationButton={false}
-          showsCompass={false}
-          onRegionChangeComplete={onRegionChangeComplete}
-          loadingEnabled={false}
-          loadingIndicatorColor={colors.primary}
-          loadingBackgroundColor={colors.backgroundSecondary}
-          mapType={useOsmTiles ? "none" : "standard"}
-          // @ts-ignore - showsZoomControls is Android specific but valid
-          showsZoomControls={false}
-          rotateEnabled={true}
-          pitchEnabled={true}
-        >
-          {useOsmTiles && (
-            <UrlTile
-              /** 
-               * CartoDB Voyager: Best free-forever map for production feel.
-               * Based on OSM data but with a clean, Google-like aesthetic.
-               */
-              urlTemplate="https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png"
-              maximumZ={19}
-              minimumZ={0}
-              flipY={false}
-              tileSize={256}
-              offlineMode={false}
-              zIndex={1}
-            />
-          )}
-          {markers.map((marker) => (
-            <Marker
-              key={marker.id}
-              coordinate={{ latitude: marker.latitude, longitude: marker.longitude }}
-              onPress={() => onMarkerPress?.(marker)}
-              tracksViewChanges={false}
-              zIndex={2}
-            >
-              <View style={[styles.markerContainer, { backgroundColor: getMarkerColor(marker.type) }]}>
-                <Ionicons 
-                  name={marker.type === 'resolved' ? "checkmark-circle" : "alert-circle"} 
-                  size={16} 
-                  color="#fff" 
-                />
-              </View>
-              <Callout tooltip>
-                <View style={styles.callout}>
-                  <Text style={styles.calloutTitle}>{marker.title}</Text>
-                  {marker.description && (
-                    <Text style={styles.calloutDesc} numberOfLines={2}>{marker.description}</Text>
-                  )}
-                </View>
-              </Callout>
-            </Marker>
-          ))}
-        </MapView>
+          onMessage={onMessage}
+          scrollEnabled={false} // Disable webview scrolling, leaflet handles map interactions
+          bounces={false}
+          showsHorizontalScrollIndicator={false}
+          showsVerticalScrollIndicator={false}
+        />
       </View>
     );
   }
 );
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    overflow: 'hidden',
-  },
-  map: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  loaderContainer: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: '#f5f5f5',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  markerContainer: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: '#fff',
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  callout: {
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    padding: 12,
-    width: 200,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  calloutTitle: {
-    fontWeight: 'bold',
-    fontSize: 14,
-    marginBottom: 4,
-  },
-  calloutDesc: {
-    fontSize: 12,
-    color: '#666',
-  },
+  container: { flex: 1, overflow: 'hidden' },
+  map: { flex: 1, backgroundColor: colors.backgroundSecondary }
 });
 
 export default NativeMap;
