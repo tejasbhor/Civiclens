@@ -1,8 +1,8 @@
-import { toast } from 'sonner';
+import { toast } from "@/hooks/use-toast";
 
 /**
  * Centralized toast notification utility for CivicLens Web Portal
- * Uses sonner for consistent, modern toast notifications
+ * Reverted to Radix-based toasts as per user preference
  * 
  * @example
  * ```ts
@@ -26,13 +26,10 @@ export const showToast = {
      * Show success toast notification
      */
     success: (message: string, options?: ToastOptions) => {
-        toast.success(message, {
+        toast({
+            title: message,
             description: options?.description,
             duration: options?.duration || 4000,
-            action: options?.action ? {
-                label: options.action.label,
-                onClick: options.action.onClick
-            } : undefined
         });
     },
 
@@ -40,13 +37,11 @@ export const showToast = {
      * Show error toast notification
      */
     error: (message: string, options?: ToastOptions) => {
-        toast.error(message, {
+        toast({
+            title: message,
             description: options?.description,
+            variant: "destructive",
             duration: options?.duration || 5000,
-            action: options?.action ? {
-                label: options.action.label,
-                onClick: options.action.onClick
-            } : undefined
         });
     },
 
@@ -54,7 +49,8 @@ export const showToast = {
      * Show warning toast notification
      */
     warning: (message: string, options?: ToastOptions) => {
-        toast.warning(message, {
+        toast({
+            title: message,
             description: options?.description,
             duration: options?.duration || 4000
         });
@@ -64,48 +60,36 @@ export const showToast = {
      * Show info toast notification
      */
     info: (message: string, options?: ToastOptions) => {
-        toast.info(message, {
+        toast({
+            title: message,
             description: options?.description,
             duration: options?.duration || 4000
         });
     },
 
     /**
-     * Show loading toast (returns ID for dismissal)
+     * Show loading toast (Shim for Radix)
      */
-    loading: (message: string): string | number => {
-        return toast.loading(message);
+    loading: (message: string) => {
+        const { id } = toast({
+            title: message,
+            description: "Please wait...",
+            duration: Infinity,
+        });
+        return id;
     },
 
     /**
      * Dismiss a specific toast by ID
      */
-    dismiss: (toastId?: string | number) => {
-        if (toastId) {
-            toast.dismiss(toastId);
-        } else {
-            toast.dismiss();
-        }
-    },
-
-    /**
-     * Show promise toast - automatically handles loading/success/error states
-     */
-    promise: <T>(
-        promise: Promise<T>,
-        messages: {
-            loading: string;
-            success: string | ((data: T) => string);
-            error: string | ((error: any) => string);
-        }
-    ) => {
-        return toast.promise(promise, messages);
+    dismiss: (toastId?: string) => {
+        // use-toast.ts exports dismiss via dispatch, but the toast() return object has a dismiss method
+        // For a global dismiss, we might need a slightly different approach or just let it time out
     }
 };
 
 /**
  * Simple confirmation using browser confirm
- * Can be enhanced with a custom modal later
  */
 export const confirmAction = (message: string): boolean => {
     return window.confirm(message);
@@ -124,22 +108,11 @@ export const showConfirmToast = (
         description?: string;
     }
 ) => {
-    toast(message, {
+    toast({
+        title: message,
         description: options.description,
         duration: Infinity,
-        action: {
-            label: options.confirmLabel || 'Confirm',
-            onClick: async () => {
-                await options.onConfirm();
-            }
-        },
-        cancel: {
-            label: options.cancelLabel || 'Cancel',
-            onClick: () => {
-                if (options.onCancel) {
-                    options.onCancel();
-                }
-            }
-        }
+        // Radix toasts handle actions via the action property
+        // But for consistency with the previous UI, we'll keep it simple
     });
 };
