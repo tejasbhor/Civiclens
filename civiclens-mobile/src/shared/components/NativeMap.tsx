@@ -1,5 +1,5 @@
-import React, { forwardRef, useImperativeHandle, useRef, useState } from 'react';
-import { StyleSheet, View, Text, ActivityIndicator } from 'react-native';
+import React, { forwardRef, useImperativeHandle, useRef } from 'react';
+import { StyleSheet, View, Text } from 'react-native';
 import MapView, { Marker, PROVIDER_DEFAULT, Region, Callout, UrlTile } from 'react-native-maps';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '@shared/theme/colors';
@@ -34,7 +34,6 @@ export interface NativeMapRef {
 const NativeMap = forwardRef<NativeMapRef, NativeMapProps>(
   ({ initialRegion, markers = [], showsUserLocation = true, onMarkerPress, onRegionChangeComplete, style, useOsmTiles = true }, ref) => {
     const mapRef = useRef<MapView>(null);
-    const [isMapReady, setIsMapReady] = useState(false);
 
     useImperativeHandle(ref, () => ({
       animateToRegion: (region, duration = 1000) => {
@@ -83,12 +82,11 @@ const NativeMap = forwardRef<NativeMapRef, NativeMapProps>(
           showsUserLocation={showsUserLocation}
           showsMyLocationButton={false}
           showsCompass={false}
-          onMapReady={() => setIsMapReady(true)}
           onRegionChangeComplete={onRegionChangeComplete}
           loadingEnabled={false}
           loadingIndicatorColor={colors.primary}
           loadingBackgroundColor={colors.backgroundSecondary}
-          mapType={useOsmTiles ? "none" : "standard"}
+          mapType={useOsmTiles ? "standard" : "standard"}
           // @ts-ignore - showsZoomControls is Android specific but valid
           showsZoomControls={false}
           rotateEnabled={true}
@@ -106,6 +104,7 @@ const NativeMap = forwardRef<NativeMapRef, NativeMapProps>(
               flipY={false}
               tileSize={256}
               offlineMode={false}
+              zIndex={1}
             />
           )}
           {markers.map((marker) => (
@@ -114,6 +113,7 @@ const NativeMap = forwardRef<NativeMapRef, NativeMapProps>(
               coordinate={{ latitude: marker.latitude, longitude: marker.longitude }}
               onPress={() => onMarkerPress?.(marker)}
               tracksViewChanges={false}
+              zIndex={2}
             >
               <View style={[styles.markerContainer, { backgroundColor: getMarkerColor(marker.type) }]}>
                 <Ionicons 
