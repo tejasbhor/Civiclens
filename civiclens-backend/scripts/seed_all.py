@@ -15,20 +15,8 @@ async def main():
     print("CIVICLENS - MASTER SEED SCRIPT")
     print("="*80)
 
-    # Smart Check: Skip if database already has users
-    try:
-        from app.core.database import AsyncSessionLocal
-        from sqlalchemy import text
-        async with AsyncSessionLocal() as session:
-            result = await session.execute(text("SELECT 1 FROM users LIMIT 1"))
-            if result.fetchone():
-                print("\n✅ Database already contains data. Skipping seed process.")
-                print("="*80 + "\n")
-                return
-    except Exception as e:
-        print(f"⚠️  Could not verify database state ({e}). Proceeding carefully...")
-
     print("\nThis script will seed all initial data (Departments, Officers, Admin, AI User)...\n")
+    print("Individual seeds are idempotent and will skip existing records.\n")
     
     try:
         # Ensure database tables exist

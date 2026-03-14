@@ -241,7 +241,7 @@ const CitizenLogin = () => {
       const res = await authService.requestOTP(np);
       if (res.otp) setDemoOtp(res.otp);
       setOtpActive(true);
-      resetOtp();
+      setOtp(""); // Only clear the input field, not the demo state
       setScreen({ id: "otp-verify", phone: np });
       toast({ title: "OTP Sent", description: res.message });
     } catch (err: any) {
@@ -302,7 +302,7 @@ const CitizenLogin = () => {
       });
       if ((res as any).otp) setDemoOtp((res as any).otp);
       setOtpActive(true);
-      resetOtp();
+      setOtp(""); // Only clear the input field
       setScreen({ id: "register-verify", phone: np });
       toast({ title: "Account Created!", description: "Verify your phone to continue." });
     } catch (err: any) {
@@ -365,7 +365,7 @@ const CitizenLogin = () => {
       const res = await authService.requestEmailOTP(email.trim());
       if (res.otp) setDemoOtp(res.otp);
       setOtpActive(true);
-      resetOtp();
+      setOtp(""); // Only clear the input field
       setScreen({ id: "email-verify", email: email.trim() });
       toast({ title: "OTP Sent", description: res.message });
     } catch (err: any) {

@@ -2,18 +2,18 @@
 # CivicLens — Cloud Sync & Redeploy Script
 # Run from: /opt/civiclens
 # =====================================================
+cd /opt/civiclens
 
 # 1. Pull latest code
 git pull origin main
 
 # 2. ALWAYS force ENABLE_DEMO_OTP=true (critical for demo OTP visibility)
-# sed replaces it if exists; fallback appends if not
 if grep -q "ENABLE_DEMO_OTP" .env; then
     sed -i 's/^ENABLE_DEMO_OTP=.*/ENABLE_DEMO_OTP=true/' .env
 else
     echo "ENABLE_DEMO_OTP=true" >> .env
 fi
-echo "✅ ENABLE_DEMO_OTP confirmed = $(grep ENABLE_DEMO_OTP .env)"
+echo "✅ ENABLE_DEMO_OTP = $(grep ENABLE_DEMO_OTP .env)"
 
 # 3. Stop all containers (volumes are preserved — no data loss)
 sudo docker compose down
@@ -25,16 +25,20 @@ sudo docker compose build backend
 echo "🏗️ [2/3] Rebuilding Admin Dashboard (memory-limited)..."
 NODE_OPTIONS="--max-old-space-size=1024" sudo docker compose build admin
 
-echo "🏗️ [3/3] Rebuilding Citizen Portal (no-cache forced)..."
-sudo docker compose build --no-cache client
+echo "🏗️ [3/3] Rebuilding Citizen Portal..."
+sudo docker compose build client
 
 # 5. Start all services
 sudo docker compose up -d --remove-orphans
 
-# 6. Apply database migrations
+# 6. Apply database migrations & Seed data
+# Seeding creates the demo accounts (9876543210, 9999999999) if they don't exist
 echo "⌛ Waiting for DB to stabilize..."
 sleep 10
+echo "🗃️ Running migrations..."
 sudo docker compose exec -T backend alembic upgrade head
+echo "🌱 Seeding demo accounts and departments..."
+sudo docker compose exec -T backend python scripts/seed_all.py
 
 echo ""
 echo "✅ ALL DONE! Services are live:"
