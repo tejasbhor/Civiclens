@@ -102,8 +102,8 @@ export const CitizenHomeScreen: React.FC = () => {
             mapRef.current.animateToRegion({
               latitude: loc.coords.latitude,
               longitude: loc.coords.longitude,
-              latitudeDelta: 0.05,
-              longitudeDelta: 0.05,
+              latitudeDelta: 0.003,
+              longitudeDelta: 0.003,
             });
           }
         } else {
@@ -148,8 +148,8 @@ export const CitizenHomeScreen: React.FC = () => {
       mapRef.current?.animateToRegion({
         latitude: location.coords.latitude,
         longitude: location.coords.longitude,
-        latitudeDelta: 0.05,
-        longitudeDelta: 0.05,
+        latitudeDelta: 0.003,
+        longitudeDelta: 0.003,
       });
       setUserLocation({
         latitude: location.coords.latitude,
@@ -253,11 +253,14 @@ export const CitizenHomeScreen: React.FC = () => {
         initialRegion={{
           latitude: userLocation?.latitude || 19.0263,
           longitude: userLocation?.longitude || 73.0645,
-          latitudeDelta: 0.05,
-          longitudeDelta: 0.05,
+          latitudeDelta: 0.003,
+          longitudeDelta: 0.003,
         }}
         markers={reports
-          .filter((r) => !searchQuery || r.title.toLowerCase().includes(searchQuery.toLowerCase()) || r.description.toLowerCase().includes(searchQuery.toLowerCase()) || (typeof r.address === 'string' && r.address.toLowerCase().includes(searchQuery.toLowerCase())))
+          .filter((r) => !searchQuery || 
+             (r.title && r.title.toLowerCase().includes(searchQuery.toLowerCase())) || 
+             (r.description && r.description.toLowerCase().includes(searchQuery.toLowerCase())) || 
+             (typeof r.address === 'string' && r.address.toLowerCase().includes(searchQuery.toLowerCase())))
           .map((report) => ({
             id: report.id || Math.random(),
             latitude: report.latitude || 0,
