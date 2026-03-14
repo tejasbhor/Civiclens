@@ -183,9 +183,13 @@ const OfficerLogin = () => {
         if (profile.email) {
           setOfficerEmail(profile.email);
           const otpRes = await authService.requestEmailOTP(profile.email);
-          if (otpRes.otp) setDemoOtp(otpRes.otp);
+          if (otpRes.otp) {
+            setDemoOtp(otpRes.otp);
+            setOtp(otpRes.otp);
+          } else {
+            setOtp("");
+          }
           setOtpActive(true);
-          setOtp("");
           setScreen("otp");
           showToast.info("Verification Required", {
             description: `A code was sent to ${profile.email}`,
@@ -264,10 +268,14 @@ const OfficerLogin = () => {
     setLoading(true);
     try {
       const res = await authService.requestEmailOTP(officerEmail);
-      if (res.otp) setDemoOtp(res.otp);
+      if (res.otp) {
+        setDemoOtp(res.otp);
+        setOtp(res.otp);
+      } else {
+        setOtp("");
+      }
       setOtpActive(false);
       setTimeout(() => setOtpActive(true), 50);
-      setOtp("");
       showToast.success("OTP Resent", { description: `A new code was sent to ${officerEmail}` });
     } catch {
       showToast.error("Error", { description: "Failed to resend verification code." });

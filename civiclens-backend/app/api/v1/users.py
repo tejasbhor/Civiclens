@@ -883,7 +883,7 @@ async def send_email_verification(
         logger.warning("SMTP not configured; returning debug token in DEBUG only")
         resp = {"message": "Verification token generated"}
     
-    if getattr(settings, "DEBUG", False):
+    if settings.DEBUG or settings.ENABLE_DEMO_OTP:
         resp["debug_token"] = token
     return resp
 
@@ -949,7 +949,7 @@ async def send_phone_verification(
     await redis.set(f"verify:phone:sent:{current_user.id}", datetime.utcnow().isoformat())
     # TODO: integrate SMS provider
     resp = {"message": "Verification OTP sent"}
-    if getattr(settings, "DEBUG", False):
+    if settings.DEBUG or settings.ENABLE_DEMO_OTP:
         resp["debug_otp"] = otp
     return resp
 

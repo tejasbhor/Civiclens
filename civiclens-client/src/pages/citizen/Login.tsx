@@ -239,9 +239,13 @@ const CitizenLogin = () => {
     try {
       const np = normalizePhone(phone);
       const res = await authService.requestOTP(np);
-      if (res.otp) setDemoOtp(res.otp);
+      if (res.otp) {
+        setDemoOtp(res.otp);
+        setOtp(res.otp);
+      } else {
+        setOtp("");
+      }
       setOtpActive(true);
-      setOtp(""); // Only clear the input field, not the demo state
       setScreen({ id: "otp-verify", phone: np });
       showToast.success("OTP Sent", { description: res.message });
     } catch (err: any) {
@@ -365,9 +369,13 @@ const CitizenLogin = () => {
     setLoading(true);
     try {
       const res = await authService.requestEmailOTP(email.trim());
-      if (res.otp) setDemoOtp(res.otp);
+      if (res.otp) {
+        setDemoOtp(res.otp);
+        setOtp(res.otp);
+      } else {
+        setOtp("");
+      }
       setOtpActive(true);
-      setOtp(""); // Only clear the input field
       setScreen({ id: "email-verify", email: email.trim() });
       showToast.success("OTP Sent", { description: res.message });
     } catch (err: any) {
@@ -404,10 +412,14 @@ const CitizenLogin = () => {
       setLoading(true);
       try {
         const res = await authService.requestOTP(np);
-        if (res.otp) setDemoOtp(res.otp);
+        if (res.otp) {
+          setDemoOtp(res.otp);
+          setOtp(res.otp);
+        } else {
+          setOtp("");
+        }
         setOtpActive(false);
         setTimeout(() => setOtpActive(true), 50);
-        setOtp("");
         showToast.success("OTP Sent", { description: res.message });
       } catch (err: any) {
         showToast.error("Failed to Resend", { description: err.response?.data?.detail || "Please try again." });
@@ -418,10 +430,14 @@ const CitizenLogin = () => {
       setLoading(true);
       try {
         const res = await authService.requestEmailOTP(screen.email);
-        if (res.otp) setDemoOtp(res.otp);
+        if (res.otp) {
+          setDemoOtp(res.otp);
+          setOtp(res.otp);
+        } else {
+          setOtp("");
+        }
         setOtpActive(false);
         setTimeout(() => setOtpActive(true), 50);
-        setOtp("");
         showToast.success("OTP Resent", { description: res.message });
       } catch (err: any) {
         showToast.error("Failed to Resend", { description: err.response?.data?.detail || "Please try again." });
