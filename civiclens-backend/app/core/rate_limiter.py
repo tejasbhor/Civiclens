@@ -3,6 +3,7 @@ Rate Limiting Service using Redis
 Implements sliding window rate limiting for various endpoints
 """
 
+from fastapi import Request
 from typing import Optional
 from datetime import datetime, timedelta
 from app.core.database import get_redis
@@ -120,6 +121,25 @@ class RateLimiter:
             identifier="password reset requests"
         )
     
+    async def check_ip_rate_limit(
+        self,
+        request: Request,
+        max_requests: int = 100,
+        window_seconds: int = 3600,
+        identifier: str = "global IP requests"
+    ) -> bool:
+        """
+        Check if an IP address is within rate limit
+        """
+        from app.core.enhanced_security import get_client_ip
+        client_ip = get_client_ip(request)
+        return await self.check_rate_limit(
+            key=f"ip:{client_ip}",
+            max_requests=max_requests,
+            window_seconds=window_seconds,
+            identifier=identifier
+        )
+
     async def reset_rate_limit(self, key: str):
         """Reset rate limit for a specific key (admin action)"""
         redis = await get_redis()

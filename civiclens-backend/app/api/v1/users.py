@@ -835,10 +835,15 @@ async def get_my_verification_status(
 @router.post("/me/verification/email/send")
 async def send_email_verification(
     background_tasks: BackgroundTasks,
+    http_request: Request,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Issue a time-bound email verification token and track last sent time. In production, send via email service."""
+    """Issue a time-bound email verification token with dual-layer rate limiting"""
+    # 1. Global IP-based rate limit
+    await rate_limiter.check_ip_rate_limit(http_request, identifier="Email Verification IP requests")
+    
+    # 2. Targeted user-based rate limit
     if not current_user.email:
         raise ValidationException("Email not set")
     # Rate limit: configurable per user
@@ -929,10 +934,15 @@ async def verify_email(
 
 @router.post("/me/verification/phone/send")
 async def send_phone_verification(
+    http_request: Request,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Issue a phone verification OTP via Redis key. In production, send via SMS gateway."""
+    """Issue a phone verification OTP with dual-layer rate limiting"""
+    # 1. Global IP-based rate limit
+    await rate_limiter.check_ip_rate_limit(http_request, identifier="Phone Verification IP requests")
+    
+    # 2. Targeted user-based rate limit
     if not current_user.phone:
         raise ValidationException("Phone not set")
     # Rate limit: configurable per user

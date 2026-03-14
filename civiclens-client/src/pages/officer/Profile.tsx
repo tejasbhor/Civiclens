@@ -540,6 +540,12 @@ const OfficerProfile = () => {
                       className="h-9 text-sm"
                       maxLength={6}
                     />
+                    {phoneOTP && (
+                      <div className="mt-2 flex items-center gap-2 p-2 bg-amber-500/10 border border-amber-500/20 rounded-md text-[10px] text-amber-600 font-mono">
+                        <Shield className="w-3 h-3" />
+                        <span>Demo OTP: {phoneOTP}</span>
+                      </div>
+                    )}
                     <Button 
                       onClick={handleVerifyPhone}
                       disabled={verifyingPhone || !phoneOTP}
@@ -591,6 +597,12 @@ const OfficerProfile = () => {
                       onChange={(e) => setEmailToken(e.target.value)}
                       className="h-9 text-sm"
                     />
+                    {emailToken && (
+                      <div className="mt-2 flex items-center gap-2 p-2 bg-amber-500/10 border border-amber-500/20 rounded-md text-[10px] text-amber-600 font-mono">
+                        <Shield className="w-3 h-3" />
+                        <span>Demo Token: {emailToken}</span>
+                      </div>
+                    )}
                     <Button 
                       onClick={handleVerifyEmail}
                       disabled={verifyingEmail || !emailToken}

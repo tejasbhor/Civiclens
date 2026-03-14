@@ -50,11 +50,15 @@ router = APIRouter(prefix="/auth", tags=["Authentication"])
 @router.post("/request-email-otp", status_code=status.HTTP_200_OK)
 async def request_email_otp(
     request: EmailOTPRequest,
+    http_request: Request,
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db)
 ):
-    """Request OTP for email address with rate limiting"""
-    # Assuming same rate limit rules for email
+    """Request OTP for email address with dual-layer rate limiting"""
+    # 1. Global IP-based rate limit
+    await rate_limiter.check_ip_rate_limit(http_request, identifier="Email OTP IP requests")
+    
+    # 2. Targeted email-based rate limit
     await rate_limiter.check_otp_rate_limit(request.email)
     
     redis_client = await get_redis()
@@ -211,11 +215,15 @@ def validate_portal_access(user_role: UserRole, portal_type: PortalType) -> tupl
 @router.post("/request-otp", status_code=status.HTTP_200_OK)
 async def request_otp(
     request: OTPRequest,
+    http_request: Request,
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db)
 ):
-    """Request OTP for phone number with rate limiting"""
-    # Check rate limit
+    """Request OTP for phone number with dual-layer rate limiting"""
+    # 1. Global IP-based rate limit
+    await rate_limiter.check_ip_rate_limit(http_request, identifier="OTP IP requests")
+    
+    # 2. Targeted phone-based rate limit
     await rate_limiter.check_otp_rate_limit(request.phone)
     
     redis_client = await get_redis()
@@ -333,10 +341,14 @@ async def verify_otp(
 @router.post("/signup", status_code=status.HTTP_201_CREATED)
 async def citizen_signup(
     request: CitizenSignupRequest,
+    http_request: Request,
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db)
 ):
-    """Full citizen registration with password"""
+    """Full citizen registration with dual-layer rate limiting"""
+    # 1. Global IP-based rate limit for signups
+    await rate_limiter.check_ip_rate_limit(http_request, max_requests=10, identifier="Signup IP attempts")
+    
     # Check if phone already exists
     existing_user = await user_crud.get_by_phone(db, request.phone)
     if existing_user:
@@ -500,8 +512,11 @@ async def login(
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db)
 ):
-    """Login with phone and password with rate limiting and account lockout"""
-    # Check rate limit
+    """Login with phone and password with dual-layer rate limiting"""
+    # 1. Global IP-based rate limit
+    await rate_limiter.check_ip_rate_limit(http_request, identifier="Login IP attempts")
+    
+    # 2. Targeted phone-based rate limit
     await rate_limiter.check_login_rate_limit(request.phone)
     
     # Check if account is locked
