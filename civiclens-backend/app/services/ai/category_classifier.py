@@ -66,7 +66,7 @@ class CategoryClassifier:
         """
         try:
             # Combine title and description with emphasis on title
-            text = f"{title}. {title}. {description}"  # Repeat title for emphasis
+            text = f"{title}. {title}. {title}. {description}"  # Repeat title for heavy emphasis
             
             # Truncate if too long
             if len(text) > AIConfig.MAX_TEXT_LENGTH:
@@ -153,9 +153,9 @@ class CategoryClassifier:
             category_keywords = AIConfig.CATEGORIES.get(category, {}).get("keywords", [])
             keyword_matches = sum(1 for kw in category_keywords if kw in text_lower)
             
-            if keyword_matches >= 2:
-                # Boost confidence by up to 0.15 based on keyword matches
-                boost = min(0.15, keyword_matches * 0.03)
+            if keyword_matches >= 1:
+                # Boost confidence more aggressively: 10% for first match, 5% for thereafter
+                boost = 0.10 + (min(2, keyword_matches - 1) * 0.05)
                 original_confidence = confidence
                 confidence = min(0.99, confidence + boost)
                 logger.info(
