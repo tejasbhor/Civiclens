@@ -1,7 +1,7 @@
 // Report API service
 import { apiClient } from './apiClient';
 import {
-  Report,
+  // Report, // Unused
   ReportCreate,
   ReportListParams,
   NearbyReportsParams,

@@ -109,7 +109,7 @@ export class BiometricAuth {
           errorMessage = 'Authentication cancelled by system';
         } else if (result.error === 'lockout') {
           errorMessage = 'Too many failed attempts. Please try again later.';
-        } else if (result.error === 'lockout_permanent') {
+        } else if ((result.error as any) === 'lockout_permanent') {
           errorMessage = 'Biometric authentication is locked. Please use device passcode.';
         } else if (result.error === 'not_enrolled') {
           errorMessage = 'No biometric credentials enrolled';

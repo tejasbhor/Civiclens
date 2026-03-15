@@ -6,6 +6,9 @@
 import { useState, useCallback } from 'react';
 import { useAuthStore } from '@/store/authStore';
 import { offlineFirstApi } from '@shared/services/api/offlineFirstApi';
+import { database } from '@shared/database/database';
+import { syncManager } from '@shared/services/sync/syncManager';
+import { networkService } from '@shared/services/network/networkService';
 import { createLogger } from '@shared/utils/logger';
 
 const log = createLogger('useOfficerTasks');
@@ -161,9 +164,26 @@ export const useOfficerTasks = (): UseOfficerTasksReturn => {
     try {
       log.debug(`Acknowledging task for report ${reportId}`);
       
-      await offlineFirstApi.post(`/reports/${reportId}/acknowledge`, { notes });
-      
-      log.info(`✅ Task acknowledged for report ${reportId}`);
+      if (networkService.isOnline()) {
+        await offlineFirstApi.post(`/reports/${reportId}/acknowledge`, { notes });
+        log.info(`✅ Task acknowledged online for report ${reportId}`);
+      } else {
+        // Offline handling
+        log.info(`Device offline, queuing acknowledgment for report ${reportId}`);
+        
+        // 1. Update SQLite locally
+        await database.runAsync(
+          "UPDATE tasks SET status = 'acknowledged', acknowledged_at = ?, is_synced = 0 WHERE report_id = ?",
+          [Date.now(), reportId]
+        );
+        await database.runAsync(
+          "UPDATE reports SET status = 'acknowledged' WHERE id = ?",
+          [reportId]
+        );
+        
+        // 2. Add to sync queue
+        await syncManager.addToQueue('task', 'acknowledge', { reportId, notes });
+      }
       
       // Refresh tasks to get updated status
       await loadTasks();
@@ -181,9 +201,26 @@ export const useOfficerTasks = (): UseOfficerTasksReturn => {
     try {
       log.debug(`Starting work on report ${reportId}`);
       
-      await offlineFirstApi.post(`/reports/${reportId}/start-work`, { notes });
-      
-      log.info(`✅ Work started on report ${reportId}`);
+      if (networkService.isOnline()) {
+        await offlineFirstApi.post(`/reports/${reportId}/start-work`, { notes });
+        log.info(`✅ Work started online for report ${reportId}`);
+      } else {
+        // Offline handling
+        log.info(`Device offline, queuing start-work for report ${reportId}`);
+        
+        // 1. Update SQLite locally
+        await database.runAsync(
+          "UPDATE tasks SET status = 'in_progress', started_at = ?, is_synced = 0 WHERE report_id = ?",
+          [Date.now(), reportId]
+        );
+        await database.runAsync(
+          "UPDATE reports SET status = 'in_progress' WHERE id = ?",
+          [reportId]
+        );
+        
+        // 2. Add to sync queue
+        await syncManager.addToQueue('task', 'start-work', { reportId, notes });
+      }
       
       // Refresh tasks to get updated status
       await loadTasks();
@@ -201,9 +238,26 @@ export const useOfficerTasks = (): UseOfficerTasksReturn => {
     try {
       log.debug(`Completing task for report ${reportId}`, data);
       
-      await offlineFirstApi.put(`/reports/${reportId}`, data);
-      
-      log.info(`✅ Task completed for report ${reportId}`);
+      if (networkService.isOnline()) {
+        await offlineFirstApi.put(`/reports/${reportId}`, data);
+        log.info(`✅ Task completed online for report ${reportId}`);
+      } else {
+        // Offline handling
+        log.info(`Device offline, queuing completion for report ${reportId}`);
+        
+        // 1. Update SQLite locally
+        await database.runAsync(
+          "UPDATE tasks SET status = ?, resolved_at = ?, is_synced = 0 WHERE report_id = ?",
+          [data.status, Date.now(), reportId]
+        );
+        await database.runAsync(
+          "UPDATE reports SET status = ? WHERE id = ?",
+          [data.status, reportId]
+        );
+        
+        // 2. Add to sync queue
+        await syncManager.addToQueue('task', 'complete', { reportId, status: data.status, notes: data.notes });
+      }
       
       // Refresh tasks to get updated status
       await loadTasks();
@@ -221,13 +275,19 @@ export const useOfficerTasks = (): UseOfficerTasksReturn => {
     try {
       log.debug(`Adding update to report ${reportId}:`, updateText);
       
-      // Create FormData for multipart request (matching web client)
-      const formData = new FormData();
-      formData.append('update_text', updateText);
-      
-      await offlineFirstApi.post(`/reports/${reportId}/add-update`, formData);
-      
-      log.info(`✅ Update added to report ${reportId}`);
+      if (networkService.isOnline()) {
+        const formData = new FormData();
+        formData.append('update_text', updateText);
+        await offlineFirstApi.post(`/reports/${reportId}/add-update`, formData);
+        log.info(`✅ Update added online to report ${reportId}`);
+      } else {
+        // Offline handling
+        log.info(`Device offline, queuing update for report ${reportId}`);
+        
+        // No easy way to show this update locally as it's usually a history item,
+        // but we queue it for sync.
+        await syncManager.addToQueue('task', 'add-update', { reportId, updateText });
+      }
       
       // Refresh tasks to get updated data
       await loadTasks();

@@ -9,5 +9,6 @@ export { TopNavbar } from './TopNavbar';
 export { VoiceInput } from './VoiceInput';
 export { NotificationBell } from './NotificationBell';
 export { RoleGuard } from './RoleGuard';
+export { ImageGallery } from './ImageGallery';
 export { default as NativeMap } from './NativeMap';
 export type { NativeMapRef, MapMarker } from './NativeMap';

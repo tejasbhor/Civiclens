@@ -326,7 +326,8 @@ async def submit_complete_report(
     
     # Media files (up to 5 images + 1 audio)
     files: List[UploadFile] = File(..., description="Media files (max 5 images + 1 audio)"),
-    captions: Optional[str] = Form(None, description="JSON array of captions for each file")
+    captions: Optional[str] = Form(None, description="JSON array of captions for each file"),
+    local_id: Optional[str] = Form(None, description="Local ID for offline sync tracking")
 ):
     """
     Submit a complete report with all media files in a single atomic operation
@@ -434,7 +435,10 @@ async def submit_complete_report(
         
         # 6. Response
         from app.api.v1.reports import serialize_report_with_details
-        return serialize_report_with_details(report, current_user)
+        payload = serialize_report_with_details(report, current_user)
+        if local_id:
+            payload["local_id"] = local_id
+        return payload
         
     except ValidationException as e:
         duration = time.time() - start_time

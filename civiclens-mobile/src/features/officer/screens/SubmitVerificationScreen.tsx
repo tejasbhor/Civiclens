@@ -53,7 +53,7 @@ export default function SubmitVerificationScreen() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
-  const [task, setTask] = useState<any>(null);
+  // const [task, setTask] = useState<any>(null);
   const [citizenPhotos, setCitizenPhotos] = useState<MediaItem[]>([]);
   const [beforePhotos, setBeforePhotos] = useState<MediaItem[]>([]);
 
@@ -78,8 +78,8 @@ export default function SubmitVerificationScreen() {
     try {
       setLoading(true);
 
-      const taskResponse: any = await apiClient.get(`/reports/${reportId}`);
-      setTask(taskResponse.data);
+      // const taskResponse: any = await apiClient.get(`/reports/${reportId}`);
+      // setTask(taskResponse.data);
 
       const mediaResponse: any = await apiClient.get(`/media/report/${reportId}`);
       const mediaList = Array.isArray(mediaResponse.data) ? mediaResponse.data : [];

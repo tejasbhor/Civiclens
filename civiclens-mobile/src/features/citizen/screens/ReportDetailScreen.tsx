@@ -11,8 +11,6 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
-  Image,
-  Dimensions,
   Alert,
   Linking,
 } from 'react-native';
@@ -23,11 +21,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 
 import { reportApi } from '@shared/services/api/reportApi';
 // Import types for report handling
-import { TopNavbar } from '@shared/components';
+import { TopNavbar, ImageGallery } from '@shared/components';
 import { getContentContainerStyle } from '@shared/utils/screenPadding';
-import { getMediaUrl } from '@shared/utils/mediaUtils';
-
-const { width } = Dimensions.get('window');
 
 interface ReportDetailResponse {
   id: number | string;
@@ -80,7 +75,6 @@ export const ReportDetailScreen: React.FC = () => {
   const [report, setReport] = useState<ReportDetailResponse | null>(null);
   const [statusHistory, setStatusHistory] = useState<any[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [isTimelineExpanded, setIsTimelineExpanded] = useState(false);
 
   useEffect(() => {
@@ -256,75 +250,8 @@ export const ReportDetailScreen: React.FC = () => {
         contentContainerStyle={getContentContainerStyle(insets)}
         showsVerticalScrollIndicator={false}
       >
-        {/* Photo Gallery */}
-        {report.media && report.media.length > 0 ? (
-          <View style={styles.gallerySection}>
-            <ScrollView
-              horizontal
-              pagingEnabled
-              showsHorizontalScrollIndicator={false}
-              onMomentumScrollEnd={(e) => {
-                const index = Math.round(e.nativeEvent.contentOffset.x / width);
-                setSelectedImageIndex(index);
-              }}
-            >
-              {report.media.map((media, index) => {
-                const imageUrl = getMediaUrl(media.file_url);
-                console.log('Loading image:', imageUrl);
-
-                return (
-                  <View key={`media-${media.id}-${index}`} style={styles.imageContainer}>
-                    <Image
-                      source={{ uri: imageUrl }}
-                      style={styles.galleryImage}
-                      resizeMode="cover"
-                      onLoad={() => console.log('✅ Image loaded successfully:', imageUrl)}
-                      onError={(error) => {
-                        console.error('❌ Image load error:', imageUrl, error.nativeEvent);
-                      }}
-                    />
-                    {/* Image Tag */}
-                    {media.upload_source && (
-                      <View style={styles.imageTag}>
-                        <View
-                          style={[
-                            styles.imageTagBadge,
-                            {
-                              backgroundColor:
-                                media.upload_source === 'citizen_submission'
-                                  ? '#2196F3'
-                                  : media.upload_source === 'officer_before_photo'
-                                    ? '#FF9800'
-                                    : '#4CAF50',
-                            },
-                          ]}
-                        >
-                          <Text style={styles.imageTagText}>
-                            {media.upload_source === 'citizen_submission'
-                              ? 'Reported'
-                              : media.upload_source === 'officer_before_photo'
-                                ? 'Before Work'
-                                : 'After Work'}
-                          </Text>
-                        </View>
-                      </View>
-                    )}
-                  </View>
-                );
-              })}
-            </ScrollView>
-            <View style={styles.galleryIndicator}>
-              <Text style={styles.galleryCounter}>
-                {selectedImageIndex + 1} / {report.media.length}
-              </Text>
-            </View>
-          </View>
-        ) : (
-          <View style={styles.noImagePlaceholder}>
-            <Ionicons name="image-outline" size={48} color="#CBD5E1" />
-            <Text style={styles.noImageText}>No images attached</Text>
-          </View>
-        )}
+        {/* Photo Gallery - Premium Implementation */}
+        <ImageGallery media={report.media} />
 
         {/* Status Banner */}
         <View style={styles.statusBanner}>
@@ -555,11 +482,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   gallerySection: {
-    position: 'relative',
-  },
-  imageContainer: {
-    width,
-    height: 300,
     position: 'relative',
   },
   galleryImage: {

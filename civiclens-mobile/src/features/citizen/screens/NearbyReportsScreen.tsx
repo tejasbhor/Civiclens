@@ -19,15 +19,16 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
+// import { LinearGradient } from 'expo-linear-gradient'; // Unused
 import * as Location from 'expo-location';
 
 import { TopNavbar } from '@shared/components';
 import { reportApi } from '@shared/services/api/reportApi';
-import { useAuthStore } from '@store/authStore';
+// import { useAuthStore } from '@store/authStore'; // Unused
 import { getContentContainerStyle } from '@shared/utils/screenPadding';
 
-const { width, height } = Dimensions.get('window');
+// const { width, height } = Dimensions.get('window'); // Unused
+const { height } = Dimensions.get('window');
 
 interface NearbyReport {
   id: number;
@@ -66,7 +67,7 @@ interface UserLocation {
 export const NearbyReportsScreen: React.FC = () => {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
-  const { user } = useAuthStore();
+  // const { user } = useAuthStore(); // Unused
 
   const [reports, setReports] = useState<NearbyReport[]>([]);
   const [loading, setLoading] = useState(true);

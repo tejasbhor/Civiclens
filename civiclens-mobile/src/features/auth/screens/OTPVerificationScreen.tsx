@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { authApi } from '@shared/services/api/authApi';
-import { useAuthStore } from '@/store/authStore';
+// import { useAuthStore } from '@/store/authStore'; // Unused
 
 interface OTPVerificationScreenProps {
   phone: string;
@@ -35,6 +35,7 @@ export const OTPVerificationScreen = ({ phone, onSuccess }: OTPVerificationScree
       return () => clearInterval(interval);
     } else {
       setCanResend(true);
+      return undefined; // Consistent return
     }
   }, [timer]);
 
@@ -85,7 +86,8 @@ export const OTPVerificationScreen = ({ phone, onSuccess }: OTPVerificationScree
     setError('');
 
     try {
-      const tokens = await authApi.verifyOTP(phone, otpString);
+      // const tokens = await authApi.verifyOTP(phone, otpString); // Unused
+      await authApi.verifyOTP(phone, otpString);
       
       Alert.alert('Success', 'Login successful!', [
         {
@@ -145,12 +147,12 @@ export const OTPVerificationScreen = ({ phone, onSuccess }: OTPVerificationScree
           {otp.map((digit, index) => (
             <TextInput
               key={index}
-                ref={(ref: TextInput | null) => {
-                  if (ref) {
-                    inputRefs.current[index] = ref;
-                  }
-                }}
-              style={[styles.otpInput, digit && styles.otpInputFilled]}
+              ref={(ref: TextInput | null) => {
+                if (ref) {
+                  inputRefs.current[index] = ref;
+                }
+              }}
+              style={[styles.otpInput, digit ? styles.otpInputFilled : null]}
               value={digit}
               onChangeText={value => handleOtpChange(value, index)}
               onKeyPress={e => handleKeyPress(e, index)}

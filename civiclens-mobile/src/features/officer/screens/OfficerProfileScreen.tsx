@@ -28,6 +28,7 @@ import { getBottomTabPadding } from '@shared/utils/screenPadding';
 import { TopNavbar, RoleGuard } from '../../../shared/components';
 import { useOfficerProfile } from '@shared/hooks/useOfficerProfile';
 import { networkService } from '../../../shared/services/network/networkService';
+import { BiometricSettings } from '@/features/auth/components/BiometricSettings';
 import { colors } from '../../../shared/theme/colors';
 import { UserRole } from '../../../shared/types/user';
 import { useAuthStore } from '@store/authStore';
@@ -49,7 +50,7 @@ const OfficerProfileContent: React.FC = () => {
   const {
     profile: hookProfile,
     isLoading: hookLoading,
-    isHydrating,
+    // isHydrating, // Unused
     error,
     refreshProfile,
     updateProfile,
@@ -426,6 +427,12 @@ const OfficerProfileContent: React.FC = () => {
                   </View>
                 </TouchableOpacity>
               </View>
+            </View>
+
+            {/* Security (Biometrics) Section */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Security</Text>
+              <BiometricSettings phone={profile.phone} />
             </View>
 
             {/* Notification Preferences Section */}

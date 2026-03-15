@@ -330,7 +330,7 @@ class SubmissionQueue {
       processing,
       completed,
       failed,
-      total: this.queue.length,
+      total: userQueue.length,
     };
   }
 

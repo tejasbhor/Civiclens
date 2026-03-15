@@ -5,17 +5,16 @@
  */
 
 import { database } from '@shared/database/database';
+import { createLogger } from '@shared/utils/logger';
 import { DashboardStats } from '@shared/types/dashboard';
 import { UserProfileDetails } from '@shared/types/user';
 import { UserStats } from '@shared/services/api/userApi';
 import type { Notification } from '@shared/types/notification';
 
-interface CacheEntry<T> {
-  key: string;
-  data: T;
-  timestamp: number;
-  expiresAt: number | null;
-}
+const log = createLogger('CacheService');
+
+
+
 
 class CacheService {
   private readonly DEFAULT_TTL = 5 * 60 * 1000; // 5 minutes
@@ -29,10 +28,11 @@ class CacheService {
     try {
       // Table is created in database schema, just verify it exists
       await database.getFirstAsync(`SELECT name FROM sqlite_master WHERE type='table' AND name='${this.CACHE_TABLE}'`);
-      console.log('✅ Cache service initialized');
+      log.info('Cache service initialized successfully');
     } catch (error) {
-      console.error('❌ Failed to initialize cache service:', error);
+      log.error('Failed to initialize cache service', error);
     }
+
   }
 
   /**
@@ -49,10 +49,11 @@ class CacheService {
         [key, JSON.stringify(data), timestamp, expiresAt]
       );
 
-      console.log(`💾 Cached: ${key}`);
+      log.debug(`Cached: ${key}`);
     } catch (error) {
-      console.error(`❌ Failed to cache ${key}:`, error);
+      log.error(`Failed to cache ${key}`, error);
     }
+
   }
 
   /**
@@ -71,23 +72,24 @@ class CacheService {
       );
 
       if (!entry) {
-        console.log(`📭 Cache miss: ${key}`);
+        log.debug(`Cache miss: ${key}`);
         return null;
       }
 
       // Check if expired
       if (entry.expires_at && Date.now() > entry.expires_at) {
-        console.log(`⏰ Cache expired: ${key}`);
+        log.debug(`Cache expired: ${key}`);
         await this.delete(key);
         return null;
       }
 
-      console.log(`📬 Cache hit: ${key}`);
+      log.debug(`Cache hit: ${key}`);
       return JSON.parse(entry.data) as T;
     } catch (error) {
-      console.error(`❌ Failed to get cache ${key}:`, error);
+      log.error(`Failed to get cache ${key}`, error);
       return null;
     }
+
   }
 
   /**

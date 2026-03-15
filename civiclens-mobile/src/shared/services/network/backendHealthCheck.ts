@@ -36,7 +36,7 @@ class BackendHealthCheckService {
     
     try {
       // Quick health check endpoint (should be lightweight)
-      const response = await apiClient.get<any>('/health', {
+      await apiClient.get<any>('/health', {
         timeout: 5000, // 5 second timeout
         // Don't use retry interceptor for health checks
         headers: { 'X-Skip-Retry': 'true' }

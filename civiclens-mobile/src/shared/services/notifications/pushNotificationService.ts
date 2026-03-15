@@ -1,12 +1,12 @@
 import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
-import { Platform, LogBox } from 'react-native';
+import { Platform } from 'react-native';
 import { userApi } from '../api/userApi';
 
-// Suppress the Expo Go SDK 53 warning about remote push notifications. 
-// Remote push won't work in the Go app, but local functions and badges still do.
-LogBox.ignoreLogs(['expo-notifications: Android Push notifications']);
+// Remote push notification service handler logic
+// Suppression handled in index.ts for better effectiveness during boot
+
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -32,6 +32,14 @@ export const pushNotificationService = {
     }
 
     if (Device.isDevice) {
+      // Check if we are running in Expo Go. SDK 53+ doesn't support remote push in Expo Go.
+      const isExpoGo = Constants.executionEnvironment === 'storeClient';
+      
+      if (isExpoGo) {
+        console.log('PushNotificationService: Running in Expo Go. Skipping remote token registration as it is only available in development builds or production.');
+        return null;
+      }
+
       const { status: existingStatus } = await Notifications.getPermissionsAsync();
       let finalStatus = existingStatus;
       if (existingStatus !== 'granted') {
@@ -42,10 +50,11 @@ export const pushNotificationService = {
         console.warn('Failed to get push token for push notification!');
         return null;
       }
-      // Usually project ID is fetched from Constants, but we can rely on standard token generation
+      
       try {
         const projectId =
           Constants?.expoConfig?.extra?.eas?.projectId ?? Constants?.easConfig?.projectId;
+        
         token = (
           await Notifications.getExpoPushTokenAsync({
             projectId,

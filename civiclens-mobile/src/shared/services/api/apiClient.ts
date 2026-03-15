@@ -132,8 +132,7 @@ class ApiClient {
           // Circuit breaker: Stop if too many consecutive failures
           if (consecutiveAuthFailures >= MAX_AUTH_FAILURES) {
             log.info('Auth error detected, stopping retries');
-            await SecureStorage.clearAuthTokens();
-            await SecureStorage.clearUserData();
+            await cleanupInvalidAuthState();
             return Promise.reject({
               ...error,
               isAuthError: true,
@@ -212,9 +211,8 @@ class ApiClient {
               isRefreshing = false;
               processQueue(refreshError as AxiosError, null);
 
-              // Clear all auth-related data
-              await SecureStorage.clearAuthTokens();
-              await SecureStorage.clearUserData();
+              // Clear all auth-related data properly
+              await cleanupInvalidAuthState();
 
               return Promise.reject({
                 ...refreshError,

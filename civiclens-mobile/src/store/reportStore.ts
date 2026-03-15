@@ -14,7 +14,6 @@ import { reportApi } from '@shared/services/api/reportApi';
 import { networkService } from '@shared/services/network/networkService';
 import { createLogger } from '@shared/utils/logger';
 import { submissionQueue } from '@shared/services/queue/submissionQueue';
-import { apiClient } from '@shared/services/api/apiClient';
 
 const log = createLogger('ReportStore');
 
@@ -547,107 +546,19 @@ export const useReportStore = create<ReportState>((set, get) => ({
   syncOfflineReports: async () => {
     try {
       set({ syncStatus: SyncStatus.SYNCING });
-      log.info('Starting offline reports sync from reportStore');
+      log.info('Starting offline reports sync via SubmissionQueue');
 
-      // 1. Process submission queue out of the box (for new robust offline architecture)
+      // Process submission queue (The single source of truth for offline-first submission)
       try {
         await submissionQueue.processQueue();
       } catch (err) {
         log.warn('Submission queue process error:', err);
       }
 
-      // 2. Process legacy offline reports stored only in SQLite without submissionQueue entries
-      const db = await database.getDatabase();
-      const unsyncedReports = await db.getAllAsync<any>(
-        'SELECT * FROM reports WHERE is_synced = 0'
-      );
-
-      if (unsyncedReports.length === 0) {
-        // Just verify unsyncedCount matches
-        const countResult = await db.getFirstAsync<{ count: number }>(
-          'SELECT COUNT(*) as count FROM reports WHERE is_synced = 0'
-        );
-        const remainingCount = countResult?.count || 0;
-        set({
-          syncStatus: SyncStatus.SUCCESS,
-          unsyncedCount: remainingCount
-        });
-        return;
-      }
-
-      let syncedCount = 0;
-      let errorCount = 0;
-
-      for (const dbReport of unsyncedReports) {
-        try {
-          const report = parseReportFromDb(dbReport);
-          log.info(`Syncing legacy sqlite report: ${report.local_id}`);
-
-          // Create FormData for atomic submission with media
-          const formData = new FormData();
-          formData.append('title', report.title.trim());
-          formData.append('description', report.description.trim());
-          if (report.category) formData.append('category', report.category);
-          if (report.severity) formData.append('severity', report.severity);
-          formData.append('latitude', report.latitude.toString());
-          formData.append('longitude', report.longitude.toString());
-          if (report.address) formData.append('address', report.address.trim());
-          formData.append('is_public', report.is_public ? 'true' : 'false');
-          formData.append('is_sensitive', report.is_sensitive ? 'true' : 'false');
-          if (report.landmark) formData.append('landmark', report.landmark.trim());
-
-          // Handle media correctly (convert URIs into file objects)
-          if (report.photos && report.photos.length > 0) {
-            report.photos.forEach((photoUri, index) => {
-              formData.append('files', {
-                uri: photoUri,
-                type: 'image/jpeg',
-                name: `photo_${index}.jpg`,
-              } as any);
-            });
-          }
-
-          // Submit to atomic complete endpoint to retain media properly
-          const response = await apiClient.post('/reports/submit-complete', formData, {
-            headers: { 'Content-Type': 'multipart/form-data' },
-            timeout: 60000,
-          });
-
-          const responseData = (response as any).data || response;
-
-          // Update local record with server data
-          await db.runAsync(
-            `UPDATE reports SET 
-              id = ?, report_number = ?, is_synced = 1, sync_error = NULL, updated_at = ?
-            WHERE local_id = ?`,
-            [responseData.id, responseData.report_number, Date.now(), report.local_id!]
-          );
-
-          syncedCount++;
-        } catch (error: any) {
-          log.error(`Failed to sync legacy report ${dbReport.local_id}:`, error);
-
-          // Update error status
-          await db.runAsync(
-            'UPDATE reports SET sync_error = ? WHERE local_id = ?',
-            [error.message || 'Sync failed', dbReport.local_id!]
-          );
-
-          errorCount++;
-        }
-      }
-
-      // Update unsynced count
+      // Update unsynced count from SQLite
       await get().getUnsyncedCount();
 
-      if (errorCount === 0) {
-        set({ syncStatus: SyncStatus.SUCCESS });
-      } else {
-        set({
-          syncStatus: SyncStatus.ERROR,
-          error: `Synced ${syncedCount} reports, ${errorCount} failed`,
-        });
-      }
+      set({ syncStatus: SyncStatus.SUCCESS });
 
       // Refresh reports list
       await get().fetchMyReports();

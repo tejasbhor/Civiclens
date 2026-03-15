@@ -187,11 +187,16 @@ class SyncManager {
    */
   private async syncReports(): Promise<void> {
     try {
+      const { useAuthStore } = await import('@/store/authStore');
+      const user = useAuthStore.getState().user;
+      if (!user) return;
+
       const unsyncedReports = await database.getAllAsync<any>(
-        'SELECT * FROM reports WHERE is_synced = 0 ORDER BY created_at ASC'
+        'SELECT * FROM reports WHERE is_synced = 0 AND user_id = ? ORDER BY created_at ASC',
+        [user.id]
       );
 
-      log.info(`Found ${unsyncedReports.length} unsynced reports`);
+      log.info(`Found ${unsyncedReports.length} unsynced reports for user ${user.id}`);
 
       for (const report of unsyncedReports) {
         await this.syncReport(report);
@@ -200,7 +205,6 @@ class SyncManager {
       log.error('Error syncing reports', error);
       throw error;
     }
-
   }
 
   /**
@@ -244,11 +248,16 @@ class SyncManager {
    */
   private async syncTasks(): Promise<void> {
     try {
+      const { useAuthStore } = await import('@/store/authStore');
+      const user = useAuthStore.getState().user;
+      if (!user) return;
+
       const unsyncedTasks = await database.getAllAsync<any>(
-        'SELECT * FROM tasks WHERE is_synced = 0 ORDER BY created_at ASC'
+        'SELECT * FROM tasks WHERE is_synced = 0 AND assigned_to = ? ORDER BY created_at ASC',
+        [user.id]
       );
 
-      log.info(`Found ${unsyncedTasks.length} unsynced tasks`);
+      log.info(`Found ${unsyncedTasks.length} unsynced tasks for user ${user.id}`);
 
       for (const task of unsyncedTasks) {
         await this.syncTask(task);
@@ -257,7 +266,6 @@ class SyncManager {
       log.error('Error syncing tasks', error);
       throw error;
     }
-
   }
 
   /**

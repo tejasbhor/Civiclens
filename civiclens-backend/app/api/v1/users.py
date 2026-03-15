@@ -62,6 +62,7 @@ async def update_device_token(
     current_user.device_token = data.device_token
     db.add(current_user)
     await db.commit()
+    logger.info(f"Device token registered for user {current_user.id}: {data.device_token[:15]}...")
     return {"message": "Device token registered successfully"}
 
 
@@ -354,7 +355,18 @@ async def get_my_stats(
     stats = await user_crud.get_user_stats(db, current_user.id)
 
     if not stats:
-        raise NotFoundException("User statistics not found")
+        return UserStatsResponse(
+            reputation_score=0,
+            total_reports=0,
+            in_progress_reports=0,
+            resolved_reports=0,
+            active_reports=0,
+            total_validations=0,
+            helpful_validations=0,
+            tasks_resolved=0,
+            can_promote_to_contributor=False,
+            next_milestone="Start reporting to earn points"
+        )
 
     return UserStatsResponse(**stats)
 

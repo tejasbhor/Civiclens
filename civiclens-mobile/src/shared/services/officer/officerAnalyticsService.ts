@@ -102,7 +102,7 @@ class OfficerAnalyticsService {
   /**
    * Get officer performance trend (optional - for future enhancement)
    */
-  async getPerformanceTrend(days: number = 7): Promise<any> {
+  async getPerformanceTrend(): Promise<any> {
     // TODO: Implement when backend endpoint is available
     return null;
   }

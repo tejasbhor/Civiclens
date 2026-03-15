@@ -103,8 +103,8 @@ const OfficerDashboardContent: React.FC = () => {
             mapRef.current.animateToRegion({
               latitude: loc.coords.latitude,
               longitude: loc.coords.longitude,
-              latitudeDelta: 0.05,
-              longitudeDelta: 0.05,
+              latitudeDelta: 0.003,
+              longitudeDelta: 0.003,
             });
           }
         } else {
@@ -172,8 +172,8 @@ const OfficerDashboardContent: React.FC = () => {
       mapRef.current?.animateToRegion({
         latitude: location.coords.latitude,
         longitude: location.coords.longitude,
-        latitudeDelta: 0.05,
-        longitudeDelta: 0.05,
+        latitudeDelta: 0.003,
+        longitudeDelta: 0.003,
       });
       console.log('Officer located:', location.coords);
     } catch (error) {
@@ -247,8 +247,8 @@ const OfficerDashboardContent: React.FC = () => {
         initialRegion={{
           latitude: userLocation?.latitude || 19.0263,
           longitude: userLocation?.longitude || 73.0645,
-          latitudeDelta: 0.05,
-          longitudeDelta: 0.05,
+          latitudeDelta: 0.003,
+          longitudeDelta: 0.003,
         }}
         markers={tasks
           .filter((t: any) => !searchQuery || (t.report && t.report.title.toLowerCase().includes(searchQuery.toLowerCase())))

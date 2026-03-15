@@ -8,9 +8,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
-  StyleSheet,
+  // StyleSheet, // Unused
   ScrollView,
-  Image,
   TouchableOpacity,
   ActivityIndicator,
   Modal,
@@ -31,11 +30,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { format } from 'date-fns';
 import { apiClient } from '@shared/services/api/apiClient';
-import { TopNavbar, RoleGuard } from '@shared/components';
+import { offlineFirstApi } from '@shared/services/api/offlineFirstApi';
+import { TopNavbar, RoleGuard, ImageGallery } from '@shared/components';
+import { useOfficerTasks } from '@shared/hooks/useOfficerTasks';
 import { UserRole } from '@shared/types/user';
 import type { TaskDetailResponse, TaskUpdate } from '../types/taskDetail.types';
 import {
-  getMediaUrl,
   getStatusColor,
   getSeverityColor,
   getPriorityLabel,
@@ -46,7 +46,7 @@ import {
 } from '../utils/taskDetailHelpers';
 import { taskDetailStyles as styles } from '../styles/taskDetailStyles';
 
-const { width } = Dimensions.get('window');
+const {  } = Dimensions.get('window');
 
 export const OfficerTaskDetailScreen: React.FC = () => {
   return (
@@ -59,13 +59,13 @@ export const OfficerTaskDetailScreen: React.FC = () => {
 const OfficerTaskDetailContent: React.FC = () => {
   const route = useRoute();
   const { taskId } = route.params as { taskId: number };
+  const { acknowledgeTask, startWork, addUpdate } = useOfficerTasks();
 
   // State management
   const [loading, setLoading] = useState(true);
   const [task, setTask] = useState<TaskDetailResponse | null>(null);
   const [updates, setUpdates] = useState<TaskUpdate[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [actionLoading, setActionLoading] = useState(false);
 
   // Modal states
@@ -92,7 +92,9 @@ const OfficerTaskDetailContent: React.FC = () => {
 
       // The taskId is actually the report_id (tasks are embedded in reports)
       // Fetch report directly by ID - much more efficient than fetching all reports
-      const reportWithTask = await apiClient.get<any>(`/reports/${taskId}`);
+      const reportWithTask = await offlineFirstApi.get<any>(`/reports/${taskId}`, {
+        ttl: 5 * 60 * 1000, // 5 minutes cache
+      });
 
       if (!reportWithTask || !reportWithTask.task) {
         throw new Error('Task not found or not assigned to an officer');
@@ -148,7 +150,9 @@ const OfficerTaskDetailContent: React.FC = () => {
 
       // Try to fetch report history/timeline
       try {
-        const historyData = await apiClient.get<any>(`/reports/${taskId}/history`);
+        const historyData = await offlineFirstApi.get<any>(`/reports/${taskId}/history`, {
+          ttl: 15 * 60 * 1000, // 15 minutes cache for history
+        });
         setUpdates(historyData.history || []);
       } catch (updErr) {
         console.log('Task history not available:', updErr);
@@ -188,9 +192,9 @@ const OfficerTaskDetailContent: React.FC = () => {
           onPress: async () => {
             try {
               setActionLoading(true);
-              await apiClient.post(`/reports/${task.report_id}/acknowledge`, {});
+              await acknowledgeTask(task.report_id);
               await loadTask();
-              Alert.alert('Success', 'Task acknowledged successfully. Citizen has been notified.');
+              Alert.alert('Success', 'Task acknowledged successfully.');
             } catch (err: any) {
               Alert.alert('Error', err.message || 'Failed to acknowledge task');
             } finally {
@@ -200,7 +204,7 @@ const OfficerTaskDetailContent: React.FC = () => {
         },
       ]
     );
-  }, [task]);
+  }, [task, acknowledgeTask]);
 
   const handleStartWork = useCallback(async () => {
     if (!task) return;
@@ -216,9 +220,9 @@ const OfficerTaskDetailContent: React.FC = () => {
           onPress: async () => {
             try {
               setActionLoading(true);
-              await apiClient.post(`/reports/${task.report_id}/start-work`, {});
+              await startWork(task.report_id);
               await loadTask();
-              Alert.alert('Success', 'Work started successfully. Timer has begun.');
+              Alert.alert('Success', 'Work started successfully.');
             } catch (err: any) {
               Alert.alert('Error', err.message || 'Failed to start work');
             } finally {
@@ -228,7 +232,7 @@ const OfficerTaskDetailContent: React.FC = () => {
         },
       ]
     );
-  }, [task]);
+  }, [task, startWork]);
 
   const navigation = useNavigation<NativeStackNavigationProp<TasksStackParamList>>();
 
@@ -242,6 +246,7 @@ const OfficerTaskDetailContent: React.FC = () => {
     });
   }, [navigation, task]);
 
+  /*
   const handleSubmitCompletion = useCallback(async () => {
     if (!task || !updateNotes.trim()) {
       Alert.alert('Required', 'Please provide resolution notes describing the work completed');
@@ -282,6 +287,7 @@ const OfficerTaskDetailContent: React.FC = () => {
       ]
     );
   }, [task, updateNotes]);
+  */
 
   const handleAddUpdate = useCallback(() => {
     setShowUpdateModal(true);
@@ -300,27 +306,16 @@ const OfficerTaskDetailContent: React.FC = () => {
 
     try {
       setActionLoading(true);
-
-      // Send as FormData to match backend endpoint
-      const formData = new FormData();
-      formData.append('update_text', updateNotes.trim());
-
-      await apiClient.post(`/reports/${task.report_id}/add-update`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
-
+      await addUpdate(task.report_id, updateNotes.trim());
       setShowUpdateModal(false);
       setUpdateNotes('');
-      await loadTask();
-      Alert.alert('Success', 'Progress update added successfully. Citizen has been notified.');
+      Alert.alert('Success', 'Task update added successfully');
     } catch (err: any) {
-      console.error('Failed to add progress update:', err);
-      const errorMsg = err.response?.data?.detail || err.message || 'Failed to add update';
-      Alert.alert('Error', errorMsg);
+      Alert.alert('Error', err.message || 'Failed to add update');
     } finally {
       setActionLoading(false);
     }
-  }, [task, updateNotes]);
+  }, [task, updateNotes, addUpdate, loadTask]);
 
   const handleReject = useCallback(() => {
     if (!task) return;
@@ -492,65 +487,8 @@ const OfficerTaskDetailContent: React.FC = () => {
       />
 
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        {/* Photo Gallery */}
-        {task.report.media && task.report.media.length > 0 ? (
-          <View style={styles.gallerySection}>
-            <ScrollView
-              horizontal
-              pagingEnabled
-              showsHorizontalScrollIndicator={false}
-              onMomentumScrollEnd={(e) => {
-                const index = Math.round(e.nativeEvent.contentOffset.x / width);
-                setSelectedImageIndex(index);
-              }}
-            >
-              {task.report.media.map((media, index) => (
-                <View key={`media-${media.id}-${index}`} style={styles.imageContainer}>
-                  <Image
-                    source={{ uri: getMediaUrl(media.file_url) }}
-                    style={styles.galleryImage}
-                    resizeMode="cover"
-                  />
-                  {media.upload_source && (
-                    <View style={styles.imageTag}>
-                      <View
-                        style={[
-                          styles.imageTagBadge,
-                          {
-                            backgroundColor:
-                              media.upload_source === 'citizen_submission'
-                                ? '#2196F3'
-                                : media.upload_source === 'officer_before_photo'
-                                  ? '#FF9800'
-                                  : '#4CAF50',
-                          },
-                        ]}
-                      >
-                        <Text style={styles.imageTagText}>
-                          {media.upload_source === 'citizen_submission'
-                            ? 'Reported'
-                            : media.upload_source === 'officer_before_photo'
-                              ? 'Before Work'
-                              : 'After Work'}
-                        </Text>
-                      </View>
-                    </View>
-                  )}
-                </View>
-              ))}
-            </ScrollView>
-            <View style={styles.galleryIndicator}>
-              <Text style={styles.galleryCounter}>
-                {selectedImageIndex + 1} / {task.report.media.length}
-              </Text>
-            </View>
-          </View>
-        ) : (
-          <View style={styles.noImagePlaceholder}>
-            <Ionicons name="image-outline" size={48} color="#CBD5E1" />
-            <Text style={styles.noImageText}>No images attached</Text>
-          </View>
-        )}
+        {/* Photo Gallery - Premium Implementation */}
+        <ImageGallery media={task.report.media} />
 
         {/* Task Status Banner */}
         <View style={styles.statusBanner}>

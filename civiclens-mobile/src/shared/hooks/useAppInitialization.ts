@@ -26,49 +26,41 @@ export function useAppInitialization() {
         log.info(`Initializing ${APP_CONFIG.appName}`);
 
         // Critical initialization (must complete)
+        log.info('Running critical initialization...');
         await Promise.all([
           FileStorage.init(),
           networkService.initialize(),
-          useAuthStore.getState().initialize()
+          useAuthStore.getState().initialize(),
+          database.init() // Database MUST be ready before we proceed
+        ]);
+
+        log.info('Database initialized, running dependent tasks...');
+        
+        // Dependent services (critical for app operation)
+        await Promise.all([
+          cacheService.initialize()
+            .then(() => log.info('Cache service initialized'))
+            .catch(e => log.warn('Cache service init failed', e)),
+          
+          syncManager.initialize()
+            .then(() => log.info('Sync manager initialized'))
+            .catch(e => log.warn('Sync manager init failed', e)),
+          
+          submissionQueue.initialize()
+            .then(() => log.info('Submission queue initialized'))
+            .catch(e => log.warn('Submission queue init failed', e))
         ]);
 
         // Optional initialization tasks (fire and forget)
         const optionalInit = async () => {
-          // Database initialization (must happen before dependent services)
-          try {
-            await database.init();
-            log.info('Database initialized successfully');
-          } catch (dbError) {
-            log.warn('Database initialization failed (offline features disabled)', dbError);
-            return; // Stop if DB fails
-          }
-
-          // Parallel dependents
+          // Parallel background tasks
           const parallelTasks = [];
 
-          // Only run database-dependent tasks if database is ready
-          if (database.isReady()) {
-            parallelTasks.push(
-              cacheService.initialize()
-                .then(() => log.info('Cache service initialized'))
-                .catch(e => log.warn('Cache service init failed', e))
-            );
-            parallelTasks.push(
-              syncManager.initialize()
-                .then(() => log.info('Sync manager initialized'))
-                .catch(e => log.warn('Sync manager init failed', e))
-            );
-            parallelTasks.push(
-              submissionQueue.initialize()
-                .then(() => log.info('Submission queue initialized'))
-                .catch(e => log.warn('Submission queue init failed', e))
-            );
-            parallelTasks.push(
-              registerBackgroundSync()
-                .then(() => log.info('Background sync initialized'))
-                .catch(e => log.warn('Background sync init failed', e))
-            );
-          }
+          parallelTasks.push(
+            registerBackgroundSync()
+              .then(() => log.info('Background sync initialized'))
+              .catch(e => log.warn('Background sync init failed', e))
+          );
 
           // Data preloader is independent
           parallelTasks.push(
@@ -83,7 +75,7 @@ export function useAppInitialization() {
 
         // Start optional tasks in background
         optionalInit().catch(err => {
-          log.warn('Optional initialization failed', err);
+          log.warn('Optional background tasks failed', err);
         });
 
         // Ensure minimum splash duration for smooth UX

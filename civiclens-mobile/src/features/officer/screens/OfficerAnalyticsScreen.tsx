@@ -11,17 +11,18 @@ import {
   StyleSheet,
   TouchableOpacity,
   RefreshControl,
-  Dimensions,
+  // Dimensions, // Unused
   ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useAuthStore } from '../../../store/authStore';
 import { officerAnalyticsService } from '../../../shared/services/officer/officerAnalyticsService';
 import { TopNavbar } from '../../../shared/components';
 import { colors } from '../../../shared/theme/colors';
 import { format } from 'date-fns';
 
-const { width } = Dimensions.get('window');
+// const { width } = Dimensions.get('window'); // Unused
 
 interface AnalyticsData {
   // Officer Stats
@@ -126,28 +127,33 @@ export default function OfficerAnalyticsScreen() {
         }
       />
 
-      {/* Tab Selector */}
-      <View style={styles.tabContainer}>
-        <TouchableOpacity
-          style={[styles.tab, selectedTab === 'performance' && styles.activeTab]}
-          onPress={() => setSelectedTab('performance')}
-        >
-          <Text
-            style={[styles.tabText, selectedTab === 'performance' && styles.activeTabText]}
+      {/* Header Container */}
+      <View style={styles.headerContainer}>
+        {/* Tab Selector - Segmented Control Style */}
+        <View style={styles.segmentedControl}>
+          <TouchableOpacity
+            style={[styles.segmentTab, selectedTab === 'performance' && styles.segmentTabActive]}
+            onPress={() => setSelectedTab('performance')}
+            activeOpacity={0.8}
           >
-            My Performance
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.tab, selectedTab === 'overview' && styles.activeTab]}
-          onPress={() => setSelectedTab('overview')}
-        >
-          <Text
-            style={[styles.tabText, selectedTab === 'overview' && styles.activeTabText]}
+            <Text
+              style={[styles.segmentTabText, selectedTab === 'performance' && styles.segmentTabTextActive]}
+            >
+              My Performance
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.segmentTab, selectedTab === 'overview' && styles.segmentTabActive]}
+            onPress={() => setSelectedTab('overview')}
+            activeOpacity={0.8}
           >
-            Department Overview
-          </Text>
-        </TouchableOpacity>
+            <Text
+              style={[styles.segmentTabText, selectedTab === 'overview' && styles.segmentTabTextActive]}
+            >
+              Department Overview
+            </Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       <View style={styles.content}>
@@ -179,16 +185,26 @@ function PerformanceTab({ analytics, user }: { analytics: AnalyticsData | null; 
   return (
     <>
       {/* Officer Info Card */}
-      <View style={styles.card}>
-        <View style={styles.officerHeader}>
+      <View style={styles.premiumCard}>
+        <LinearGradient
+          colors={['#1976D2', '#1565C0']}
+          style={styles.officerGradient}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+        >
           <View style={styles.officerAvatar}>
-            <Ionicons name="person" size={32} color="#FFF" />
+            <Text style={styles.officerAvatarText}>
+              {user?.full_name?.charAt(0)?.toUpperCase() || 'O'}
+            </Text>
           </View>
           <View style={styles.officerInfo}>
             <Text style={styles.officerName}>{user?.full_name || 'Officer'}</Text>
-            <Text style={styles.officerRole}>{user?.employee_id || 'N/A'}</Text>
+            <Text style={styles.officerRole}>Officer ID: {user?.employee_id || 'N/A'}</Text>
           </View>
-        </View>
+          <View style={styles.officerBadge}>
+            <Ionicons name="checkmark-circle" size={24} color="#4CAF50" />
+          </View>
+        </LinearGradient>
       </View>
 
       {/* Key Metrics */}
@@ -520,7 +536,7 @@ function calculateEfficiency(avgResolutionTime: number): number {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: '#F8FAFC',
   },
   loadingContainer: {
     flex: 1,
@@ -570,29 +586,41 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     backgroundColor: 'rgba(255, 255, 255, 0.15)',
   },
-  tabContainer: {
-    flexDirection: 'row',
-    backgroundColor: colors.surface,
+  headerContainer: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 8,
+    backgroundColor: '#FFF',
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    borderBottomColor: '#F1F5F9',
   },
-  tab: {
+  segmentedControl: {
+    flexDirection: 'row',
+    backgroundColor: '#F1F5F9',
+    borderRadius: 12,
+    padding: 4,
+  },
+  segmentTab: {
     flex: 1,
-    paddingVertical: 16,
+    paddingVertical: 10,
     alignItems: 'center',
-    borderBottomWidth: 2,
-    borderBottomColor: 'transparent',
+    borderRadius: 10,
   },
-  activeTab: {
-    borderBottomColor: colors.primary,
+  segmentTabActive: {
+    backgroundColor: '#FFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
   },
-  tabText: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: colors.textSecondary,
+  segmentTabText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#64748B',
   },
-  activeTabText: {
-    color: colors.primary,
+  segmentTabTextActive: {
+    color: '#0D47A1',
   },
   content: {
     flex: 1,
@@ -600,84 +628,113 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     paddingBottom: 100,
   },
-  card: {
-    backgroundColor: colors.surface,
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
+  premiumCard: {
+    marginBottom: 20,
+    borderRadius: 16,
+    overflow: 'hidden',
+    elevation: 4,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
+    shadowOpacity: 0.1,
     shadowRadius: 8,
-    elevation: 2,
   },
-  officerHeader: {
+  card: {
+    backgroundColor: '#FFF',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 24,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    elevation: 3,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+  },
+  officerGradient: {
     flexDirection: 'row',
     alignItems: 'center',
+    padding: 20,
   },
   officerAvatar: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: colors.primary,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: 'rgba(255,255,255,0.25)',
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.5)',
+  },
+  officerAvatarText: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#FFF',
   },
   officerInfo: {
     marginLeft: 16,
     flex: 1,
   },
   officerName: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: colors.textPrimary,
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#FFF',
+    marginBottom: 4,
   },
   officerRole: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    marginTop: 2,
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.85)',
+    fontWeight: '500',
+  },
+  officerBadge: {
+    backgroundColor: '#FFF',
+    borderRadius: 16,
+    padding: 2,
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: colors.textPrimary,
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#1E293B',
     marginBottom: 12,
-    marginTop: 8,
+    marginTop: 4,
   },
   metricsGrid: {
     flexDirection: 'row',
     gap: 12,
-    marginBottom: 16,
+    marginBottom: 24,
   },
   metricCard: {
     flex: 1,
-    backgroundColor: colors.surface,
-    borderRadius: 12,
-    padding: 16,
+    backgroundColor: '#FFF',
+    borderRadius: 16,
+    padding: 20,
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
+    shadowRadius: 10,
+    elevation: 3,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
   },
   metricIcon: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 16,
   },
   metricValue: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: colors.textPrimary,
+    fontSize: 28,
+    fontWeight: '800',
+    color: '#1E293B',
     marginBottom: 4,
   },
   metricLabel: {
-    fontSize: 12,
-    color: colors.textSecondary,
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#64748B',
     textAlign: 'center',
   },
   taskBreakdownRow: {
@@ -700,12 +757,13 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   taskLabel: {
-    fontSize: 16,
-    color: colors.textPrimary,
+    fontSize: 15,
+    fontWeight: '500',
+    color: '#334155',
   },
   taskValue: {
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: 17,
+    fontWeight: '700',
   },
   divider: {
     height: 1,
@@ -720,16 +778,17 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   performanceBarLabel: {
-    fontSize: 16,
-    color: colors.textPrimary,
+    fontSize: 15,
+    fontWeight: '500',
+    color: '#334155',
   },
   performanceBarValue: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 15,
+    fontWeight: '700',
   },
   progressBarBg: {
     height: 8,
-    backgroundColor: colors.border,
+    backgroundColor: '#F1F5F9',
     borderRadius: 4,
     overflow: 'hidden',
   },
@@ -749,13 +808,14 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   statRowLabel: {
-    fontSize: 16,
-    color: colors.textPrimary,
+    fontSize: 15,
+    fontWeight: '500',
+    color: '#334155',
   },
   statRowValue: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: colors.textPrimary,
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#1E293B',
   },
   categoryItem: {
     paddingVertical: 12,
@@ -766,31 +826,32 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   categoryName: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: colors.textPrimary,
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#334155',
     textTransform: 'capitalize',
   },
   categoryCount: {
     fontSize: 16,
-    fontWeight: '600',
-    color: colors.primary,
+    fontWeight: '700',
+    color: '#1976D2',
   },
   categoryBarBg: {
     height: 6,
-    backgroundColor: colors.border,
+    backgroundColor: '#F1F5F9',
     borderRadius: 3,
     overflow: 'hidden',
-    marginBottom: 4,
+    marginBottom: 6,
   },
   categoryBarFill: {
     height: '100%',
-    backgroundColor: colors.primary,
+    backgroundColor: '#1976D2',
     borderRadius: 3,
   },
   categoryPercentage: {
-    fontSize: 12,
-    color: colors.textSecondary,
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#64748B',
   },
   statusItem: {
     flexDirection: 'row',
@@ -805,12 +866,13 @@ const styles = StyleSheet.create({
   },
   statusLabel: {
     flex: 1,
-    fontSize: 16,
-    color: colors.textPrimary,
+    fontSize: 15,
+    fontWeight: '500',
+    color: '#334155',
     textTransform: 'capitalize',
   },
   statusCount: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 17,
+    fontWeight: '700',
   },
 });
