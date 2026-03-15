@@ -68,26 +68,45 @@ class NotificationService:
             user_result = await self.db.execute(select(User).where(User.id == user_id))
             user = user_result.scalar_one_or_none()
             
-            if user and user.push_notifications and getattr(user, 'device_token', None):
-                extra_data = {}
-                if related_report_id:
-                    extra_data["related_report_id"] = related_report_id
-                if related_task_id:
-                    extra_data["related_task_id"] = related_task_id
-                if action_url:
-                    extra_data["action_url"] = action_url
+            if user:
+                has_token = bool(getattr(user, 'device_token', None))
+                is_enabled = getattr(user, 'push_notifications', True)
+                
+                if is_enabled and has_token:
+                    logger.info(f"Preparing to send push notification to user {user_id} (Token: {user.device_token[:15]}...)")
+                    extra_data = {}
+                    if related_report_id:
+                        extra_data["related_report_id"] = related_report_id
+                    if related_task_id:
+                        extra_data["related_task_id"] = related_task_id
+                    if action_url:
+                        extra_data["action_url"] = action_url
+                        
+                    push_message = PushMessage(
+                        to=user.device_token,
+                        title=title,
+                        body=message, # Uses the argument 'message'
+                        data=extra_data,
+                        priority="high" if priority in [NotificationPriority.HIGH, NotificationPriority.CRITICAL] else "default"
+                    )
                     
-                message = PushMessage(
-                    to=user.device_token,
-                    title=title,
-                    body=message,
-                    data=extra_data,
-                    priority="high" if priority in [NotificationPriority.HIGH, NotificationPriority.CRITICAL] else "default"
-                )
-                response = PushClient().publish(message)
-                logger.info(f"Push notification sent successfully to user {user_id}. Device: {user.device_token}")
+                    # Send via Expo
+                    try:
+                        response = PushClient().publish(push_message)
+                        logger.info(f"Push notification sent successfully to user {user_id}. Response: {response}")
+                    except PushServerError as exc:
+                        logger.error(f"Push server error for user {user_id}: {exc.errors}")
+                    except Exception as exc:
+                        logger.error(f"Expo client error for user {user_id}: {str(exc)}")
+                else:
+                    reason = "No device token" if not has_token else "Push disabled in settings"
+                    logger.info(f"Skipping push notification for user {user_id}: {reason}")
+            else:
+                logger.warning(f"Push skip: User {user_id} not found in database")
         except Exception as e:
-            logger.error(f"Failed to send push notification to user {user_id}: {str(e)}")
+            logger.error(f"Notification service internal error for user {user_id}: {str(e)}")
+            import traceback
+            logger.debug(traceback.format_exc())
             
         return notification
     
