@@ -66,8 +66,8 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.35'
-          memory: 1400M
+          cpus: '1.5'
+          memory: 3000M
     depends_on:
       redis:
         condition: service_healthy
