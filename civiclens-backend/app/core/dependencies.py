@@ -41,6 +41,9 @@ async def get_current_user(
     user_id: int = payload.get("user_id")
     jti: str = payload.get("jti")
     
+    # DEBUG: log who is trying to authenticate
+    print(f"DEBUG: Authenticating User ID: {user_id}, JTI: {jti[:10] if jti else 'None'}")
+    
     if user_id is None:
         raise UnauthorizedException("Invalid token payload")
     

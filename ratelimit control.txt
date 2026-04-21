@@ -23,3 +23,4 @@ sudo docker compose exec redis redis-cli -a 'CivicLens_Redis_Sec_!' FLUSHDB
 For your demo, I suggest running **Command #1**. It ensures you won't get any "Try again in X seconds" messages no matter how many times you click the buttons while showing off the features. 
 
 You can always turn it back on later by changing `false` to `true` in that same command.
+sed -i 's/^RATE_LIMIT_ENABLED=.*/RATE_LIMIT_ENABLED=true/' /opt/civiclens/.env && sudo docker compose restart backend

@@ -37,3 +37,4 @@ https://api.civiclens.space {
 
 	encode gzip
 }
+import sites/*

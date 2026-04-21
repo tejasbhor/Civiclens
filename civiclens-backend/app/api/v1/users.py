@@ -59,9 +59,12 @@ async def update_device_token(
     current_user: User = Depends(get_current_user)
 ):
     """Register device token for push notifications"""
+    logger.info(f"DEBUG: update_device_token called for user {current_user.id} (Role: {current_user.role}, Active: {current_user.is_active})")
+    
     current_user.device_token = data.device_token
     db.add(current_user)
     await db.commit()
+    
     logger.info(f"Device token registered for user {current_user.id}: {data.device_token[:15]}...")
     return {"message": "Device token registered successfully"}
 

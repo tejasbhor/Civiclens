@@ -194,3 +194,200 @@ volumes:
   civiclens_media:
   civiclens_caddy_data:
   civiclens_caddy_config:
+# ============================================================
+# CivicLens — Production Orchestration (Oracle Cloud OCI)
+# ============================================================
+
+services:
+  # ---- Reverse Proxy & SSL (Automatic HTTPS) ----
+  caddy:
+    image: caddy:2-alpine
+    container_name: civiclens-proxy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - ./sites:/etc/caddy/sites  # Added for StillMind isolation
+      - civiclens_caddy_data:/data
+      - civiclens_caddy_config:/config
+    networks:
+      - civiclens_net
+    deploy:
+      resources:
+        limits:
+          cpus: '0.05'
+          memory: 100M
+
+  # ---- Backend API Server ----
+  backend:
+    build:
+      context: ./civiclens-backend
+      dockerfile: Dockerfile
+    container_name: civiclens-backend
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      - ENVIRONMENT=production
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - civiclens_net
+    volumes:
+      - civiclens_logs:/app/logs
+      - civiclens_media:/app/media
+    deploy:
+      resources:
+        limits:
+          cpus: '0.15'
+          memory: 300M
+
+  # ---- AI Worker Engine ----
+  ai-worker:
+    build:
+      context: ./civiclens-backend
+      dockerfile: Dockerfile
+    container_name: civiclens-ai-worker
+    command: python -m app.workers.ai_worker
+    restart: unless-stopped
+    env_file: .env
+    deploy:
+      resources:
+        limits:
+          cpus: '1.5'
+          memory: 3000M
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - civiclens_net
+    healthcheck:
+      disable: true
+    volumes:
+      - civiclens_ai_cache:/app/models/cache
+
+  # ---- Admin Dashboard (Next.js) ----
+  admin:
+    build:
+      context: ./civiclens-admin
+      dockerfile: Dockerfile
+      args:
+        - NEXT_PUBLIC_API_URL=${API_URL:-https://api.civiclens.space/api/v1}
+        - NEXT_PUBLIC_ENABLE_DEMO_OTP=${ENABLE_DEMO_OTP:-true}
+    container_name: civiclens-admin
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://127.0.0.1:3000/ || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - civiclens_net
+    ports:
+      - "3000:3000"
+    deploy:
+      resources:
+        limits:
+          cpus: '0.05'
+          memory: 300M
+
+  # ---- Citizen Portal (React/Vite) ----
+  client:
+    build:
+      context: ./civiclens-client
+      dockerfile: Dockerfile
+      args:
+        - VITE_API_URL=${API_URL:-https://api.civiclens.space/api/v1}
+        - VITE_ENABLE_DEMO_OTP=${ENABLE_DEMO_OTP:-true}
+    container_name: civiclens-client
+    restart: unless-stopped
+    networks:
+      - civiclens_net
+    deploy:
+      resources:
+        limits:
+          cpus: '0.05'
+          memory: 100M
+
+  # ---- Infrastructure Services ----
+  postgres:
+    platform: linux/arm64
+    image: imresamu/postgis:15-3.5.4-alpine3.22
+    container_name: civiclens-postgres
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - civiclens_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-civiclens_user} -d ${DB_NAME:-civiclens_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - civiclens_net
+    deploy:
+      resources:
+        limits:
+          cpus: '0.08'
+          memory: 300M
+
+  redis:
+    image: redis:7-alpine
+    container_name: civiclens-redis
+    restart: unless-stopped
+    command: redis-server --requirepass ${REDIS_PASSWORD:-devredispass}
+    volumes:
+      - civiclens_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+    networks:
+      - civiclens_net
+    deploy:
+      resources:
+        limits:
+          cpus: '0.03'
+          memory: 100M
+
+  minio:
+    image: minio/minio:latest
+    container_name: civiclens-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    env_file: .env
+    volumes:
+      - civiclens_minio_data:/data
+    networks:
+      - civiclens_net
+    deploy:
+      resources:
+        limits:
+          cpus: '0.04'
+          memory: 200M
+
+networks:
+  civiclens_net:
+    driver: bridge
+
+volumes:
+  civiclens_db_data:
+  civiclens_redis_data:
+  civiclens_minio_data:
+  civiclens_ai_cache:
+  civiclens_logs:
+  civiclens_media:
+  civiclens_caddy_data:
+  civiclens_caddy_config:

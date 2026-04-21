@@ -133,6 +133,7 @@ export const userApi = {
    * Register device token for push notifications
    */
   async registerDeviceToken(token: string): Promise<{ message: string }> {
+    console.log(`DEBUG: Registering device token: ${token.slice(0, 15)}...`);
     const response = await apiClient.post<{ message: string }>(
       '/users/me/device-token',
       { device_token: token }
