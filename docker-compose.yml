@@ -53,7 +53,7 @@ services:
       resources:
         limits:
           cpus: '0.15'
-          memory: 300M
+          memory: 500M
 
   # ---- AI Worker Engine ----
   ai-worker:
