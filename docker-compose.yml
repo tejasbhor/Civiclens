@@ -25,7 +25,7 @@ services:
           memory: 100M
 
   # ---- Backend API Server ----
-  backend:
+  civiclens-backend:
     build:
       context: ./civiclens-backend
       dockerfile: Dockerfile
@@ -35,9 +35,9 @@ services:
     environment:
       - ENVIRONMENT=production
     depends_on:
-      postgres:
+      civiclens-postgres:
         condition: service_healthy
-      redis:
+      civiclens-redis:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
@@ -56,7 +56,7 @@ services:
           memory: 500M
 
   # ---- AI Worker Engine ----
-  ai-worker:
+  civiclens-ai-worker:
     build:
       context: ./civiclens-backend
       dockerfile: Dockerfile
@@ -70,7 +70,7 @@ services:
           cpus: '1.5'
           memory: 3000M
     depends_on:
-      redis:
+      civiclens-redis:
         condition: service_healthy
     networks:
       - civiclens_net
@@ -80,7 +80,7 @@ services:
       - civiclens_ai_cache:/app/models/cache
 
   # ---- Admin Dashboard (Next.js) ----
-  admin:
+  civiclens-admin:
     build:
       context: ./civiclens-admin
       dockerfile: Dockerfile
@@ -105,7 +105,7 @@ services:
           memory: 300M
 
   # ---- Citizen Portal (React/Vite) ----
-  client:
+  civiclens-client:
     build:
       context: ./civiclens-client
       dockerfile: Dockerfile
@@ -123,7 +123,7 @@ services:
           memory: 100M
 
   # ---- Infrastructure Services ----
-  postgres:
+  civiclens-postgres:
     platform: linux/arm64
     image: imresamu/postgis:15-3.5.4-alpine3.22
     container_name: civiclens-postgres
@@ -148,7 +148,7 @@ services:
           cpus: '0.08'
           memory: 300M
 
-  redis:
+  civiclens-redis:
     image: redis:7-alpine
     container_name: civiclens-redis
     restart: unless-stopped
@@ -166,7 +166,7 @@ services:
           cpus: '0.03'
           memory: 100M
 
-  minio:
+  civiclens-minio:
     image: minio/minio:latest
     container_name: civiclens-minio
     restart: unless-stopped

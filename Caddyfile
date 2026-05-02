@@ -8,12 +8,12 @@
 
 # Explicitly use HTTPS for the domains
 https://civiclens.space, https://www.civiclens.space {
-	reverse_proxy client:80
+	reverse_proxy civiclens-client:80
 	encode gzip
 }
 
 https://admin.civiclens.space {
-	reverse_proxy admin:3000
+	reverse_proxy civiclens-admin:3000
 	encode gzip
 }
 
@@ -21,18 +21,18 @@ https://api.civiclens.space {
 	# MinIO media proxy
 	@media path /civiclens-media/*
 	handle @media {
-		reverse_proxy minio:9000
+		reverse_proxy civiclens-minio:9000
 	}
 
 	# API Health (root level)
 	@health path /health /health/*
 	handle @health {
-		reverse_proxy backend:8000
+		reverse_proxy civiclens-backend:8000
 	}
 
 	# All other API requests
 	handle {
-		reverse_proxy backend:8000
+		reverse_proxy civiclens-backend:8000
 	}
 
 	encode gzip
