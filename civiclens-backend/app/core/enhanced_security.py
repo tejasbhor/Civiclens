@@ -97,8 +97,7 @@ def create_session_fingerprint(request: Request) -> str:
         return ""
     
     components = [
-        # Behind Cloudflare, client.host is a rotating edge IP; use the forwarded client IP
-        request.headers.get("cf-connecting-ip") or get_client_ip(request),
+        get_client_ip(request),
         request.headers.get("user-agent", ""),
         request.headers.get("accept-language", ""),
     ]
@@ -199,20 +198,15 @@ def is_2fa_required(user_role: str) -> bool:
 # ============================================================================
 
 def get_client_ip(request: Request) -> str:
-    """Get client IP address, considering proxies"""
-    # Check X-Forwarded-For header (if behind proxy)
-    forwarded = request.headers.get("x-forwarded-for")
-    if forwarded:
-        # Take the first IP in the chain
-        return forwarded.split(",")[0].strip()
-    
-    # Check X-Real-IP header
-    real_ip = request.headers.get("x-real-ip")
-    if real_ip:
-        return real_ip
-    
-    # Fall back to direct connection
-    return request.client.host if request.client else "unknown"
+    """Real client IP. Behind Cloudflare, client.host is a rotating edge IP.
+
+    CF-Connecting-IP is set by Cloudflare (overwrites client-supplied values);
+    X-Forwarded-For/X-Real-IP are client-controllable and deliberately ignored.
+    Requires the origin to be reachable only via Cloudflare.
+    """
+    return request.headers.get("cf-connecting-ip") or (
+        request.client.host if request.client else "unknown"
+    )
 
 
 def sanitize_user_agent(user_agent: str) -> str:
