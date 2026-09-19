@@ -97,7 +97,8 @@ def create_session_fingerprint(request: Request) -> str:
         return ""
     
     components = [
-        request.client.host if request.client else "unknown",
+        # Behind Cloudflare, client.host is a rotating edge IP; use the forwarded client IP
+        request.headers.get("cf-connecting-ip") or get_client_ip(request),
         request.headers.get("user-agent", ""),
         request.headers.get("accept-language", ""),
     ]
