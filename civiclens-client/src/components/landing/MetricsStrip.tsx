@@ -184,7 +184,7 @@ export function MetricsStrip() {
                     <span className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 ${style.iconBg}`}>
                       <Icon className="w-5 h-5" strokeWidth={2.2} aria-hidden="true" />
                     </span>
-                    <span className={`px-2.5 py-1 rounded-full text-xs font-mono font-semibold border ${style.badge}`}>
+                    <span className={`px-2.5 py-1 rounded-full text-[10px] font-mono font-semibold border ${style.badge}`}>
                       {metric.badge}
                     </span>
                   </div>

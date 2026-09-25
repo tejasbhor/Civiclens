@@ -94,7 +94,7 @@ export function MarketingFooter() {
 
           {/* Newsletter Box */}
           <div className="space-y-3">
-            <h3 className="text-sm font-bold text-slate-900">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-900">
               Get civic tech updates
             </h3>
             {subscribed ? (
@@ -120,7 +120,7 @@ export function MarketingFooter() {
                 </button>
               </form>
             )}
-            <p className="text-xs text-slate-500">
+            <p className="text-[11px] text-slate-400">
               No spam. Just progress.
             </p>
           </div>

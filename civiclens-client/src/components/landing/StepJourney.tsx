@@ -685,7 +685,7 @@ export function StepJourney() {
                       <div className="text-[11px] font-medium text-slate-600 mt-0.5">
                         Road pavement restored
                       </div>
-                      <div className="mt-2 inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-mono font-semibold bg-emerald-500/15 text-emerald-800 border border-emerald-500/30">
+                      <div className="mt-2 inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[9px] font-bold bg-emerald-500/15 text-emerald-800 border border-emerald-500/30">
                         <span>Proof Hash: #VF-9041</span>
                       </div>
                     </div>
