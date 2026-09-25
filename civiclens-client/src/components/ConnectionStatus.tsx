@@ -42,7 +42,7 @@ export const ConnectionStatus = () => {
     <Alert
       className={cn(
         'fixed top-20 left-1/2 transform -translate-x-1/2 z-[9998] max-w-md shadow-lg',
-        status.variant === 'destructive' && 'border-red-500 bg-red-50 dark:bg-red-950'
+        status.variant === 'destructive' && 'border-danger bg-danger/10'
       )}
       variant={status.variant}
     >

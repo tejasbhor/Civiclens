@@ -98,25 +98,25 @@ export const PhotoUpload: React.FC<PhotoUploadProps> = ({
     <div className="space-y-4">
       {/* Header */}
       <div>
-        <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
-        <p className="text-sm text-gray-600 mt-1">{description}</p>
+        <h3 className="text-lg font-semibold text-foreground">{title}</h3>
+        <p className="text-sm text-muted-foreground mt-1">{description}</p>
       </div>
 
       {/* Upload Area */}
       <div
         onDrop={handleDrop}
         onDragOver={handleDragOver}
-        className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-blue-400 transition-colors cursor-pointer"
+        className="border-2 border-dashed border-border rounded-lg p-8 text-center hover:border-info/50 transition-colors cursor-pointer"
         onClick={() => fileInputRef.current?.click()}
       >
-        <Camera className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-        <p className="text-gray-700 font-medium mb-2">
+        <Camera className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+        <p className="text-foreground font-medium mb-2">
           Click to upload or drag and drop
         </p>
-        <p className="text-sm text-gray-500">
+        <p className="text-sm text-muted-foreground">
           JPEG, PNG or WebP (max 10MB per photo)
         </p>
-        <p className="text-sm text-gray-500 mt-1">
+        <p className="text-sm text-muted-foreground mt-1">
           {photos.length} / {maxPhotos} photos uploaded
         </p>
         <input
@@ -131,7 +131,7 @@ export const PhotoUpload: React.FC<PhotoUploadProps> = ({
 
       {/* Error Message */}
       {error && (
-        <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700">
+        <div className="flex items-center gap-2 p-3 bg-danger/10 border border-danger/30 rounded-lg text-danger">
           <AlertCircle className="w-5 h-5 flex-shrink-0" />
           <p className="text-sm">{error}</p>
         </div>
@@ -170,10 +170,10 @@ export const PhotoUpload: React.FC<PhotoUploadProps> = ({
       )}
 
       {/* Info */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+      <div className="bg-info/10 border border-info/30 rounded-lg p-4">
         <div className="flex items-start gap-3">
-          <Upload className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
-          <div className="text-sm text-blue-800">
+          <Upload className="w-5 h-5 text-info mt-0.5 flex-shrink-0" />
+          <div className="text-sm text-info">
             <p className="font-medium mb-1">Photo Guidelines:</p>
             <ul className="list-disc list-inside space-y-1">
               <li>Take clear, well-lit photos</li>

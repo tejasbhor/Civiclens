@@ -1,15 +1,15 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, MapPin, Camera, Upload, CheckCircle2, RefreshCw, Loader2 } from "lucide-react";
+import { ArrowLeft, MapPin, CheckCircle2, RefreshCw, Loader2, Navigation } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { officerService } from "@/services/officerService";
-import axios from "axios";
+import { OfficerHeader } from "@/components/layout/OfficerHeader";
 import { PhotoUpload } from "@/components/officer/PhotoUpload";
 import {
   AlertDialog,
@@ -84,7 +84,6 @@ const StartWork = () => {
     setBeforePhotos(photos);
   };
 
-
   const handleStartWorkClick = () => {
     if (beforePhotos.length === 0) {
       toast({
@@ -98,7 +97,7 @@ const StartWork = () => {
     if (!estimatedHours) {
       toast({
         title: "Missing Information",
-        description: "Please provide estimated work duration",
+        description: "Please enter estimated hours",
         variant: "destructive"
       });
       return;
@@ -108,38 +107,26 @@ const StartWork = () => {
   };
 
   const handleStartWork = async () => {
-    setShowConfirmDialog(false);
-    setSubmitting(true);
+    if (!task) return;
 
     try {
-      // 1. Start work (update task status)
-      await officerService.startWork(task.id, notes);
+      setSubmitting(true);
+      setShowConfirmDialog(false);
 
-      // 2. Upload before photos
-      const uploadPromises = beforePhotos.map(async (photo) => {
-        const formData = new FormData();
-        formData.append('file', photo);
-        formData.append('upload_source', 'officer_before_photo');
-        formData.append('caption', 'Before starting work');
-        formData.append('is_proof_of_work', 'false');
-
-        return axios.post(
-          `${import.meta.env.VITE_API_URL}/media/upload/${task.id}`,
-          formData,
-          {
-            headers: {
-              'Content-Type': 'multipart/form-data',
-              'Authorization': `Bearer ${localStorage.getItem('access_token')}`
-            }
-          }
-        );
+      await officerService.startWork(task.id, {
+        notes,
+        estimated_hours: parseFloat(estimatedHours) || 0,
+        before_photos: beforePhotos,
+        location: currentLocation ? {
+          lat: currentLocation.lat,
+          lng: currentLocation.lng,
+          accuracy: currentLocation.accuracy
+        } : undefined
       });
-
-      await Promise.all(uploadPromises);
 
       toast({
         title: "Work Started",
-        description: `Successfully uploaded ${beforePhotos.length} before photos. Good luck!`,
+        description: "Task is now in progress. Stay safe!"
       });
 
       navigate(`/officer/task/${task.id}`);
@@ -157,8 +144,11 @@ const StartWork = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      <div className="min-h-dvh flex items-center justify-center bg-[#fbfcfd]">
+        <div className="text-center">
+          <Loader2 className="w-10 h-10 animate-spin text-emerald-800 mx-auto mb-3" />
+          <p className="font-mono text-sm text-slate-500">Loading task telemetry...</p>
+        </div>
       </div>
     );
   }
@@ -168,63 +158,102 @@ const StartWork = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted">
-      {/* Header */}
-      <header className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-50">
-        <div className="container mx-auto px-4 py-4 flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate(`/officer/task/${task.id}`)}>
-            <ArrowLeft className="w-5 h-5" />
+    <div className="min-h-dvh bg-[#fbfcfd] bg-[radial-gradient(#cbd5e1_1px,transparent_1px)] [background-size:32px_32px]">
+      <OfficerHeader />
+
+      <div className="container mx-auto px-4 sm:px-6 py-8 sm:py-10 max-w-3xl">
+        {/* Navigation Breadcrumb */}
+        <div className="mb-6 flex items-center gap-4">
+          <Button 
+            variant="outline" 
+            size="icon" 
+            onClick={() => navigate(`/officer/task/${task.id}`)} 
+            aria-label="Back to Task Details"
+            className="rounded-full w-10 h-10 border-slate-200 bg-white hover:bg-slate-50 active:scale-[0.92] transition-transform shadow-xs"
+          >
+            <ArrowLeft className="w-4 h-4 text-slate-700" />
           </Button>
           <div>
-            <h1 className="font-bold text-foreground">Start Work</h1>
-            <p className="text-xs text-muted-foreground">Task #{task.report_number}</p>
+            <div className="flex items-center gap-2 mb-1">
+              <span className="font-mono text-xs font-semibold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
+                Task #{task.report_number}
+              </span>
+              <span className="font-mono text-xs text-slate-400">Step 1 of 2: Field Check-in</span>
+            </div>
+            <h1 className="font-display text-2xl sm:text-3xl font-black text-slate-950 tracking-tight">
+              Begin Field Execution
+            </h1>
           </div>
         </div>
-      </header>
 
-      <div className="container mx-auto px-4 py-6 max-w-2xl">
-        <Card className="p-6 mb-4">
-          <h2 className="text-xl font-semibold text-foreground mb-2">{task.title}</h2>
-          <p className="text-sm text-muted-foreground mb-4">{task.address}</p>
+        {/* Form Container */}
+        <div className="rounded-3xl border border-slate-200/90 bg-white p-6 sm:p-9 shadow-xs">
+          <div className="mb-6 pb-6 border-b border-slate-100">
+            <h2 className="font-display text-xl font-bold text-slate-950 mb-1.5">{task.title}</h2>
+            <p className="text-xs font-mono text-slate-500 flex items-center gap-1.5">
+              <MapPin className="w-3.5 h-3.5 text-emerald-700 flex-shrink-0" />
+              <span>{task.address}</span>
+            </p>
+          </div>
 
-          <div className="space-y-6">
-            {/* GPS Check-in */}
+          <div className="space-y-7">
+            {/* GPS Check-in Telemetry */}
             <div>
-              <h3 className="font-semibold text-foreground mb-3">📍 GPS Check-in</h3>
-              <Card className={`p-4 ${locationVerified ? 'bg-green-500/10 border-green-500/20' : 'bg-amber-500/10 border-amber-500/20'}`}>
-                <div className="space-y-2">
-                  <div className="flex items-start gap-2">
-                    <MapPin className="w-5 h-5 text-secondary mt-0.5" />
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="font-display text-sm font-bold uppercase tracking-wider text-slate-900 flex items-center gap-2">
+                  <span>GPS Geofence Verification</span>
+                  {locationVerified && (
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                  )}
+                </h3>
+                {locationVerified && (
+                  <span className="font-mono text-[11px] font-semibold text-emerald-800 bg-emerald-50 border border-emerald-200/60 px-2.5 py-0.5 rounded-full">
+                    Within Geofence
+                  </span>
+                )}
+              </div>
+              <div className={`p-5 rounded-2xl border transition-all ${locationVerified ? 'bg-emerald-50/50 border-emerald-200/70' : 'bg-amber-50/50 border-amber-200/70'}`}>
+                <div className="space-y-3">
+                  <div className="flex items-start gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-emerald-100/70 flex items-center justify-center flex-shrink-0 mt-0.5 text-emerald-800">
+                      <Navigation className="w-4 h-4" />
+                    </div>
                     <div className="flex-1">
-                      <p className="text-sm font-medium">Current Location:</p>
+                      <p className="text-xs font-mono uppercase tracking-wider text-slate-400 font-medium">Device Sensor Fix</p>
                       {currentLocation ? (
-                        <>
-                          <p className="text-sm text-muted-foreground">
+                        <div className="font-mono text-xs text-slate-800 mt-1 space-y-0.5">
+                          <p className="font-semibold text-sm">
                             {currentLocation.lat.toFixed(6)}°N, {currentLocation.lng.toFixed(6)}°E
                           </p>
-                          <p className="text-sm text-muted-foreground">Accuracy: ±{currentLocation.accuracy.toFixed(0)}m</p>
-                        </>
+                          <p className="text-slate-500 text-[11px]">Signal Radius Accuracy: ±{currentLocation.accuracy.toFixed(0)}m</p>
+                        </div>
                       ) : (
-                        <p className="text-sm text-muted-foreground">Getting location...</p>
+                        <p className="text-xs font-mono text-slate-400 mt-1">Acquiring GPS fix from satellite receiver...</p>
                       )}
                     </div>
                   </div>
                   
                   {locationVerified && (
-                    <div className="flex items-center gap-2 text-green-600 font-medium">
-                      <CheckCircle2 className="w-5 h-5" />
-                      <span>Location verified: You are at the site</span>
+                    <div className="flex items-center gap-2 text-emerald-800 font-medium text-xs pt-1 border-t border-emerald-200/40">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+                      <span>Telemetry confirmed: Field unit is on-site at report coordinates.</span>
                     </div>
                   )}
                 </div>
 
-                <div className="flex gap-2 mt-3">
-                  <Button variant="outline" size="sm" className="flex-1" onClick={getCurrentLocation}>
-                    <RefreshCw className="w-4 h-4 mr-2" />
-                    Refresh Location
+                <div className="mt-4 pt-3 border-t border-emerald-200/50">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="w-full rounded-full border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold active:scale-[0.98]"
+                    onClick={getCurrentLocation}
+                  >
+                    <RefreshCw className="w-3.5 h-3.5 mr-2" />
+                    Re-scan Geofence Coordinates
                   </Button>
                 </div>
-              </Card>
+              </div>
             </div>
 
             {/* Before Photos */}
@@ -232,81 +261,87 @@ const StartWork = () => {
               <PhotoUpload
                 maxPhotos={5}
                 onPhotosChange={handlePhotosChange}
-                title="Before Photos *"
-                description="Take clear photos of the work area before starting"
+                title="Pre-Work Evidence Photos *"
+                description="Upload clear, geo-tagged photos of the issue before commencing work"
                 existingPhotos={beforePhotos}
               />
             </div>
 
             {/* Work Notes */}
             <div>
-              <Label htmlFor="notes">Work Notes</Label>
+              <Label htmlFor="notes" className="font-display text-sm font-bold text-slate-950">Field Operational Notes</Label>
               <Textarea
                 id="notes"
-                placeholder="Started work, clearing water logging. Will install drainage grill..."
+                placeholder="Describe planned intervention, machinery required, safety equipment deployed..."
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                className="mt-2 min-h-[100px]"
+                className="mt-2 min-h-[110px] rounded-2xl border-slate-200 bg-slate-50/50 focus:bg-white text-sm"
               />
             </div>
 
             {/* Estimated Time */}
             <div>
-              <Label htmlFor="estimatedHours">Estimated Time (hours) *</Label>
+              <Label htmlFor="estimatedHours" className="font-display text-sm font-bold text-slate-950">Estimated Resolution Time (hours) *</Label>
               <Input
                 id="estimatedHours"
                 type="number"
                 step="0.5"
-                placeholder="2.5"
+                placeholder="e.g. 2.5"
                 value={estimatedHours}
                 onChange={(e) => setEstimatedHours(e.target.value)}
-                className="mt-2"
+                className="mt-2 font-mono text-sm max-w-[200px] rounded-xl border-slate-200 bg-slate-50/50 focus:bg-white"
               />
             </div>
           </div>
 
-          <div className="flex gap-3 mt-8">
+          <div className="flex flex-wrap gap-3 mt-8 pt-6 border-t border-slate-100">
             <Button 
+              type="button"
               variant="outline" 
-              className="flex-1"
+              className="flex-1 rounded-full border-slate-200 hover:bg-slate-50 text-slate-700 font-semibold h-12 active:scale-[0.98]"
               onClick={() => navigate(`/officer/task/${task.id}`)}
             >
               Cancel
             </Button>
             <Button 
-              className="flex-1"
+              type="button"
+              className="flex-1 rounded-full bg-[#0a2e2a] hover:bg-[#072421] text-white font-semibold h-12 shadow-xs active:scale-[0.98] inline-flex items-center justify-center gap-2"
               onClick={handleStartWorkClick}
               disabled={submitting}
             >
               {submitting ? (
                 <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Starting...
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Initiating Operations...</span>
                 </>
               ) : (
                 <>
-                  <CheckCircle2 className="w-4 h-4 mr-2" />
-                  Start Work
+                  <span>Start Work</span>
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400" />
                 </>
               )}
             </Button>
           </div>
-        </Card>
+        </div>
 
         {/* Confirmation Dialog */}
         <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
-          <AlertDialogContent>
+          <AlertDialogContent className="rounded-3xl border-slate-200 p-6 sm:p-8">
             <AlertDialogHeader>
-              <AlertDialogTitle>Start Work on This Task?</AlertDialogTitle>
-              <AlertDialogDescription>
-                You are about to start work on this task. The work timer will begin and the citizen will be notified.
-                Make sure you are at the location before proceeding.
+              <AlertDialogTitle className="font-display text-xl font-bold text-slate-950">
+                Confirm Work Commencement?
+              </AlertDialogTitle>
+              <AlertDialogDescription className="text-slate-600 text-sm leading-relaxed">
+                Starting work will activate the task SLA timer, log your GPS coordinates to the immutable audit log, and dispatch an automated status notification to the reporting citizen.
               </AlertDialogDescription>
             </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={handleStartWork}>
-                Start Work
+            <AlertDialogFooter className="mt-4 gap-2">
+              <AlertDialogCancel className="rounded-full border-slate-200 font-semibold">Cancel</AlertDialogCancel>
+              <AlertDialogAction 
+                onClick={handleStartWork}
+                className="rounded-full bg-[#0a2e2a] hover:bg-[#072421] text-white font-semibold shadow-xs"
+              >
+                Confirm & Start
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>

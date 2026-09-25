@@ -374,7 +374,7 @@ const CompleteWork = () => {
 
   if (loading && !task) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-muted">
+      <div className="min-h-dvh flex items-center justify-center bg-background">
         <div className="text-center">
           <Loader2 className="w-12 h-12 animate-spin mx-auto mb-4 text-primary" />
           <p className="text-muted-foreground">Loading task details...</p>
@@ -385,7 +385,7 @@ const CompleteWork = () => {
 
   if (error && !task) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted">
+      <div className="min-h-dvh bg-background">
         <OfficerHeader />
         <div className="container mx-auto px-4 py-12 max-w-4xl">
           <Card className="p-8 text-center">
@@ -413,108 +413,111 @@ const CompleteWork = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted">
+    <div className="min-h-dvh bg-[#fbfcfd] bg-[radial-gradient(#cbd5e1_1px,transparent_1px)] [background-size:32px_32px]">
       <OfficerHeader />
 
       {/* Connection Status Banner */}
       {!isBackendReachable && (
-        <div className="bg-amber-50 border-b border-amber-200 px-4 py-2">
-          <div className="container mx-auto flex items-center gap-2 text-sm text-amber-800">
-            <AlertTriangle className="w-4 h-4" />
-            <span>You're currently offline. Some features may be limited.</span>
+        <div className="bg-amber-50 border-b border-amber-200/60 px-4 py-2.5">
+          <div className="container mx-auto flex items-center gap-2 text-xs font-mono text-amber-800">
+            <AlertTriangle className="w-4 h-4 text-amber-600" />
+            <span>Telemetry Offline: Local changes queued. Connection with dispatch will resume automatically.</span>
           </div>
         </div>
       )}
 
-      <div className="container mx-auto px-4 py-8 max-w-4xl">
+      <div className="container mx-auto px-4 sm:px-6 py-8 sm:py-10 max-w-4xl">
         {/* Header */}
-        <div className="mb-6">
+        <div className="mb-8">
           <div className="flex items-center gap-4 mb-4">
             <Button
-              variant="ghost"
+              variant="outline"
               size="icon"
               onClick={() => navigate(`/officer/task/${id}`)}
               aria-label="Back to Task Details"
+              className="rounded-full w-10 h-10 border-slate-200 bg-white hover:bg-slate-50 active:scale-[0.92] transition-transform shadow-xs"
             >
-              <ArrowLeft className="w-5 h-5" />
+              <ArrowLeft className="w-4 h-4 text-slate-700" />
             </Button>
             <div className="flex-1">
-              <div className="flex items-center gap-3 mb-2">
-                <h1 className="text-3xl font-bold text-foreground">Submit Work for Verification</h1>
+              <div className="flex items-center gap-3 mb-1.5 flex-wrap">
+                <h1 className="font-display text-3xl sm:text-4xl font-black text-slate-950 tracking-tight">Submit Work for Verification</h1>
                 {task.report_number && (
-                  <Badge variant="outline" className="font-mono text-sm">
+                  <Badge variant="outline" className="font-mono text-xs font-semibold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 border-slate-200">
                     {task.report_number}
                   </Badge>
                 )}
               </div>
-              <p className="text-muted-foreground">
-                Complete the form below to submit your work for admin verification
+              <p className="text-sm text-slate-500">
+                Complete post-resolution checklist and upload proof of work for administrative review
               </p>
             </div>
           </div>
         </div>
 
         {/* Task Summary Card */}
-        <Card className="p-6 mb-6 bg-gradient-to-br from-secondary/20 via-secondary/10 to-accent/10 border-secondary/30">
+        <div className="rounded-3xl border border-slate-200/90 bg-white p-6 sm:p-7 shadow-xs mb-8">
           <div className="flex items-start gap-4">
-            <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
-              <FileText className="w-6 h-6 text-primary" />
+            <div className="w-11 h-11 rounded-2xl bg-emerald-50 border border-emerald-200/60 flex items-center justify-center text-emerald-800 flex-shrink-0">
+              <FileText className="w-5 h-5" />
             </div>
             <div className="flex-1 min-w-0">
-              <h2 className="text-xl font-semibold text-foreground mb-2">{task.title}</h2>
-              <p className="text-muted-foreground text-sm line-clamp-2">{task.description}</p>
+              <h2 className="font-display text-xl font-bold text-slate-950 mb-1.5">{task.title}</h2>
+              <p className="text-slate-600 text-sm line-clamp-2 leading-relaxed">{task.description}</p>
               {task.address && (
-                <div className="flex items-center gap-1 mt-2 text-sm text-muted-foreground">
-                  <AlertCircle className="w-4 h-4" />
+                <div className="flex items-center gap-1.5 mt-2.5 text-xs font-mono text-slate-500">
+                  <MapPin className="w-3.5 h-3.5 text-emerald-700 flex-shrink-0" />
                   <span className="truncate">{task.address}</span>
                 </div>
               )}
             </div>
           </div>
-        </Card>
+        </div>
 
         {/* Error Banner */}
         {error && (
-          <Card className="p-4 mb-6 bg-destructive/10 border-destructive/20">
+          <div className="rounded-3xl border border-rose-200/80 bg-rose-50/50 p-5 mb-8">
             <div className="flex items-start gap-3">
-              <AlertCircle className="w-5 h-5 text-destructive mt-0.5 flex-shrink-0" />
+              <AlertCircle className="w-5 h-5 text-rose-700 mt-0.5 flex-shrink-0" />
               <div className="flex-1">
-                <h3 className="font-semibold text-destructive mb-1">Error</h3>
-                <p className="text-sm text-destructive/80">{error}</p>
+                <h3 className="font-display font-bold text-rose-950 mb-1">Submission Error</h3>
+                <p className="text-sm text-rose-800">{error}</p>
               </div>
             </div>
-          </Card>
+          </div>
         )}
 
         <form onSubmit={(e) => { e.preventDefault(); handleCompleteClick(); }}>
-          <div className="space-y-6">
+          <div className="space-y-8">
             {/* Citizen Photos Reference */}
             {citizenPhotos.length > 0 && (
-              <Card className="p-6">
-                <div className="flex items-center gap-2 mb-4">
-                  <ImageIcon className="w-5 h-5 text-blue-500" />
-                  <h3 className="text-lg font-semibold text-foreground">Citizen Submitted Photos</h3>
-                  <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
-                    Reference
+              <div className="rounded-3xl border border-slate-200/90 bg-white p-6 sm:p-8 shadow-xs">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <ImageIcon className="w-4 h-4 text-blue-700" />
+                    <h3 className="font-display text-lg font-bold text-slate-950">Citizen Submission Reference</h3>
+                  </div>
+                  <Badge variant="outline" className="font-mono text-xs font-semibold px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-800 border-blue-200/60">
+                    Baseline
                   </Badge>
                 </div>
-                <p className="text-sm text-muted-foreground mb-4">
-                  Review the original photos submitted by the citizen to ensure your work addresses the issue.
+                <p className="text-sm text-slate-500 mb-4">
+                  Review the original photos submitted by the resident to ensure your intervention fully resolves the reported condition.
                 </p>
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-3 gap-3.5">
                   {citizenPhotos.slice(0, 3).map((photo: any, index: number) => {
                     const mediaUrl = getMediaUrl(photo.file_url || photo.url);
                     return (
                       <div
                         key={photo.id || index}
-                        className="aspect-square rounded-lg overflow-hidden bg-muted border-2 border-blue-200"
+                        className="aspect-square rounded-2xl overflow-hidden bg-slate-100 border border-slate-200 shadow-xs"
                       >
                         <img
                           src={mediaUrl}
                           alt={`Citizen photo ${index + 1}`}
                           className="w-full h-full object-cover"
                           onError={(e) => {
-                            e.currentTarget.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100" height="100"%3E%3Crect fill="%23ddd" width="100" height="100"/%3E%3C/svg%3E';
+                            e.currentTarget.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100" height="100"%3E%3Crect fill="%23ddd" width="100" height="100"/%3E%3Ctext fill="%23999" x="50%25" y="50%25" text-anchor="middle" dy=".3em"%3ENo Image%3C/text%3E%3C/svg%3E';
                           }}
                         />
                       </div>
@@ -522,82 +525,84 @@ const CompleteWork = () => {
                   })}
                 </div>
                 {citizenPhotos.length > 3 && (
-                  <p className="text-xs text-muted-foreground mt-2">
-                    + {citizenPhotos.length - 3} more photo{citizenPhotos.length - 3 !== 1 ? 's' : ''}
+                  <p className="text-xs font-mono text-slate-400 mt-2.5">
+                    + {citizenPhotos.length - 3} more photos on record
                   </p>
                 )}
-              </Card>
+              </div>
             )}
 
             {/* Before Photos Reference */}
             {beforePhotos.length > 0 && (
-              <Card className="p-6">
-                <div className="flex items-center gap-2 mb-4">
-                  <ImageIcon className="w-5 h-5 text-amber-500" />
-                  <h3 className="text-lg font-semibold text-foreground">Your Before Photos</h3>
-                  <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">
-                    {beforePhotos.length} photo{beforePhotos.length !== 1 ? 's' : ''}
+              <div className="rounded-3xl border border-slate-200/90 bg-white p-6 sm:p-8 shadow-xs">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <ImageIcon className="w-4 h-4 text-amber-700" />
+                    <h3 className="font-display text-lg font-bold text-slate-950">Pre-Work Inspection Photos</h3>
+                  </div>
+                  <Badge variant="outline" className="font-mono text-xs font-semibold px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-800 border-amber-200/60">
+                    {beforePhotos.length} on file
                   </Badge>
                 </div>
-                <p className="text-sm text-muted-foreground mb-4">
-                  Photos taken before starting work. Compare with your after photos below.
+                <p className="text-sm text-slate-500 mb-4">
+                  Photographs captured at start of shift before physical work commenced.
                 </p>
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-3 gap-3.5">
                   {beforePhotos.map((photo: any, index: number) => {
                     const mediaUrl = getMediaUrl(photo.file_url || photo.url);
                     return (
                       <div
                         key={photo.id || index}
-                        className="aspect-square rounded-lg overflow-hidden bg-muted border-2 border-amber-200"
+                        className="aspect-square rounded-2xl overflow-hidden bg-slate-100 border border-slate-200 shadow-xs"
                       >
                         <img
                           src={mediaUrl}
                           alt={`Before photo ${index + 1}`}
                           className="w-full h-full object-cover"
                           onError={(e) => {
-                            e.currentTarget.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100" height="100"%3E%3Crect fill="%23ddd" width="100" height="100"/%3E%3C/svg%3E';
+                            e.currentTarget.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100" height="100"%3E%3Crect fill="%23ddd" width="100" height="100"/%3E%3Ctext fill="%23999" x="50%25" y="50%25" text-anchor="middle" dy=".3em"%3ENo Image%3C/text%3E%3C/svg%3E';
                           }}
                         />
                       </div>
                     );
                   })}
                 </div>
-              </Card>
+              </div>
             )}
 
             {/* After Photos Section */}
-            <Card className="p-6">
+            <div className="rounded-3xl border border-slate-200/90 bg-white p-6 sm:p-8 shadow-xs">
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
-                  <Label className="text-base font-semibold">After Photos *</Label>
+                  <Label className="font-display text-lg font-bold text-slate-950">Proof of Resolution Photos *</Label>
                   {validationErrors.photos && (
-                    <Badge variant="destructive" className="text-xs">
+                    <Badge variant="destructive" className="font-mono text-xs">
                       {validationErrors.photos}
                     </Badge>
                   )}
                 </div>
-                <span className="text-sm text-muted-foreground">
-                  {afterPhotos.length + beforePhotos.length}/5 officer photos
+                <span className="text-xs font-mono text-slate-400">
+                  {afterPhotos.length + beforePhotos.length}/5 photos
                 </span>
               </div>
-              <p className="text-sm text-muted-foreground mb-4">
-                Upload photos showing the completed work. {remainingPhotoSlots > 0
-                  ? `You can add ${remainingPhotoSlots} more photo${remainingPhotoSlots !== 1 ? 's' : ''}.`
-                  : 'Photo limit reached.'}
+              <p className="text-sm text-slate-500 mb-5">
+                Upload clear post-resolution images proving work has been completed in full compliance. {remainingPhotoSlots > 0
+                  ? `You may upload ${remainingPhotoSlots} more image${remainingPhotoSlots !== 1 ? 's' : ''}.`
+                  : 'Maximum photo allocation reached.'}
               </p>
 
               <div className="space-y-4">
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-3">
                   <Button
                     type="button"
                     variant="outline"
-                    className="flex-1"
+                    className="flex-1 rounded-full border-slate-200 hover:bg-slate-50 text-slate-700 font-semibold h-11 active:scale-[0.98] transition-all"
                     asChild
                     disabled={remainingPhotoSlots === 0}
                   >
-                    <label className="cursor-pointer">
-                      <Camera className="w-4 h-4 mr-2" />
-                      Take Photo
+                    <label className="cursor-pointer flex items-center justify-center">
+                      <Camera className="w-4 h-4 mr-2 text-emerald-800" />
+                      Take Live Photo
                       <input
                         type="file"
                         accept="image/jpeg,image/jpg,image/png,image/webp"
@@ -611,12 +616,12 @@ const CompleteWork = () => {
                   <Button
                     type="button"
                     variant="outline"
-                    className="flex-1"
+                    className="flex-1 rounded-full border-slate-200 hover:bg-slate-50 text-slate-700 font-semibold h-11 active:scale-[0.98] transition-all"
                     asChild
                     disabled={remainingPhotoSlots === 0}
                   >
-                    <label className="cursor-pointer">
-                      <Upload className="w-4 h-4 mr-2" />
+                    <label className="cursor-pointer flex items-center justify-center">
+                      <Upload className="w-4 h-4 mr-2 text-emerald-800" />
                       Upload from Device
                       <input
                         type="file"
@@ -631,27 +636,27 @@ const CompleteWork = () => {
                 </div>
 
                 {afterPhotos.length > 0 && (
-                  <div className="grid grid-cols-3 gap-3">
+                  <div className="grid grid-cols-3 gap-3.5 pt-2">
                     {afterPhotos.map((photoPreview) => (
                       <div
                         key={photoPreview.id}
-                        className="relative aspect-square rounded-lg overflow-hidden bg-muted border-2 border-green-200 group"
+                        className="relative aspect-square rounded-2xl overflow-hidden bg-slate-100 border border-slate-200 group shadow-xs"
                       >
                         <img
                           src={photoPreview.preview}
                           alt="After work"
-                          className="w-full h-full object-cover"
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                         />
                         <button
                           type="button"
                           onClick={() => removePhoto(photoPreview.id)}
-                          className="absolute top-2 right-2 w-7 h-7 rounded-full bg-destructive text-white opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center hover:bg-destructive/90"
+                          className="absolute top-2 right-2 w-7 h-7 rounded-full bg-slate-900/80 backdrop-blur-sm text-white opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center hover:bg-rose-600 active:scale-95"
                           aria-label="Remove photo"
                         >
-                          <X className="w-4 h-4" />
+                          <X className="w-3.5 h-3.5" />
                         </button>
                         <div className="absolute bottom-2 left-2">
-                          <Badge className="bg-green-500 text-xs">After</Badge>
+                          <span className="bg-emerald-700/90 backdrop-blur-sm text-white font-mono text-[10px] font-semibold px-2 py-0.5 rounded-full">After</span>
                         </div>
                       </div>
                     ))}
@@ -659,32 +664,37 @@ const CompleteWork = () => {
                 )}
 
                 {afterPhotos.length === 0 && (
-                  <div className="border-2 border-dashed border-muted-foreground/30 rounded-lg p-8 text-center">
-                    <ImageIcon className="w-12 h-12 mx-auto mb-3 text-muted-foreground/50" />
-                    <p className="text-sm text-muted-foreground">
-                      No after photos uploaded yet. Please add at least one photo.
+                  <div className="border-2 border-dashed border-slate-200 rounded-2xl p-8 text-center bg-slate-50/50">
+                    <ImageIcon className="w-10 h-10 mx-auto mb-2.5 text-slate-300" />
+                    <p className="text-sm font-medium text-slate-600">
+                      No after photos uploaded yet
+                    </p>
+                    <p className="text-xs text-slate-400 mt-1">
+                      Upload at least one resolution photo showing the repaired location.
                     </p>
                   </div>
                 )}
               </div>
-            </Card>
+            </div>
 
             {/* Before/After Comparison */}
             {afterPhotos.length > 0 && beforePhotos.length > 0 && (
-              <Card className="p-6">
-                <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-                  <ArrowLeftRight className="w-5 h-5" />
-                  Before/After Comparison
-                </h3>
+              <div className="rounded-3xl border border-slate-200/90 bg-white p-6 sm:p-8 shadow-xs">
+                <div className="flex items-center gap-2 mb-4">
+                  <ArrowLeftRight className="w-5 h-5 text-emerald-600" />
+                  <h3 className="text-lg font-bold font-display tracking-tight text-slate-950">
+                    Before / After Field Comparison
+                  </h3>
+                </div>
                 <div className="space-y-4">
                   {beforePhotos.slice(0, Math.min(beforePhotos.length, afterPhotos.length)).map((beforePhoto, idx) => (
                     <div key={idx} className="grid grid-cols-2 gap-4">
                       <div>
                         <div className="flex items-center gap-2 mb-2">
-                          <Badge className="bg-amber-500 text-xs">Before</Badge>
-                          <span className="text-xs text-muted-foreground">Photo {idx + 1}</span>
+                          <Badge className="bg-amber-50 text-amber-800 border-amber-200/60 text-xs font-mono">Before</Badge>
+                          <span className="text-xs font-mono text-slate-400">Photo {idx + 1}</span>
                         </div>
-                        <div className="aspect-video rounded-lg overflow-hidden bg-muted border-2 border-amber-200">
+                        <div className="aspect-video rounded-2xl overflow-hidden bg-slate-50 border border-amber-200/80 shadow-xs">
                           <img
                             src={getMediaUrl(beforePhoto.file_url || beforePhoto.url)}
                             alt={`Before ${idx + 1}`}
@@ -694,10 +704,10 @@ const CompleteWork = () => {
                       </div>
                       <div>
                         <div className="flex items-center gap-2 mb-2">
-                          <Badge className="bg-green-500 text-xs">After</Badge>
-                          <span className="text-xs text-muted-foreground">Photo {idx + 1}</span>
+                          <Badge className="bg-emerald-50 text-emerald-800 border-emerald-200/60 text-xs font-mono">After</Badge>
+                          <span className="text-xs font-mono text-slate-400">Photo {idx + 1}</span>
                         </div>
-                        <div className="aspect-video rounded-lg overflow-hidden bg-muted border-2 border-green-200">
+                        <div className="aspect-video rounded-2xl overflow-hidden bg-slate-50 border border-emerald-200/80 shadow-xs">
                           <img
                             src={afterPhotos[idx]?.preview || ''}
                             alt={`After ${idx + 1}`}
@@ -708,23 +718,23 @@ const CompleteWork = () => {
                     </div>
                   ))}
                 </div>
-              </Card>
+              </div>
             )}
 
             {/* Completion Notes */}
-            <Card className="p-6">
-              <div className="mb-2">
-                <Label htmlFor="completionNotes" className="text-base font-semibold">
+            <div className="rounded-3xl border border-slate-200/90 bg-white p-6 sm:p-8 shadow-xs">
+              <div className="mb-2 flex items-center justify-between">
+                <Label htmlFor="completionNotes" className="text-base font-bold font-display tracking-tight text-slate-950">
                   Work Completion Notes *
                 </Label>
                 {validationErrors.completionNotes && (
-                  <Badge variant="destructive" className="ml-2 text-xs">
+                  <Badge variant="destructive" className="text-xs font-mono">
                     {validationErrors.completionNotes}
                   </Badge>
                 )}
               </div>
-              <p className="text-sm text-muted-foreground mb-3">
-                Provide a detailed description of the work completed, steps taken, and current status.
+              <p className="text-sm text-slate-500 mb-3 font-sans">
+                Provide a detailed technical description of work completed, remedies applied, and current condition.
               </p>
               <Textarea
                 id="completionNotes"
@@ -734,83 +744,84 @@ const CompleteWork = () => {
                   setCompletionNotes(e.target.value);
                   setValidationErrors(prev => ({ ...prev, completionNotes: '' }));
                 }}
-                className={`min-h-[120px] ${validationErrors.completionNotes ? 'border-destructive' : ''}`}
+                className={`min-h-[120px] rounded-2xl border-slate-200 bg-slate-50/50 focus:bg-white text-slate-900 ${validationErrors.completionNotes ? 'border-red-500' : ''}`}
                 aria-invalid={!!validationErrors.completionNotes}
                 aria-describedby={validationErrors.completionNotes ? 'completionNotes-error' : undefined}
               />
-              <p className="text-xs text-muted-foreground mt-1">
+              <p className="text-xs font-mono text-slate-400 mt-1">
                 {completionNotes.length}/500 characters (minimum 10 characters required)
               </p>
-            </Card>
+            </div>
 
-            {/* Work Duration */}
-            <Card className="p-6">
-              <div className="mb-2">
-                <Label htmlFor="workDuration" className="text-base font-semibold">
-                  Actual Work Duration *
+            {/* Work Duration & Materials */}
+            <div className="grid md:grid-cols-2 gap-6">
+              <div className="rounded-3xl border border-slate-200/90 bg-white p-6 sm:p-8 shadow-xs">
+                <div className="mb-2 flex items-center justify-between">
+                  <Label htmlFor="workDuration" className="text-base font-bold font-display tracking-tight text-slate-950">
+                    Actual Duration *
+                  </Label>
+                  {validationErrors.workDuration && (
+                    <Badge variant="destructive" className="text-xs font-mono">
+                      {validationErrors.workDuration}
+                    </Badge>
+                  )}
+                </div>
+                <p className="text-xs text-slate-500 mb-3">
+                  Total field hours spent (e.g. 2.5 for 2 hrs 30 mins).
+                </p>
+                <div className="flex items-center gap-3">
+                  <Input
+                    id="workDuration"
+                    type="number"
+                    step="0.5"
+                    min="0.5"
+                    max="1000"
+                    placeholder="2.5"
+                    value={workDuration}
+                    onChange={(e) => {
+                      setWorkDuration(e.target.value);
+                      setValidationErrors(prev => ({ ...prev, workDuration: '' }));
+                    }}
+                    className={`max-w-[160px] font-mono rounded-xl border-slate-200 bg-slate-50/50 focus:bg-white ${validationErrors.workDuration ? 'border-red-500' : ''}`}
+                    aria-invalid={!!validationErrors.workDuration}
+                    aria-describedby={validationErrors.workDuration ? 'workDuration-error' : undefined}
+                  />
+                  <span className="text-sm font-medium text-slate-500">hours</span>
+                </div>
+              </div>
+
+              <div className="rounded-3xl border border-slate-200/90 bg-white p-6 sm:p-8 shadow-xs">
+                <Label htmlFor="materialsUsed" className="text-base font-bold font-display tracking-tight text-slate-950 mb-2 block">
+                  Materials Used (Optional)
                 </Label>
-                {validationErrors.workDuration && (
-                  <Badge variant="destructive" className="ml-2 text-xs">
-                    {validationErrors.workDuration}
-                  </Badge>
-                )}
-              </div>
-              <p className="text-sm text-muted-foreground mb-3">
-                Enter the total time spent on this task in hours (e.g., 2.5 for 2 hours 30 minutes).
-              </p>
-              <div className="flex items-center gap-3">
+                <p className="text-xs text-slate-500 mb-3">
+                  List municipal tools, equipment, aggregate, or replacement parts used.
+                </p>
                 <Input
-                  id="workDuration"
-                  type="number"
-                  step="0.5"
-                  min="0.5"
-                  max="1000"
-                  placeholder="2.5"
-                  value={workDuration}
-                  onChange={(e) => {
-                    setWorkDuration(e.target.value);
-                    setValidationErrors(prev => ({ ...prev, workDuration: '' }));
-                  }}
-                  className={`max-w-[200px] ${validationErrors.workDuration ? 'border-destructive' : ''}`}
-                  aria-invalid={!!validationErrors.workDuration}
-                  aria-describedby={validationErrors.workDuration ? 'workDuration-error' : undefined}
+                  id="materialsUsed"
+                  placeholder="e.g., Cold asphalt mix, compactor, drainage grill..."
+                  value={materialsUsed}
+                  onChange={(e) => setMaterialsUsed(e.target.value)}
+                  className="max-w-full rounded-xl border-slate-200 bg-slate-50/50 focus:bg-white"
                 />
-                <span className="text-sm text-muted-foreground">hours</span>
               </div>
-            </Card>
-
-            {/* Materials Used */}
-            <Card className="p-6">
-              <Label htmlFor="materialsUsed" className="text-base font-semibold mb-2 block">
-                Materials Used (Optional)
-              </Label>
-              <p className="text-sm text-muted-foreground mb-3">
-                List any materials, tools, or resources used to complete this work.
-              </p>
-              <Input
-                id="materialsUsed"
-                placeholder="e.g., Gravel, cement, drainage grill, cleaning supplies..."
-                value={materialsUsed}
-                onChange={(e) => setMaterialsUsed(e.target.value)}
-                className="max-w-full"
-              />
-            </Card>
+            </div>
 
             {/* Checklist */}
-            <Card className="p-6">
-              <div className="mb-2">
-                <Label className="text-base font-semibold">Completion Checklist *</Label>
+            <div className="rounded-3xl border border-slate-200/90 bg-white p-6 sm:p-8 shadow-xs">
+              <div className="mb-2 flex items-center justify-between">
+                <Label className="text-base font-bold font-display tracking-tight text-slate-950">Completion Checklist *</Label>
                 {validationErrors.checklist && (
-                  <Badge variant="destructive" className="ml-2 text-xs">
+                  <Badge variant="destructive" className="text-xs font-mono">
                     {validationErrors.checklist}
                   </Badge>
                 )}
               </div>
-              <p className="text-sm text-muted-foreground mb-4">
-                Please confirm all items before submitting for verification.
+              <p className="text-sm text-slate-500 mb-4">
+                Confirm all operational and verification criteria prior to dispatching for audit approval.
               </p>
-              <div className="space-y-4">
-                <div className={`flex items-start space-x-3 p-3 rounded-lg border ${checklist.resolved ? 'bg-green-50 border-green-200' : 'bg-muted/50 border-border'}`}>
+              <div className="space-y-3">
+                <div className={`flex items-start space-x-3 p-4 rounded-2xl border transition-all ${checklist.resolved ? 'bg-emerald-50/40 border-emerald-200/60' : 'bg-slate-50/60 border-slate-200/60'}`}>
                   <Checkbox
                     id="resolved"
                     checked={checklist.resolved}
@@ -823,20 +834,20 @@ const CompleteWork = () => {
                   <div className="flex-1">
                     <label
                       htmlFor="resolved"
-                      className="text-sm font-medium leading-tight cursor-pointer"
+                      className="text-sm font-semibold text-slate-900 leading-tight cursor-pointer"
                     >
                       Issue completely resolved
                     </label>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      The reported issue has been fully addressed and resolved.
+                    <p className="text-xs text-slate-500 mt-1">
+                      The reported municipal defect has been thoroughly addressed according to city standards.
                     </p>
                   </div>
                   {checklist.resolved && (
-                    <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />
+                    <CheckCircle className="w-5 h-5 text-emerald-600 flex-shrink-0" />
                   )}
                 </div>
 
-                <div className={`flex items-start space-x-3 p-3 rounded-lg border ${checklist.cleaned ? 'bg-green-50 border-green-200' : 'bg-muted/50 border-border'}`}>
+                <div className={`flex items-start space-x-3 p-4 rounded-2xl border transition-all ${checklist.cleaned ? 'bg-emerald-50/40 border-emerald-200/60' : 'bg-slate-50/60 border-slate-200/60'}`}>
                   <Checkbox
                     id="cleaned"
                     checked={checklist.cleaned}
@@ -848,20 +859,20 @@ const CompleteWork = () => {
                   <div className="flex-1">
                     <label
                       htmlFor="cleaned"
-                      className="text-sm font-medium leading-tight cursor-pointer"
+                      className="text-sm font-semibold text-slate-900 leading-tight cursor-pointer"
                     >
                       Area cleaned and restored
                     </label>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      The work area has been cleaned and restored to its original or better condition.
+                    <p className="text-xs text-slate-500 mt-1">
+                      Surrounding pedestrian walkways and roadways cleared of debris and hazardous materials.
                     </p>
                   </div>
                   {checklist.cleaned && (
-                    <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />
+                    <CheckCircle className="w-5 h-5 text-emerald-600 flex-shrink-0" />
                   )}
                 </div>
 
-                <div className={`flex items-start space-x-3 p-3 rounded-lg border ${checklist.photos ? 'bg-green-50 border-green-200' : 'bg-muted/50 border-border'}`}>
+                <div className={`flex items-start space-x-3 p-4 rounded-2xl border transition-all ${checklist.photos ? 'bg-emerald-50/40 border-emerald-200/60' : 'bg-slate-50/60 border-slate-200/60'}`}>
                   <Checkbox
                     id="photos"
                     checked={checklist.photos}
@@ -874,22 +885,22 @@ const CompleteWork = () => {
                   <div className="flex-1">
                     <label
                       htmlFor="photos"
-                      className={`text-sm font-medium leading-tight ${afterPhotos.length > 0 ? 'cursor-pointer' : 'cursor-not-allowed opacity-70'}`}
+                      className={`text-sm font-semibold text-slate-900 leading-tight ${afterPhotos.length > 0 ? 'cursor-pointer' : 'cursor-not-allowed opacity-70'}`}
                     >
-                      Before/After photos uploaded
+                      Post-resolution photographic evidence captured
                     </label>
-                    <p className="text-xs text-muted-foreground mt-1">
+                    <p className="text-xs text-slate-500 mt-1">
                       {afterPhotos.length > 0
-                        ? `${afterPhotos.length} after photo${afterPhotos.length !== 1 ? 's' : ''} uploaded.`
-                        : 'Upload at least one after photo to complete this task.'}
+                        ? `${afterPhotos.length} high-resolution after photo${afterPhotos.length !== 1 ? 's' : ''} uploaded.`
+                        : 'Upload at least one resolution photo to complete this task.'}
                     </p>
                   </div>
                   {checklist.photos && (
-                    <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />
+                    <CheckCircle className="w-5 h-5 text-emerald-600 flex-shrink-0" />
                   )}
                 </div>
 
-                <div className={`flex items-start space-x-3 p-3 rounded-lg border ${checklist.materials ? 'bg-green-50 border-green-200' : 'bg-muted/50 border-border'}`}>
+                <div className={`flex items-start space-x-3 p-4 rounded-2xl border transition-all ${checklist.materials ? 'bg-emerald-50/40 border-emerald-200/60' : 'bg-slate-50/60 border-slate-200/60'}`}>
                   <Checkbox
                     id="materials"
                     checked={checklist.materials}
@@ -901,61 +912,61 @@ const CompleteWork = () => {
                   <div className="flex-1">
                     <label
                       htmlFor="materials"
-                      className="text-sm font-medium leading-tight cursor-pointer"
+                      className="text-sm font-semibold text-slate-900 leading-tight cursor-pointer"
                     >
-                      All materials properly disposed
+                      All equipment and waste accounted for
                     </label>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Any waste materials or debris have been properly disposed of.
+                    <p className="text-xs text-slate-500 mt-1">
+                      Municipal tools retrieved, traffic cones removed, and disposal regulations observed.
                     </p>
                   </div>
                   {checklist.materials && (
-                    <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />
+                    <CheckCircle className="w-5 h-5 text-emerald-600 flex-shrink-0" />
                   )}
                 </div>
               </div>
-            </Card>
+            </div>
 
             {/* Info Card */}
-            <Card className="p-4 bg-blue-50 border-blue-200">
-              <div className="flex items-start gap-3">
-                <Info className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
-                <div className="flex-1">
-                  <h4 className="font-semibold text-blue-900 mb-1">What happens next?</h4>
-                  <p className="text-sm text-blue-800">
-                    After submission, your work will be reviewed by an administrator. The citizen will be notified,
-                    and you'll receive updates on the verification status. You can track the progress from the task details page.
-                  </p>
-                </div>
+            <div className="rounded-2xl border border-blue-200/60 bg-blue-50/40 p-5 flex items-start gap-3.5">
+              <Info className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+              <div className="flex-1">
+                <h4 className="font-semibold text-sm font-display text-blue-950 mb-1">What happens next?</h4>
+                <p className="text-xs text-blue-900/80 leading-relaxed font-sans">
+                  Upon submission, this resolution package will be routed to the municipal verification desk for audit. 
+                  The reporting citizen will receive a real-time notification with before/after evidence, and status will update automatically.
+                </p>
               </div>
-            </Card>
+            </div>
 
             {/* Action Buttons */}
-            <div className="flex gap-3 pt-4">
+            <div className="flex flex-col sm:flex-row gap-3 pt-2">
               <Button
                 type="button"
                 variant="outline"
-                className="flex-1"
+                className="rounded-full border-slate-200 hover:bg-slate-50 text-slate-700 h-12 font-medium px-6 active:scale-[0.98] transition-all"
                 onClick={() => navigate(`/officer/task/${id}`)}
                 disabled={submitting}
               >
                 <ArrowLeft className="w-4 h-4 mr-2" />
-                Cancel
+                Cancel Operation
               </Button>
               <Button
                 type="submit"
-                className="flex-1 bg-green-600 hover:bg-green-700"
+                className="flex-1 rounded-full bg-[#0a2e2a] hover:bg-[#072421] text-white font-semibold h-12 active:scale-[0.98] transition-all shadow-xs inline-flex items-center justify-center gap-2"
                 disabled={submitting || !isBackendReachable}
               >
                 {submitting ? (
                   <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Submitting...
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Submitting Verification Package...
                   </>
                 ) : (
                   <>
-                    <CheckCircle2 className="w-4 h-4 mr-2" />
-                    Submit for Verification
+                    <span>Submit for Administrative Verification</span>
+                    <span className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-white" />
+                    </span>
                   </>
                 )}
               </Button>
@@ -965,36 +976,47 @@ const CompleteWork = () => {
 
         {/* Confirmation Dialog */}
         <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
-          <AlertDialogContent>
+          <AlertDialogContent className="rounded-3xl border border-slate-200/90 bg-white p-6 sm:p-8 shadow-xl">
             <AlertDialogHeader>
-              <AlertDialogTitle>Submit Work for Verification?</AlertDialogTitle>
-              <AlertDialogDescription className="space-y-2">
+              <AlertDialogTitle className="text-xl font-bold font-display tracking-tight text-slate-950">
+                Submit Work for Verification?
+              </AlertDialogTitle>
+              <AlertDialogDescription className="space-y-3 pt-2 text-slate-600 font-sans">
                 <p>
-                  You are about to mark this task as completed and submit it for verification.
+                  You are finalizing field execution and submitting this case for administrative sign-off.
                 </p>
-                <div className="bg-muted p-3 rounded-lg space-y-1 text-sm">
-                  <p className="font-medium">Summary:</p>
-                  <ul className="list-disc list-inside space-y-1 text-muted-foreground">
-                    <li>{afterPhotos.length} after photo{afterPhotos.length !== 1 ? 's' : ''} will be uploaded</li>
-                    <li>Work duration: {workDuration} hours</li>
-                    <li>Status will change to "Pending Verification"</li>
+                <div className="bg-slate-50 border border-slate-200/80 p-4 rounded-2xl space-y-1.5 text-xs font-mono">
+                  <p className="font-semibold text-slate-900">Summary Review:</p>
+                  <ul className="list-disc list-inside space-y-1 text-slate-600">
+                    <li>{afterPhotos.length} post-repair photo{afterPhotos.length !== 1 ? 's' : ''} attached</li>
+                    <li>Operational duration logged: {workDuration} hours</li>
+                    <li>Status transition: Active Operations → Pending Verification</li>
                   </ul>
                 </div>
-                <p className="pt-2">
-                  The citizen and admin will be notified. Please ensure all work is complete and photos are accurate.
+                <p className="text-xs text-slate-500">
+                  The citizen reporter and municipal audit desk will receive this submission package. Confirm that work is complete.
                 </p>
               </AlertDialogDescription>
             </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel disabled={submitting}>Review Again</AlertDialogCancel>
-              <AlertDialogAction onClick={handleComplete} disabled={submitting}>
+            <AlertDialogFooter className="gap-2 sm:gap-0 pt-4">
+              <AlertDialogCancel 
+                disabled={submitting}
+                className="rounded-full border-slate-200 hover:bg-slate-50 text-slate-700 font-medium px-5"
+              >
+                Review Again
+              </AlertDialogCancel>
+              <AlertDialogAction 
+                onClick={handleComplete} 
+                disabled={submitting}
+                className="rounded-full bg-[#0a2e2a] hover:bg-[#072421] text-white font-semibold px-6 shadow-xs"
+              >
                 {submitting ? (
                   <>
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                     Submitting...
                   </>
                 ) : (
-                  'Submit for Verification'
+                  'Confirm & Submit'
                 )}
               </AlertDialogAction>
             </AlertDialogFooter>

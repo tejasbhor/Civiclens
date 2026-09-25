@@ -1,11 +1,10 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useNavigate } from "react-router-dom";
 import { 
-  ArrowLeft, User, Mail, Phone, Shield, Calendar, Star,
-  LogOut, Loader2, AlertCircle, TrendingUp, Award, CheckCircle2,
+  ArrowLeft, User, Mail, Phone, Shield, Calendar,
+  LogOut, Loader2, AlertCircle, TrendingUp, CheckCircle2,
   RefreshCw, Activity, Timer, FileText, Users, BarChart3, Target,
   AlertTriangle, Edit, KeyRound, Clock
 } from "lucide-react";
@@ -17,10 +16,10 @@ import { userService } from "@/services/userService";
 import { OfficerHeader } from "@/components/layout/OfficerHeader";
 import { useConnectionStatus } from "@/hooks/useConnectionStatus";
 import { logger } from "@/lib/logger";
+import { CountUp } from "@/components/landing/CountUp";
 
 const OfficerProfile = () => {
   const navigate = useNavigate();
-  // const { toast } = useToast(); // Removed in favor of showToast utility
   const { user, logout, loading: authLoading } = useAuth();
   const { isBackendReachable } = useConnectionStatus();
   
@@ -34,8 +33,6 @@ const OfficerProfile = () => {
   const getCapacityLevelDisplay = useCallback((level: string | undefined): string => {
     if (!level) return 'unknown';
     const l = level.toLowerCase();
-    // Backend returns: "low", "medium", "high"
-    // Frontend expects: "available", "moderate", "high", "overloaded"
     if (l === 'low') return 'available';
     if (l === 'medium') return 'moderate';
     if (l === 'high') return 'high';
@@ -54,7 +51,7 @@ const OfficerProfile = () => {
       }
       if (typeof detail === 'object') {
         return detail.msg || detail.message || JSON.stringify(detail);
-    }
+      }
       return detail;
     }
     if (error?.message) return error.message;
@@ -68,9 +65,7 @@ const OfficerProfile = () => {
     email: { value: string | null; verified: boolean; last_sent_at: string | null };
     phone: { value: string | null; verified: boolean; last_sent_at: string | null };
   } | null>(null);
-  const [verifyingEmail, setVerifyingEmail] = useState(false);
   const [verifyingPhone, setVerifyingPhone] = useState(false);
-  const [emailToken, setEmailToken] = useState("");
   const [phoneOTP, setPhoneOTP] = useState("");
 
   const loadProfileData = useCallback(async () => {
@@ -158,50 +153,6 @@ const OfficerProfile = () => {
     navigate('/');
   };
 
-  const handleSendEmailVerification = async () => {
-    try {
-      setVerifyingEmail(true);
-      const result = await userService.sendEmailVerification();
-      showToast.success("Verification Email Sent", {
-        description: "Please check your email for the verification link."
-      });
-      if (result.debug_token) {
-        setEmailToken(result.debug_token);
-      }
-      loadProfileData();
-    } catch (error: any) {
-      logger.error('Failed to send email verification:', error);
-      showToast.error("Failed to Send Email", {
-        description: extractErrorMessage(error)
-      });
-    } finally {
-      setVerifyingEmail(false);
-    }
-  };
-
-  const handleVerifyEmail = async () => {
-    if (!emailToken) {
-      showToast.error("Token Required", { description: "Please enter the verification token." });
-      return;
-    }
-    try {
-      setVerifyingEmail(true);
-      await userService.verifyEmail(emailToken);
-      showToast.success("Email Verified", {
-        description: "Your email has been verified successfully."
-      });
-      setEmailToken("");
-      loadProfileData();
-    } catch (error: any) {
-      logger.error('Failed to verify email:', error);
-      showToast.error("Verification Failed", {
-        description: extractErrorMessage(error)
-      });
-    } finally {
-      setVerifyingEmail(false);
-    }
-  };
-
   const handleSendPhoneVerification = async () => {
     try {
       setVerifyingPhone(true);
@@ -248,13 +199,13 @@ const OfficerProfile = () => {
 
   const formatDate = useCallback((dateString: string): string => {
     try {
-    const date = new Date(dateString);
+      const date = new Date(dateString);
       if (isNaN(date.getTime())) return 'Invalid date';
-    return date.toLocaleDateString('en-US', { 
-      month: 'short', 
-      day: 'numeric',
-      year: 'numeric'
-    });
+      return date.toLocaleDateString('en-US', { 
+        month: 'short', 
+        day: 'numeric',
+        year: 'numeric'
+      });
     } catch {
       return 'Invalid date';
     }
@@ -267,10 +218,10 @@ const OfficerProfile = () => {
   // Loading state
   if (authLoading || (loading && !profile && !stats && !error)) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-muted">
-        <div className="text-center">
-          <Loader2 className="w-12 h-12 animate-spin mx-auto mb-4 text-primary" />
-          <p className="text-muted-foreground">Loading profile...</p>
+      <div className="min-h-screen bg-[#fbfcfd] bg-[radial-gradient(#cbd5e1_1px,transparent_1px)] [background-size:32px_32px] flex items-center justify-center">
+        <div className="text-center p-8 bg-white border border-slate-200/90 rounded-3xl shadow-xs">
+          <Loader2 className="w-10 h-10 animate-spin mx-auto mb-4 text-[#0a2e2a]" />
+          <p className="text-sm font-mono text-slate-500">Loading officer profile telemetry...</p>
         </div>
       </div>
     );
@@ -279,496 +230,457 @@ const OfficerProfile = () => {
   // Error state
   if (error && !profile && !stats) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted">
+      <div className="min-h-screen bg-[#fbfcfd] bg-[radial-gradient(#cbd5e1_1px,transparent_1px)] [background-size:32px_32px]">
         <OfficerHeader onRefresh={handleRefresh} refreshing={refreshing} />
         <div className="container mx-auto px-4 py-12 max-w-4xl">
-          <Card className="p-8 text-center">
-            <AlertCircle className="w-16 h-16 mx-auto mb-4 text-destructive" />
-            <h3 className="text-xl font-semibold mb-2">Failed to Load Profile</h3>
-            <p className="text-muted-foreground mb-6">{error}</p>
+          <div className="rounded-3xl border border-red-200 bg-white p-8 text-center shadow-xs">
+            <AlertCircle className="w-12 h-12 mx-auto mb-4 text-red-500" />
+            <h3 className="text-xl font-bold font-display text-slate-950 mb-2">Failed to Load Profile</h3>
+            <p className="text-sm text-slate-500 mb-6 font-mono">{error}</p>
             <div className="flex gap-3 justify-center">
-            <Button onClick={loadProfileData}>
+              <Button 
+                onClick={loadProfileData}
+                className="rounded-full bg-[#0a2e2a] hover:bg-[#072421] text-white px-6 font-semibold shadow-xs"
+              >
                 <RefreshCw className="w-4 h-4 mr-2" />
                 Try Again
-            </Button>
-            <Button variant="outline" onClick={() => navigate('/officer/dashboard')}>
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Dashboard
-            </Button>
+              </Button>
+              <Button 
+                variant="outline" 
+                onClick={() => navigate('/officer/dashboard')}
+                className="rounded-full border-slate-200 hover:bg-slate-50 text-slate-700 px-6 font-medium"
+              >
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Back to Dashboard
+              </Button>
+            </div>
           </div>
-        </Card>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted">
+    <div className="min-h-screen bg-[#fbfcfd] bg-[radial-gradient(#cbd5e1_1px,transparent_1px)] [background-size:32px_32px] text-slate-900 selection:bg-emerald-100 selection:text-emerald-950 font-sans antialiased">
       <OfficerHeader onRefresh={handleRefresh} refreshing={refreshing} />
 
       {/* Connection Status Banner */}
       {!isBackendReachable && (
-        <div className="bg-amber-50 border-b border-amber-200 px-4 py-2">
-          <div className="container mx-auto flex items-center gap-2 text-sm text-amber-800">
-            <AlertTriangle className="w-4 h-4" />
-            <span>You're currently offline. Some features may be limited.</span>
+        <div className="bg-amber-50 border-b border-amber-200/80 px-4 py-2.5">
+          <div className="container mx-auto flex items-center gap-2 text-xs font-mono text-amber-800">
+            <AlertTriangle className="w-4 h-4 text-amber-600" />
+            <span>Telemetry link offline. Local cached profile records active.</span>
           </div>
         </div>
       )}
 
       <div className="container mx-auto px-4 py-8 max-w-5xl">
-      {/* Header */}
+        {/* Header */}
         <div className="mb-8">
-          <div className="flex items-center gap-4 mb-4">
+          <div className="flex items-center gap-4 mb-2">
             <Button 
               variant="ghost" 
               size="icon" 
               onClick={() => navigate('/officer/dashboard')}
               aria-label="Back to Dashboard"
+              className="rounded-full hover:bg-slate-200/60 text-slate-600"
             >
-            <ArrowLeft className="w-5 h-5" />
-          </Button>
-            <div className="flex-1">
-              <h1 className="text-3xl font-bold text-foreground mb-2">My Profile</h1>
-              <p className="text-muted-foreground">
-                View and manage your officer profile and performance metrics
-              </p>
+              <ArrowLeft className="w-5 h-5" />
+            </Button>
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <span className="font-mono text-xs text-emerald-800 tracking-wider uppercase font-semibold">
+                  Field Operations Personnel
+                </span>
+              </div>
+              <h1 className="text-3xl sm:text-4xl font-extrabold font-display text-slate-950 tracking-tight">
+                Officer Profile &amp; Telemetry
+              </h1>
             </div>
           </div>
+          <p className="text-slate-500 font-sans ml-12 text-sm sm:text-base">
+            Verified municipal credentials, assignment metrics, and field performance audit history.
+          </p>
         </div>
 
         {/* Profile Header Card */}
-        <Card className="p-6 mb-6 bg-gradient-to-br from-secondary/20 via-secondary/10 to-accent/10 border-secondary/30">
+        <div className="rounded-3xl border border-slate-200/90 bg-white p-6 sm:p-8 shadow-xs mb-8">
           <div className="flex flex-col md:flex-row items-start md:items-center gap-6">
-            <div className="w-24 h-24 rounded-2xl bg-gradient-to-br from-secondary to-accent flex items-center justify-center flex-shrink-0">
-              <Shield className="w-12 h-12 text-white" />
+            <div className="w-20 h-20 rounded-2xl bg-emerald-50 border border-emerald-200/80 flex items-center justify-center flex-shrink-0 text-emerald-800 shadow-xs">
+              <Shield className="w-10 h-10 text-[#0a2e2a]" />
             </div>
             <div className="flex-1 min-w-0">
-              <h2 className="text-2xl font-bold text-foreground mb-2">
+              <h2 className="text-2xl sm:text-3xl font-bold font-display tracking-tight text-slate-950 mb-2">
                 {stats?.full_name || profile?.full_name || user?.full_name || 'Officer'}
               </h2>
               <div className="flex flex-wrap items-center gap-2 mb-3">
                 {stats?.employee_id && (
-                  <Badge variant="outline" className="font-mono">
-                    ID: {stats.employee_id}
+                  <Badge variant="outline" className="font-mono text-xs rounded-full bg-slate-50 text-slate-700 border-slate-200/90 px-3 py-0.5">
+                    Badge ID: {stats.employee_id}
                   </Badge>
                 )}
                 {stats?.department_name && (
-                  <Badge className="bg-secondary/20 text-secondary-foreground border-secondary/30">
-                    <Users className="w-3 h-3 mr-1" />
+                  <Badge className="bg-emerald-50 text-emerald-800 border-emerald-200/60 font-sans text-xs rounded-full px-3 py-0.5">
+                    <Users className="w-3 h-3 mr-1 text-emerald-700" />
                     {stats.department_name}
                   </Badge>
                 )}
                 {profile?.role && (
-                  <Badge variant="outline">
+                  <Badge variant="outline" className="text-xs rounded-full border-slate-200 text-slate-600 px-3 py-0.5">
                     {toLabel(profile.role)}
                   </Badge>
                 )}
                 {profile?.phone_verified && (
-                  <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/20">
-                    <CheckCircle2 className="w-3 h-3 mr-1" />
-                    Verified
+                  <Badge variant="outline" className="bg-emerald-50 text-emerald-800 border-emerald-200/60 font-mono text-xs rounded-full px-3 py-0.5">
+                    <CheckCircle2 className="w-3 h-3 mr-1 text-emerald-700" />
+                    Verified Personnel
                   </Badge>
                 )}
               </div>
-              <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
+              <div className="flex flex-wrap items-center gap-4 text-xs font-mono text-slate-500">
                 {profile?.email && (
-                  <div className="flex items-center gap-1">
-                    <Mail className="w-4 h-4" />
+                  <div className="flex items-center gap-1.5">
+                    <Mail className="w-3.5 h-3.5 text-emerald-700" />
                     <span>{profile.email}</span>
-            </div>
+                  </div>
                 )}
                 {profile?.phone && (
-                  <div className="flex items-center gap-1">
-                    <Phone className="w-4 h-4" />
+                  <div className="flex items-center gap-1.5">
+                    <Phone className="w-3.5 h-3.5 text-emerald-700" />
                     <span>{profile.phone}</span>
-          </div>
+                  </div>
                 )}
                 {profile?.created_at && (
-                  <div className="flex items-center gap-1">
-                    <Calendar className="w-4 h-4" />
-                    <span>Joined {formatDate(profile.created_at)}</span>
-            </div>
+                  <div className="flex items-center gap-1.5">
+                    <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                    <span>Commissioned {formatDate(profile.created_at)}</span>
+                  </div>
                 )}
-            </div>
+              </div>
             </div>
           </div>
-        </Card>
+        </div>
 
-        <div className="grid lg:grid-cols-3 gap-6">
+        <div className="grid lg:grid-cols-3 gap-8">
           {/* Main Content */}
-          <div className="lg:col-span-2 space-y-6">
+          <div className="lg:col-span-2 space-y-8">
             {/* Performance Statistics */}
-            <Card className="p-6">
-              <div className="flex items-center gap-2 mb-6">
-                <BarChart3 className="w-5 h-5 text-primary" />
-                <h3 className="text-xl font-semibold text-foreground">Performance Statistics</h3>
+            <div className="rounded-3xl border border-slate-200/90 bg-white p-6 sm:p-8 shadow-xs">
+              <div className="flex items-center gap-2.5 mb-6">
+                <BarChart3 className="w-5 h-5 text-emerald-800" />
+                <h3 className="text-xl font-bold font-display tracking-tight text-slate-950">
+                  Performance &amp; Resolution Statistics
+                </h3>
               </div>
           
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                <div className="text-center p-4 bg-gradient-to-br from-blue-50 to-blue-100/50 rounded-lg border border-blue-200/50">
-                  <div className="text-3xl font-bold text-foreground mb-1">
-                    {stats?.total_reports || 0}
+                <div className="text-center p-4 bg-slate-50 rounded-2xl border border-slate-200/80">
+                  <div className="text-3xl font-black font-display text-slate-950 mb-1 tabular-nums">
+                    <CountUp to={stats?.total_reports || 0} />
                   </div>
-              <div className="text-sm text-muted-foreground">Total Handled</div>
-            </div>
-                <div className="text-center p-4 bg-gradient-to-br from-green-50 to-green-100/50 rounded-lg border border-green-200/50">
-                  <div className="text-3xl font-bold text-foreground mb-1">
-                    {stats?.resolved_reports || 0}
-                  </div>
-              <div className="text-sm text-muted-foreground">Resolved</div>
-            </div>
-                <div className="text-center p-4 bg-gradient-to-br from-amber-50 to-amber-100/50 rounded-lg border border-amber-200/50">
-                  <div className="text-3xl font-bold text-foreground mb-1">
-                    {stats?.active_reports || 0}
-                  </div>
-              <div className="text-sm text-muted-foreground">Active</div>
-            </div>
-                <div className="text-center p-4 bg-gradient-to-br from-purple-50 to-purple-100/50 rounded-lg border border-purple-200/50">
-                  <div className="text-3xl font-bold text-foreground mb-1">
-                    {stats?.in_progress_reports || 0}
-                  </div>
-                  <div className="text-sm text-muted-foreground">In Progress</div>
+                  <div className="text-xs font-semibold text-slate-500 font-sans">Total Handled</div>
                 </div>
-          </div>
+                <div className="text-center p-4 bg-emerald-50/50 rounded-2xl border border-emerald-200/60">
+                  <div className="text-3xl font-black font-display text-emerald-900 mb-1 tabular-nums">
+                    <CountUp to={stats?.resolved_reports || 0} />
+                  </div>
+                  <div className="text-xs font-semibold text-emerald-800 font-sans">Resolved</div>
+                </div>
+                <div className="text-center p-4 bg-blue-50/50 rounded-2xl border border-blue-200/60">
+                  <div className="text-3xl font-black font-display text-blue-950 mb-1 tabular-nums">
+                    <CountUp to={stats?.active_reports || 0} />
+                  </div>
+                  <div className="text-xs font-semibold text-blue-800 font-sans">Active</div>
+                </div>
+                <div className="text-center p-4 bg-amber-50/50 rounded-2xl border border-amber-200/60">
+                  <div className="text-3xl font-black font-display text-amber-950 mb-1 tabular-nums">
+                    <CountUp to={stats?.in_progress_reports || 0} />
+                  </div>
+                  <div className="text-xs font-semibold text-amber-800 font-sans">In Progress</div>
+                </div>
+              </div>
 
-              <div className="space-y-4 pt-4 border-t">
+              <div className="space-y-4 pt-4 border-t border-slate-100">
                 <div className="flex justify-between items-center">
                   <div className="flex items-center gap-2">
-                    <Timer className="w-4 h-4 text-muted-foreground" />
-                    <span className="text-sm text-muted-foreground">Avg. Resolution Time</span>
+                    <Timer className="w-4 h-4 text-slate-400" />
+                    <span className="text-sm text-slate-600">Avg. Resolution Turnaround</span>
                   </div>
-                  <span className="text-sm font-semibold text-foreground">
+                  <span className="text-sm font-mono font-bold text-slate-900">
                     {stats?.avg_resolution_time_days && stats.avg_resolution_time_days > 0
-                  ? `${stats.avg_resolution_time_days.toFixed(1)} days`
+                      ? `${stats.avg_resolution_time_days.toFixed(1)} days`
                       : 'N/A'}
-              </span>
-            </div>
+                  </span>
+                </div>
                 
                 <div className="flex justify-between items-center">
                   <div className="flex items-center gap-2">
-                    <Activity className="w-4 h-4 text-muted-foreground" />
-                    <span className="text-sm text-muted-foreground">Workload Capacity</span>
+                    <Activity className="w-4 h-4 text-slate-400" />
+                    <span className="text-sm text-slate-600">Workload Capacity Level</span>
                   </div>
                   <Badge 
                     variant="outline"
-                    className={
-                      capacityLevel === 'available' ? 'bg-green-50 text-green-700 border-green-200' :
-                      capacityLevel === 'moderate' ? 'bg-blue-50 text-blue-700 border-blue-200' :
-                      capacityLevel === 'high' ? 'bg-amber-50 text-amber-700 border-amber-200' :
-                      'bg-red-50 text-red-700 border-red-200'
-                    }
+                    className={`font-mono text-xs rounded-full px-3 py-0.5 ${
+                      capacityLevel === 'available' ? 'bg-emerald-50 text-emerald-800 border-emerald-200/60' :
+                      capacityLevel === 'moderate' ? 'bg-blue-50 text-blue-800 border-blue-200/60' :
+                      capacityLevel === 'high' ? 'bg-amber-50 text-amber-800 border-amber-200/60' :
+                      'bg-red-50 text-red-800 border-red-200/60'
+                    }`}
                   >
                     {toLabel(capacityLevel)}
                   </Badge>
-            </div>
+                </div>
                 
                 <div>
                   <div className="flex justify-between items-center mb-2">
-              <div className="flex items-center gap-2">
-                      <TrendingUp className="w-4 h-4 text-muted-foreground" />
-                      <span className="text-sm text-muted-foreground">Workload Score</span>
+                    <div className="flex items-center gap-2">
+                      <TrendingUp className="w-4 h-4 text-slate-400" />
+                      <span className="text-sm text-slate-600">Current Workload Score</span>
                     </div>
-                    <span className="text-sm font-semibold text-foreground">
+                    <span className="text-sm font-mono font-bold text-slate-900">
                       {(stats?.workload_score || 0).toFixed(2)}
                     </span>
                   </div>
-                  <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
-                  <div 
-                      className={`h-full transition-all ${
-                        capacityLevel === 'available' ? 'bg-gradient-to-r from-green-500 to-green-600' :
-                        capacityLevel === 'moderate' ? 'bg-gradient-to-r from-blue-500 to-blue-600' :
-                        capacityLevel === 'high' ? 'bg-gradient-to-r from-amber-500 to-amber-600' :
-                        'bg-gradient-to-r from-red-500 to-red-600'
-                    }`}
+                  <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
+                    <div 
+                      className={`h-full transition-all duration-500 rounded-full ${
+                        capacityLevel === 'available' ? 'bg-emerald-600' :
+                        capacityLevel === 'moderate' ? 'bg-blue-600' :
+                        capacityLevel === 'high' ? 'bg-amber-500' :
+                        'bg-red-500'
+                      }`}
                       style={{
                         width: `${Math.min((stats?.workload_score || 0) * 100, 100)}%`
                       }}
-                  />
+                    />
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
-        </Card>
 
-        {/* Account Information */}
-        <Card className="p-6">
-              <div className="flex items-center gap-2 mb-6">
-                <User className="w-5 h-5 text-primary" />
-                <h3 className="text-xl font-semibold text-foreground">Account Information</h3>
+            {/* Account Information */}
+            <div className="rounded-3xl border border-slate-200/90 bg-white p-6 sm:p-8 shadow-xs">
+              <div className="flex items-center gap-2.5 mb-6">
+                <User className="w-5 h-5 text-emerald-800" />
+                <h3 className="text-xl font-bold font-display tracking-tight text-slate-950">
+                  Account Credentials &amp; Verification
+                </h3>
               </div>
               
               <div className="space-y-3">
-                <div className="flex justify-between items-center p-4 bg-muted/50 rounded-lg border">
+                <div className="flex justify-between items-center p-4 bg-slate-50/70 rounded-2xl border border-slate-200/70">
                   <div className="flex items-center gap-3">
-                    <Shield className="w-5 h-5 text-muted-foreground" />
+                    <Shield className="w-5 h-5 text-emerald-700" />
                     <div>
-                      <span className="text-sm font-medium text-foreground">Account Status</span>
-                      <p className="text-xs text-muted-foreground">Your account activation status</p>
+                      <span className="text-sm font-semibold text-slate-900">Account Authorization</span>
+                      <p className="text-xs text-slate-500 font-sans">Active field dispatch privilege status</p>
                     </div>
                   </div>
-                  <Badge variant={profile?.is_active ? "default" : "destructive"}>
-                    {profile?.is_active ? 'Active' : 'Inactive'}
-              </Badge>
-            </div>
-                
-            {/* Phone Verification */}
-            <div className="p-4 bg-muted/50 rounded-lg border">
-              <div className="flex justify-between items-start mb-3">
-                <div className="flex items-center gap-3">
-                  <Phone className="w-5 h-5 text-muted-foreground" />
-                  <div>
-                    <span className="text-sm font-medium text-foreground">Phone Verification</span>
-                    <p className="text-xs text-muted-foreground">{profile?.phone || user?.phone}</p>
-                  </div>
-                </div>
-                <Badge variant={verificationStatus?.phone.verified ? "default" : "outline"}
-                       className={verificationStatus?.phone.verified ? "bg-green-500/10 text-green-600 border-green-500/20" : "text-amber-600 border-amber-200"}>
-                  <div className="flex items-center gap-1">
-                    {verificationStatus?.phone.verified ? <CheckCircle2 className="w-3 h-3" /> : <Clock className="w-3 h-3" />}
-                    {verificationStatus?.phone.verified ? 'Verified' : 'Not Verified'}
-                  </div>
-                </Badge>
-              </div>
-              
-              {!verificationStatus?.phone.verified && (
-                <div className="mt-3 space-y-2">
-                  <div className="flex gap-2">
-                    <Input
-                      placeholder="OTP"
-                      value={phoneOTP}
-                      onChange={(e) => setPhoneOTP(e.target.value)}
-                      className="h-9 text-sm"
-                      maxLength={6}
-                    />
-                    {phoneOTP && (
-                      <div className="mt-2 flex items-center gap-2 p-2 bg-amber-500/10 border border-amber-500/20 rounded-md text-[10px] text-amber-600 font-mono">
-                        <Shield className="w-3 h-3" />
-                        <span>Demo OTP: {phoneOTP}</span>
-                      </div>
-                    )}
-                    <Button 
-                      onClick={handleVerifyPhone}
-                      disabled={verifyingPhone || !phoneOTP}
-                      size="sm"
-                      className="h-9 px-4"
-                    >
-                      {verifyingPhone ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Verify'}
-                    </Button>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={handleSendPhoneVerification}
-                    disabled={verifyingPhone}
-                    className="w-full h-8 text-xs text-secondary hover:text-secondary-foreground"
+                  <Badge 
+                    className={`font-mono text-xs rounded-full px-3 py-0.5 ${
+                      profile?.is_active 
+                        ? 'bg-emerald-50 text-emerald-800 border-emerald-200/60' 
+                        : 'bg-red-50 text-red-800 border-red-200/60'
+                    }`}
                   >
-                    {verifyingPhone ? <Loader2 className="w-3 h-3 mr-2 animate-spin" /> : <RefreshCw className="w-3 h-3 mr-2" />}
-                    Resend OTP
-                  </Button>
-                </div>
-              )}
-            </div>
-                
-            {/* Email Verification */}
-            <div className="p-4 bg-muted/50 rounded-lg border">
-              <div className="flex justify-between items-start mb-3">
-                <div className="flex items-center gap-3">
-                  <Mail className="w-5 h-5 text-muted-foreground" />
-                  <div>
-                    <span className="text-sm font-medium text-foreground">Email Verification</span>
-                    <p className="text-xs text-muted-foreground">{profile?.email || 'No email set'}</p>
-                  </div>
-                </div>
-                <Badge variant={verificationStatus?.email.verified ? "default" : "outline"}
-                       className={verificationStatus?.email.verified ? "bg-green-500/10 text-green-600 border-green-500/20" : "text-amber-600 border-amber-200"}>
-                  <div className="flex items-center gap-1">
-                    {verificationStatus?.email.verified ? <CheckCircle2 className="w-3 h-3" /> : <Clock className="w-3 h-3" />}
-                    {verificationStatus?.email.verified ? 'Verified' : 'Not Verified'}
-                  </div>
-                </Badge>
-              </div>
-              
-              {!verificationStatus?.email.verified && (profile?.email || user?.email) && (
-                <div className="mt-3 space-y-2">
-                  <div className="flex gap-2">
-                    <Input
-                      placeholder="Token"
-                      value={emailToken}
-                      onChange={(e) => setEmailToken(e.target.value)}
-                      className="h-9 text-sm"
-                    />
-                    {emailToken && (
-                      <div className="mt-2 flex items-center gap-2 p-2 bg-amber-500/10 border border-amber-500/20 rounded-md text-[10px] text-amber-600 font-mono">
-                        <Shield className="w-3 h-3" />
-                        <span>Demo Token: {emailToken}</span>
-                      </div>
-                    )}
-                    <Button 
-                      onClick={handleVerifyEmail}
-                      disabled={verifyingEmail || !emailToken}
-                      size="sm"
-                      className="h-9 px-4"
-                    >
-                      {verifyingEmail ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Verify'}
-                    </Button>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={handleSendEmailVerification}
-                    disabled={verifyingEmail}
-                    className="w-full h-8 text-xs text-secondary hover:text-secondary-foreground"
-                  >
-                    {verifyingEmail ? <Loader2 className="w-3 h-3 mr-2 animate-spin" /> : <Mail className="w-3 h-3 mr-2" />}
-                    Send Verification Email
-                  </Button>
-                </div>
-              )}
-            </div>
-                
-                <div className="flex justify-between items-center p-4 bg-muted/50 rounded-lg border">
-                  <div className="flex items-center gap-3">
-                    <Star className="w-5 h-5 text-muted-foreground" />
-                    <div>
-                      <span className="text-sm font-medium text-foreground">Reputation Score</span>
-                      <p className="text-xs text-muted-foreground">Your overall reputation points</p>
-              </div>
-            </div>
-                <div className="flex items-center gap-2">
-                    <Award className="w-4 h-4 text-amber-500" />
-                    <span className="font-semibold text-foreground">{profile?.reputation_score || 0}</span>
-                    <span className="text-xs text-muted-foreground">points</span>
-                  </div>
+                    {profile?.is_active ? 'Active & Authorized' : 'Suspended'}
+                  </Badge>
                 </div>
                 
-                {profile?.created_at && (
-                  <div className="flex justify-between items-center p-4 bg-muted/50 rounded-lg border">
+                {/* Phone Verification */}
+                <div className="p-4 bg-slate-50/70 rounded-2xl border border-slate-200/70">
+                  <div className="flex justify-between items-start mb-3">
                     <div className="flex items-center gap-3">
-                      <Calendar className="w-5 h-5 text-muted-foreground" />
+                      <Phone className="w-5 h-5 text-emerald-700" />
                       <div>
-                        <span className="text-sm font-medium text-foreground">Member Since</span>
-                        <p className="text-xs text-muted-foreground">Account creation date</p>
+                        <span className="text-sm font-semibold text-slate-900">Official Mobile Dispatch</span>
+                        <p className="text-xs font-mono text-slate-500">{profile?.phone || user?.phone || 'No phone set'}</p>
                       </div>
                     </div>
-                    <span className="text-sm font-medium text-foreground">
-                      {formatDate(profile.created_at)}
+                    <Badge 
+                      variant="outline"
+                      className={`font-mono text-xs rounded-full px-3 py-0.5 ${
+                        verificationStatus?.phone.verified 
+                          ? "bg-emerald-50 text-emerald-800 border-emerald-200/60" 
+                          : "bg-amber-50 text-amber-800 border-amber-200/60"
+                      }`}
+                    >
+                      <div className="flex items-center gap-1.5">
+                        {verificationStatus?.phone.verified ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> : <Clock className="w-3.5 h-3.5 text-amber-600" />}
+                        {verificationStatus?.phone.verified ? 'Verified' : 'Pending OTP'}
+                      </div>
+                    </Badge>
+                  </div>
+                  
+                  {!verificationStatus?.phone.verified && (
+                    <div className="mt-3 space-y-2">
+                      <div className="flex gap-2">
+                        <Input
+                          placeholder="OTP"
+                          value={phoneOTP}
+                          onChange={(e) => setPhoneOTP(e.target.value)}
+                          className="h-10 text-sm font-mono rounded-xl border-slate-200 bg-white"
+                          maxLength={6}
+                        />
+                        {phoneOTP && (
+                          <div className="flex items-center gap-2 px-3 py-1 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-800 font-mono">
+                            <Shield className="w-3 h-3" />
+                            <span>Demo OTP: {phoneOTP}</span>
+                          </div>
+                        )}
+                        <Button 
+                          onClick={handleVerifyPhone}
+                          disabled={verifyingPhone || !phoneOTP}
+                          size="sm"
+                          className="h-10 px-5 rounded-full bg-[#0a2e2a] hover:bg-[#072421] text-white font-semibold active:scale-[0.98]"
+                        >
+                          {verifyingPhone ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Verify'}
+                        </Button>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleSendPhoneVerification}
+                        disabled={verifyingPhone}
+                        className="w-full h-8 text-xs text-emerald-800 hover:text-emerald-900 active:scale-[0.98]"
+                      >
+                        {verifyingPhone ? <Loader2 className="w-3 h-3 mr-2 animate-spin" /> : <RefreshCw className="w-3 h-3 mr-2" />}
+                        Resend Verification OTP
+                      </Button>
+                    </div>
+                  )}
+                </div>
+                
+                {/* Email Verification */}
+                <div className="p-4 bg-slate-50/70 rounded-2xl border border-slate-200/70">
+                  <div className="flex justify-between items-start">
+                    <div className="flex items-center gap-3">
+                      <Mail className="w-5 h-5 text-emerald-700" />
+                      <div>
+                        <span className="text-sm font-semibold text-slate-900">Email Address</span>
+                        <p className="text-xs font-mono text-slate-500">{profile?.email || 'No email set'}</p>
+                      </div>
+                    </div>
+                    <Badge variant="outline" className="font-mono text-xs rounded-full bg-emerald-50 text-emerald-800 border-emerald-200/60 px-3 py-0.5">
+                      <CheckCircle2 className="w-3 h-3 mr-1 text-emerald-600" />
+                      Official Domain
+                    </Badge>
+                  </div>
+                </div>
+
+                {profile?.last_login && (
+                  <div className="flex justify-between items-center p-4 bg-slate-50/70 rounded-2xl border border-slate-200/70">
+                    <div className="flex items-center gap-3">
+                      <Clock className="w-5 h-5 text-slate-400" />
+                      <div>
+                        <span className="text-sm font-semibold text-slate-900">Last Telemetry Check-in</span>
+                        <p className="text-xs text-slate-500 font-sans">Most recent session timestamp</p>
+                      </div>
+                    </div>
+                    <span className="text-xs font-mono text-slate-500">
+                      {formatDate(profile.last_login)}
                     </span>
                   </div>
                 )}
-                
-                {profile?.last_login && (
-                  <div className="flex justify-between items-center p-4 bg-muted/50 rounded-lg border">
-                    <div className="flex items-center gap-3">
-                      <Clock className="w-5 h-5 text-muted-foreground" />
-                      <div>
-                        <span className="text-sm font-medium text-foreground">Last Login</span>
-                        <p className="text-xs text-muted-foreground">Most recent login time</p>
-                      </div>
-                    </div>
-                    <span className="text-sm font-medium text-foreground">
-                      {formatDate(profile.last_login)}
-                    </span>
               </div>
-            )}
-          </div>
-        </Card>
+            </div>
           </div>
 
           {/* Sidebar */}
           <div className="space-y-6">
             {/* Quick Actions */}
-            <Card className="p-6">
+            <div className="rounded-3xl border border-slate-200/90 bg-white p-6 shadow-xs">
               <div className="flex items-center gap-2 mb-4">
-                <Target className="w-5 h-5 text-primary" />
-                <h4 className="font-semibold text-foreground">Quick Actions</h4>
+                <Target className="w-5 h-5 text-emerald-800" />
+                <h4 className="font-bold font-display tracking-tight text-slate-950">Quick Actions</h4>
               </div>
-        <div className="space-y-2">
+              <div className="space-y-2">
                 <Button 
                   variant="outline" 
-                  className="w-full justify-start"
+                  className="w-full justify-start rounded-full border-slate-200 hover:bg-slate-50 text-slate-700 font-medium active:scale-[0.98] transition-all"
                   onClick={() => {
                     showToast.info("Coming Soon", {
                       description: "Profile editing will be available in a future update.",
                     });
                   }}
                 >
-                  <Edit className="w-4 h-4 mr-2" />
-            Edit Profile
-          </Button>
+                  <Edit className="w-4 h-4 mr-2 text-slate-400" />
+                  Edit Profile
+                </Button>
                 <Button 
                   variant="outline" 
-                  className="w-full justify-start"
+                  className="w-full justify-start rounded-full border-slate-200 hover:bg-slate-50 text-slate-700 font-medium active:scale-[0.98] transition-all"
                   onClick={() => {
                     showToast.info("Coming Soon", {
                       description: "Password change will be available in a future update.",
                     });
                   }}
                 >
-                  <KeyRound className="w-4 h-4 mr-2" />
-            Change Password
-          </Button>
+                  <KeyRound className="w-4 h-4 mr-2 text-slate-400" />
+                  Change Security Pin
+                </Button>
                 <Button 
                   variant="outline" 
-                  className="w-full justify-start"
+                  className="w-full justify-start rounded-full border-slate-200 hover:bg-slate-50 text-slate-700 font-medium active:scale-[0.98] transition-all"
                   onClick={() => navigate('/officer/tasks')}
                 >
-                  <FileText className="w-4 h-4 mr-2" />
-                  View All Tasks
+                  <FileText className="w-4 h-4 mr-2 text-slate-400" />
+                  View All Tasks Queue
                 </Button>
                 <Button 
                   variant="outline" 
-                  className="w-full justify-start"
+                  className="w-full justify-start rounded-full border-slate-200 hover:bg-slate-50 text-slate-700 font-medium active:scale-[0.98] transition-all"
                   onClick={() => navigate('/officer/dashboard')}
                 >
-                  <Activity className="w-4 h-4 mr-2" />
-                  Dashboard
+                  <Activity className="w-4 h-4 mr-2 text-slate-400" />
+                  Operations Dashboard
                 </Button>
               </div>
-            </Card>
+            </div>
 
             {/* Workload Status */}
             {stats && (
-              <Card className="p-6 bg-gradient-to-br from-secondary/10 via-secondary/5 to-accent/10 border-secondary/20">
-                <div className="flex items-center gap-2 mb-4">
-                  <TrendingUp className="w-5 h-5 text-secondary" />
-                  <h4 className="font-semibold text-foreground">Workload Status</h4>
+              <div className="rounded-3xl border border-slate-200/90 bg-white p-6 shadow-xs">
+                <div className="flex items-center gap-2 mb-3">
+                  <TrendingUp className="w-5 h-5 text-emerald-800" />
+                  <h4 className="font-bold font-display tracking-tight text-slate-950">Workload Guidance</h4>
                 </div>
-                <p className="text-sm text-muted-foreground mb-4">
+                <p className="text-xs text-slate-500 leading-relaxed mb-4 font-sans">
                   {capacityLevel === 'available' && 
-                    'You have capacity for more tasks. Great work maintaining efficiency!'}
+                    'You have optimal capacity for additional field assignments. Resolution efficiency is within top municipal percentiles.'}
                   {capacityLevel === 'moderate' && 
-                    'You have a balanced workload. Keep up the excellent work!'}
+                    'Your active queue is balanced. Maintain steady progress on current priority tasks.'}
                   {capacityLevel === 'high' && 
-                    'You have a high workload. Focus on completing current tasks before taking on more.'}
+                    'Active operational load is high. Complete in-progress assignments before accepting further field dispatches.'}
                   {capacityLevel === 'overloaded' && 
-                    'You are currently overloaded. Please prioritize critical tasks and consider requesting assistance.'}
+                    'Queue capacity limit reached. Prioritize urgent municipal safety concerns and request crew reinforcement.'}
                   {(capacityLevel === 'unknown' || !stats?.capacity_level) && 
-                    'Workload status will appear here once you start receiving tasks.'}
+                    'Workload telemetry will populate as field assignments are fulfilled.'}
                 </p>
-                <div className="flex items-center gap-2 text-sm font-medium text-secondary">
-                  <Activity className="w-4 h-4" />
-                  <span>
-                    {capacityLevel === 'available' ? 'Ready for Tasks' :
-                     capacityLevel === 'moderate' ? 'Balanced Workload' :
-                     capacityLevel === 'high' ? 'High Workload' :
-                     capacityLevel === 'overloaded' ? 'Overloaded' :
-                     'No Data'}
+                <div className="flex items-center gap-2 text-xs font-medium text-emerald-800 bg-emerald-50/70 border border-emerald-200/60 p-3 rounded-2xl">
+                  <Activity className="w-4 h-4 text-emerald-700" />
+                  <span className="font-mono">
+                    {capacityLevel === 'available' ? 'Status: Ready for Task Ingestion' :
+                     capacityLevel === 'moderate' ? 'Status: Balanced Operational Queue' :
+                     capacityLevel === 'high' ? 'Status: High Field Volume' :
+                     capacityLevel === 'overloaded' ? 'Status: Critical Load' :
+                     'Status: Telemetry Pending'}
                   </span>
                 </div>
-              </Card>
+              </div>
             )}
 
             {/* Logout */}
-            <Card className="p-6 border-destructive/20">
-          <Button 
-            variant="destructive" 
-                className="w-full"
-            onClick={handleLogout}
-          >
-            <LogOut className="w-4 h-4 mr-2" />
-            Logout
-          </Button>
-            </Card>
+            <div className="rounded-3xl border border-red-200/60 bg-white p-6 shadow-xs">
+              <Button 
+                variant="destructive" 
+                className="w-full rounded-full bg-red-600 hover:bg-red-700 text-white font-semibold h-11 active:scale-[0.98] transition-all shadow-xs"
+                onClick={handleLogout}
+              >
+                <LogOut className="w-4 h-4 mr-2" />
+                Sign Out of Officer Terminal
+              </Button>
+            </div>
           </div>
         </div>
       </div>

@@ -11,19 +11,22 @@ import {
   MapPin,
   RefreshCw,
   LayoutGrid,
+  Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { showToast } from "@/lib/utils/toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { authService } from "@/services/authService";
 import { isOfficer, isCitizen } from "@/utils/authHelpers";
 import { APP_CONFIG, getCopyrightText } from "@/config/appConfig";
 import { SEO } from "@/components/SEO";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { Logo } from "@/components/brand/Logo";
 
 // ─── Auth flow types ──────────────────────────────────────────────────────────
 type Screen = "credentials" | "otp";
@@ -45,19 +48,19 @@ function useCountdown(initial: number, active: boolean) {
 // ─── Demo OTP banner ──────────────────────────────────────────────────────────
 function DemoOtpBanner({ otp }: { otp: string }) {
   return (
-    <div className="flex items-center gap-3 p-3 bg-amber-50 border border-amber-200 rounded-xl text-sm">
-      <div className="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center flex-shrink-0">
-        <Shield className="w-4 h-4 text-amber-600" />
+    <div className="flex items-center gap-3 p-3 bg-warning/10 border border-warning/30 rounded-xl text-sm">
+      <div className="w-8 h-8 rounded-lg bg-warning/10 flex items-center justify-center flex-shrink-0">
+        <Shield className="w-4 h-4 text-warning" />
       </div>
       <div>
-        <p className="text-xs font-semibold text-amber-700 uppercase tracking-wide">
+        <p className="text-xs font-semibold text-warning uppercase tracking-wide">
           Demo Environment
         </p>
-        <p className="font-mono font-bold text-amber-800 text-base tracking-widest">
+        <p className="font-mono font-bold text-warning text-base tracking-widest">
           {otp}
         </p>
       </div>
-      <Badge variant="outline" className="ml-auto text-xs border-amber-300 text-amber-600">
+      <Badge variant="outline" className="ml-auto text-xs border-warning/30 text-warning">
         OTP
       </Badge>
     </div>
@@ -71,6 +74,7 @@ function SandboxCredCard({
   password: pwd,
   accent,
   onApply,
+  onAutoLogin,
   disabled,
 }: {
   role: string;
@@ -78,22 +82,40 @@ function SandboxCredCard({
   password: string;
   accent: string;
   onApply: () => void;
+  onAutoLogin: () => void;
   disabled: boolean;
 }) {
   return (
-    <button
-      type="button"
-      onClick={onApply}
-      disabled={disabled}
-      className="flex flex-col gap-1.5 p-3.5 bg-muted/60 hover:bg-muted border rounded-xl text-left transition-all hover:border-border group disabled:opacity-50 disabled:cursor-not-allowed"
-    >
-      <div className={`flex items-center gap-1.5 ${accent}`}>
-        <LayoutGrid className="w-3.5 h-3.5" />
-        <span className="text-xs font-semibold uppercase tracking-wide">{role}</span>
+    <div className="flex flex-col justify-between p-3.5 bg-muted/60 hover:bg-muted border border-border/80 rounded-xl text-left transition-all group">
+      <div>
+        <div className={`flex items-center gap-1.5 ${accent}`}>
+          <LayoutGrid className="w-3.5 h-3.5" />
+          <span className="text-xs font-bold uppercase tracking-wide">{role}</span>
+        </div>
+        <span className="font-mono text-xs text-foreground/90 font-medium block mt-1">{phone}</span>
+        <span className="text-meta text-muted-foreground block">Pwd: {pwd}</span>
       </div>
-      <span className="font-mono text-xs text-foreground/80 font-medium">{phone}</span>
-      <span className="text-[10px] text-muted-foreground">Password: {pwd}</span>
-    </button>
+      <div className="mt-2.5 flex items-center gap-1.5">
+        <button
+          type="button"
+          onClick={onAutoLogin}
+          disabled={disabled}
+          className="flex-1 py-1 px-2 rounded-md bg-secondary text-secondary-foreground text-meta font-semibold hover:opacity-90 transition-opacity active:scale-95 disabled:opacity-50 inline-flex items-center justify-center gap-1"
+        >
+          <Sparkles className="w-3 h-3" />
+          1-Click
+        </button>
+        <button
+          type="button"
+          onClick={onApply}
+          disabled={disabled}
+          className="py-1 px-2 rounded-md border border-border text-meta text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
+          title="Fill form only"
+        >
+          Fill
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -293,40 +315,71 @@ const OfficerLogin = () => {
     showToast.success("Sandbox Credentials Applied", { description: `${label} credentials filled in.` });
   };
 
+  // ── 1-Click Direct Demo Officer Login ─────────────────────────────────────────
+  const handleDirectDemoLogin = async (ph: string, pw: string, label: string) => {
+    setPhone(ph);
+    setPassword(pw);
+    setPhoneError(null);
+    setPasswordError(null);
+    setLoading(true);
+    try {
+      const np = normalizePhone(ph);
+      const res = await authService.login(np, pw, "officer");
+      if (res.access_token) {
+        await login(res.access_token, res.refresh_token);
+        showToast.success(`Signed in as ${label}`, { description: "Officer session activated." });
+        navigate("/officer/dashboard");
+      }
+    } catch (err: any) {
+      showToast.error("Demo Officer Login Failed", { description: err.response?.data?.detail || "Could not auto-login." });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // ─────────────────────────────────────────────────────────────────────────────
 
   return (
     <>
       <SEO
+        noindex
         title={`Officer Login — ${APP_CONFIG.appName}`}
         description={`Secure officer portal for ${APP_CONFIG.orgName} personnel. Manage and resolve civic issues.`}
       />
 
-      <div className="min-h-screen bg-background flex flex-col">
-        {/* ── Navbar ──────────────────────────────────────────────────────────── */}
-        <header className="border-b bg-card/80 backdrop-blur-md sticky top-0 z-50">
-          <div className="container mx-auto px-4 py-3">
-            <div className="flex items-center justify-between">
-              <button
-                onClick={() => navigate("/")}
-                className="flex items-center gap-3 hover:opacity-80 transition-opacity"
-              >
-                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-secondary to-accent flex items-center justify-center shadow-sm">
-                  <MapPin className="w-4 h-4 text-white" />
-                </div>
-                <div>
-                  <h1 className="text-base font-bold text-foreground">{APP_CONFIG.appName}</h1>
-                  <p className="text-[11px] text-muted-foreground hidden sm:block">Officer Portal</p>
-                </div>
-              </button>
+      <div className="min-h-dvh bg-[#fbfcfd] text-slate-900 flex flex-col selection:bg-emerald-500/20 relative">
+        {/* ── Background Dot Texture & Ambient Radiance ───────────────────────── */}
+        <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden" aria-hidden="true">
+          <div
+            className="absolute inset-0 opacity-[0.35]"
+            style={{
+              backgroundImage: `radial-gradient(circle at 1px 1px, #cbd5e1 1px, transparent 0)`,
+              backgroundSize: "32px 32px",
+            }}
+          />
+          <div className="absolute top-10 right-[15%] h-[400px] w-[400px] rounded-full bg-emerald-500/08 blur-[120px]" />
+          <div className="absolute bottom-10 left-[10%] h-[400px] w-[400px] rounded-full bg-teal-500/08 blur-[120px]" />
+        </div>
 
+        {/* ── Top Navbar ──────────────────────────────────────────────────────── */}
+        <header className="border-b border-slate-200/90 bg-white/95 backdrop-blur-2xl sticky top-0 z-50">
+          <div className="container !px-5 max-w-7xl mx-auto py-3.5 flex items-center justify-between">
+            <Link
+              to="/"
+              aria-label="CivicLens home"
+              className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+            >
+              <Logo name="CivicLens" />
+            </Link>
+
+            <div className="flex items-center gap-2">
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => navigate("/")}
-                className="gap-2 text-muted-foreground"
+                className="gap-1.5 rounded-full text-xs font-semibold text-slate-700 hover:bg-slate-100"
               >
-                <ArrowLeft className="w-4 h-4" />
+                <ArrowLeft className="w-3.5 h-3.5" />
                 <span className="hidden sm:inline">Back to Home</span>
               </Button>
             </div>
@@ -334,31 +387,27 @@ const OfficerLogin = () => {
         </header>
 
         {/* ── Main content ─────────────────────────────────────────────────────── */}
-        <main className="flex-1 flex items-center justify-center px-4 py-10">
-          {/* Background decoration */}
-          <div className="fixed inset-0 pointer-events-none overflow-hidden">
-            <div className="absolute top-0 right-1/4 w-96 h-96 bg-secondary/5 rounded-full blur-3xl" />
-            <div className="absolute bottom-0 left-1/4 w-80 h-80 bg-accent/5 rounded-full blur-3xl" />
-          </div>
-
-          <div className="w-full max-w-md relative">
+        <main className="flex-1 flex items-center justify-center px-4 py-12 relative z-10">
+          <div className="w-full max-w-md">
             {/* Hero header */}
             {screen === "credentials" && (
               <div className="text-center mb-8">
-                <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-secondary/10 text-secondary rounded-full text-xs font-semibold mb-4 border border-secondary/20">
-                  <Shield className="w-3.5 h-3.5" />
-                  Authorized Personnel Only
+                <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/20 bg-white/80 px-3.5 py-1 text-xs font-semibold text-[#0d5c4d] shadow-xs backdrop-blur-md mb-4">
+                  <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                  <span>OFFICER & ADMIN ACCESS</span>
+                  <span className="text-slate-300">•</span>
+                  <span className="font-mono text-emerald-700 font-bold">FIELD PORTAL</span>
                 </div>
-                <h2 className="text-2xl font-extrabold text-foreground">
+                <h2 className="font-display text-2xl sm:text-3xl font-extrabold text-slate-950 tracking-tight">
                   Officer Sign In
                 </h2>
-                <p className="text-sm text-muted-foreground mt-2">
-                  {APP_CONFIG.orgName} · Secure Access
+                <p className="text-xs sm:text-sm text-slate-600 mt-2 max-w-sm mx-auto leading-relaxed">
+                  Municipal operations dashboard for assigned task resolution and verified closures.
                 </p>
               </div>
             )}
 
-            <Card className="p-7 shadow-xl border bg-card">
+            <div className="rounded-3xl border border-slate-200/90 bg-white p-7 sm:p-9 shadow-xs">
               {/* ── Credentials screen ──────────────────────────────────────── */}
               {screen === "credentials" && (
                 <div className="space-y-5">
@@ -461,7 +510,7 @@ const OfficerLogin = () => {
                   {/* Login button */}
                   <Button
                     onClick={handleLogin}
-                    className="w-full bg-gradient-to-r from-secondary to-accent hover:opacity-90 transition-opacity"
+                    className="w-full bg-[#0a2e2a] hover:bg-[#072421] text-white rounded-full font-semibold transition-all active:scale-[0.98] shadow-xs h-11"
                     size="lg"
                     disabled={loading || !phone || !password}
                   >
@@ -490,6 +539,7 @@ const OfficerLogin = () => {
                         password="Officer@123"
                         accent="text-secondary"
                         onApply={() => applyCreds("9876543210", "Officer@123", "Field Officer")}
+                        onAutoLogin={() => handleDirectDemoLogin("9876543210", "Officer@123", "Field Officer")}
                         disabled={loading}
                       />
                       <SandboxCredCard
@@ -498,6 +548,7 @@ const OfficerLogin = () => {
                         password="Admin123!"
                         accent="text-primary"
                         onApply={() => applyCreds("9999999999", "Admin123!", "System Admin")}
+                        onAutoLogin={() => handleDirectDemoLogin("9999999999", "Admin123!", "System Admin")}
                         disabled={loading}
                       />
                     </div>
@@ -527,7 +578,7 @@ const OfficerLogin = () => {
                   </div>
 
                   <div className="text-center">
-                    <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-secondary to-accent flex items-center justify-center mx-auto mb-4 shadow-lg shadow-secondary/20">
+                    <div className="w-14 h-14 rounded-2xl bg-secondary flex items-center justify-center mx-auto mb-4 shadow-lg shadow-secondary/20">
                       <Shield className="w-7 h-7 text-white" />
                     </div>
                     <h2 className="text-xl font-bold text-foreground">Two-Factor Verification</h2>
@@ -583,7 +634,7 @@ const OfficerLogin = () => {
 
                   <Button
                     onClick={handleVerifyOtp}
-                    className="w-full bg-gradient-to-r from-secondary to-accent hover:opacity-90 transition-opacity"
+                    className="w-full bg-[#0a2e2a] hover:bg-[#072421] text-white rounded-full font-semibold transition-all active:scale-[0.98] shadow-xs h-11"
                     size="lg"
                     disabled={loading || otp.length < 6}
                   >
@@ -595,12 +646,12 @@ const OfficerLogin = () => {
                   </Button>
                 </div>
               )}
-            </Card>
+            </div>
           </div>
         </main>
 
         {/* ── Footer ────────────────────────────────────────────────────────────── */}
-        <footer className="border-t bg-card/50 py-5 text-center text-xs text-muted-foreground">
+        <footer className="border-t border-slate-200/80 bg-white/80 py-5 text-center text-xs text-slate-500 font-mono">
           {getCopyrightText()}
         </footer>
       </div>

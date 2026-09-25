@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
+import { ListSkeleton } from "@/components/feedback/Skeletons";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -134,11 +135,11 @@ const Reports = () => {
 
   const getStatusColor = useCallback((status: string): string => {
     const s = status.toLowerCase();
-    if (s === 'resolved') return 'bg-green-500';
-    if (s === 'closed') return 'bg-gray-500';
-    if (s === 'rejected') return 'bg-red-500';
-    if (['in_progress', 'acknowledged'].includes(s)) return 'bg-blue-500';
-    return 'bg-amber-500';
+    if (s === 'resolved') return 'bg-success';
+    if (s === 'closed') return 'bg-muted-foreground';
+    if (s === 'rejected') return 'bg-danger';
+    if (['in_progress', 'acknowledged'].includes(s)) return 'bg-info';
+    return 'bg-warning';
   }, []);
 
   const getStatusIcon = useCallback((status: string) => {
@@ -191,8 +192,8 @@ const Reports = () => {
     const statusColor = getStatusColor(report.status);
 
     return (
-      <Card
-        className="p-6 hover:shadow-lg hover:border-primary/30 transition-all cursor-pointer group"
+      <div
+        className="rounded-3xl border border-slate-200/90 bg-white p-6 shadow-xs hover:border-emerald-500/40 hover:shadow-md transition-all cursor-pointer group"
         onClick={() => navigate(`/citizen/track/${report.id}`)}
         role="button"
         tabIndex={0}
@@ -204,67 +205,69 @@ const Reports = () => {
         }}
         aria-label={`View report ${report.report_number}`}
       >
-        <div className="flex items-start justify-between mb-4">
+        <div className="flex items-start justify-between gap-4 mb-4">
           <div className="flex items-start gap-4 flex-1 min-w-0">
             <div
-              className={`w-12 h-12 rounded-xl ${statusColor} flex items-center justify-center flex-shrink-0 shadow-sm group-hover:scale-110 transition-transform`}
+              className={`w-12 h-12 rounded-2xl ${statusColor} flex items-center justify-center flex-shrink-0 shadow-xs group-hover:scale-105 transition-transform`}
               aria-hidden="true"
             >
               <StatusIcon className="w-6 h-6 text-white" />
             </div>
             <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-2">
-                <Badge variant="outline" className="text-xs font-mono shrink-0">{report.report_number}</Badge>
+              <div className="flex flex-wrap items-center gap-2 mb-2">
+                <span className="font-mono text-xs font-bold text-emerald-700 bg-emerald-50/90 border border-emerald-200/60 px-2 py-0.5 rounded-md">
+                  #{report.report_number}
+                </span>
                 {report.severity && (
-                  <Badge variant="secondary" className="text-xs capitalize shrink-0">
+                  <span className="font-mono text-xs uppercase px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 font-semibold border border-slate-200/70">
                     {report.severity}
-                  </Badge>
+                  </span>
                 )}
               </div>
-              <h4 className="font-semibold text-foreground mb-2 line-clamp-2 group-hover:text-primary transition-colors">
+              <h4 className="font-display text-lg font-bold text-slate-950 mb-1.5 line-clamp-2 group-hover:text-emerald-950 transition-colors">
                 {report.title}
               </h4>
               {report.category && (
-                <p className="text-sm text-muted-foreground mb-2">{toLabel(report.category)}</p>
+                <p className="text-xs font-medium text-slate-500 mb-3">{toLabel(report.category)}</p>
               )}
-              <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+              <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500 font-mono">
                 {report.task?.officer && (
-                  <div className="flex items-center gap-1">
-                    <Users className="w-3 h-3 shrink-0" />
+                  <div className="flex items-center gap-1.5 text-slate-600 font-sans">
+                    <Users className="w-3.5 h-3.5 shrink-0 text-slate-400" />
                     <span className="truncate">{report.task.officer.full_name || 'Officer Assigned'}</span>
                   </div>
                 )}
                 {report.department && (
-                  <div className="flex items-center gap-1">
-                    <Target className="w-3 h-3 shrink-0" />
+                  <div className="flex items-center gap-1.5 text-slate-600 font-sans">
+                    <Target className="w-3.5 h-3.5 shrink-0 text-slate-400" />
                     <span className="truncate">{report.department.name}</span>
                   </div>
                 )}
                 {report.landmark && (
-                  <div className="flex items-center gap-1">
-                    <MapPin className="w-3 h-3 shrink-0" />
+                  <div className="flex items-center gap-1.5">
+                    <MapPin className="w-3.5 h-3.5 shrink-0 text-slate-400" />
                     <span className="truncate max-w-[200px]">{report.landmark}</span>
                   </div>
                 )}
-                <div className="flex items-center gap-1">
-                  <Clock className="w-3 h-3 shrink-0" />
+                <div className="flex items-center gap-1.5">
+                  <Clock className="w-3.5 h-3.5 shrink-0 text-slate-400" />
                   <span>Updated {formatDate(report.updated_at)}</span>
                 </div>
               </div>
             </div>
           </div>
-          <Badge
-            className={`${statusColor} ml-2 shrink-0`}
+          <span
+            className={`font-mono text-xs font-semibold px-2.5 py-1 rounded-full ${statusColor} text-white shadow-xs shrink-0`}
             aria-label={`Status: ${toLabel(report.status)}`}
           >
             {toLabel(report.status)}
-          </Badge>
+          </span>
         </div>
-        <div className="flex gap-2 pt-4 border-t">
+        <div className="flex gap-2 pt-4 border-t border-slate-100">
           <Button
             size="sm"
             variant="outline"
-            className="flex-1 group-hover:bg-primary group-hover:text-primary-foreground transition-colors"
+            className="flex-1 rounded-full border-slate-200 hover:border-slate-300 hover:bg-slate-50 text-xs font-semibold text-slate-700 h-9 transition-all"
             onClick={(e) => {
               e.stopPropagation();
               navigate(`/citizen/track/${report.id}`);
@@ -273,126 +276,147 @@ const Reports = () => {
           >
             {report.status.toLowerCase() === "resolved" ? (
               <>
-                <CheckCircle2 className="w-4 h-4 mr-2" />
-                View Details
+                <CheckCircle2 className="w-3.5 h-3.5 mr-1.5 text-emerald-600" />
+                View Verification Proof
               </>
             ) : (
               <>
-                Track Report <ArrowRight className="w-4 h-4 ml-2" />
+                Track Live Progress <ArrowRight className="w-3.5 h-3.5 ml-1.5" />
               </>
             )}
           </Button>
         </div>
-      </Card>
+      </div>
     );
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted">
-      <CitizenHeader />
+    <div className="min-h-dvh bg-[#fbfcfd] relative text-slate-900">
+      {/* Background radial dot grid texture */}
+      <div
+        className="fixed inset-0 pointer-events-none opacity-[0.35] z-0"
+        style={{
+          backgroundImage: `radial-gradient(circle at 1px 1px, #cbd5e1 1px, transparent 0)`,
+          backgroundSize: "32px 32px",
+        }}
+      />
 
-      <div className="container mx-auto px-4 py-8 max-w-6xl">
-        {/* Header Section */}
-        <div className="mb-6">
-          <Button
-            variant="ghost"
-            onClick={() => navigate('/citizen/dashboard')}
-            className="mb-4"
-            aria-label="Back to dashboard"
-          >
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Dashboard
-          </Button>
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h1 className="text-3xl font-bold text-foreground mb-2">All Reports</h1>
-              <p className="text-muted-foreground">View and manage all your submitted reports</p>
+      <div className="relative z-10">
+        <CitizenHeader />
+
+        <div className="container mx-auto px-4 sm:px-6 py-8 max-w-6xl">
+          {/* Header Section */}
+          <div className="mb-8">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => navigate('/citizen/dashboard')}
+              className="mb-4 rounded-full text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100/80 -ml-2 gap-1.5"
+              aria-label="Back to dashboard"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              Back to Dashboard
+            </Button>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <h1 className="font-display text-3xl sm:text-4xl font-black text-slate-950 tracking-tight">
+                  All Submitted Reports
+                </h1>
+                <p className="text-sm text-slate-500 mt-1">
+                  Inspect real-time resolution pipelines, department assignments, and audit trails.
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={handleRefresh}
+                disabled={refreshing}
+                aria-label="Refresh reports"
+                className="rounded-full border-slate-200 bg-white/90 shadow-xs hover:bg-slate-100 text-slate-700 shrink-0 self-start sm:self-auto"
+              >
+                <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+              </Button>
+            </div>
+
+            {/* Offline indicator */}
+            {isOffline && (
+              <div className="mt-4 p-3 bg-amber-50/90 border border-amber-200 rounded-2xl flex items-center gap-2.5 text-xs font-medium text-amber-900">
+                <AlertCircle className="w-4 h-4 text-amber-700 shrink-0" />
+                <span>You are currently offline. Viewing cached reports locally.</span>
+              </div>
+            )}
+          </div>
+
+          {/* Search and Actions */}
+          <div className="flex flex-col sm:flex-row gap-3 mb-8">
+            <div className="relative flex-1">
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <Input
+                placeholder="Search by title, description, report number, department, or officer..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10 h-11 rounded-full border-slate-200/90 bg-white shadow-xs focus-visible:ring-emerald-500 text-sm"
+                aria-label="Search reports"
+              />
             </div>
             <Button
-              variant="outline"
-              size="icon"
-              onClick={handleRefresh}
-              disabled={refreshing}
-              aria-label="Refresh reports"
-              className="shrink-0"
+              onClick={() => navigate('/citizen/submit-report')}
+              aria-label="Submit a new report"
+              className="bg-[#0a2e2a] hover:bg-[#072421] text-white rounded-full font-semibold px-6 h-11 shadow-xs active:scale-[0.98] shrink-0 gap-1.5"
             >
-              <RefreshCw className={`w-5 h-5 ${refreshing ? 'animate-spin' : ''}`} />
+              <Plus className="w-4 h-4" />
+              New Report
             </Button>
           </div>
 
-          {/* Offline indicator */}
-          {isOffline && (
-            <div className="mb-4 p-3 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-lg flex items-center gap-2 text-sm text-amber-800 dark:text-amber-200">
-              <AlertCircle className="w-4 h-4 shrink-0" />
-              <span>You are currently offline. Some features may be limited.</span>
+          {loading ? (
+            <div role="status" aria-label="Loading your reports">
+              <ListSkeleton rows={5} />
             </div>
-          )}
-        </div>
-
-        {/* Search and Actions */}
-        <div className="flex flex-col sm:flex-row gap-4 mb-6">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-            <Input
-              placeholder="Search by title, description, report number, department, or officer..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10"
-              aria-label="Search reports"
-            />
-          </div>
-          <Button
-            onClick={() => navigate('/citizen/submit-report')}
-            aria-label="Submit a new report"
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            New Report
-          </Button>
-        </div>
-
-        {loading ? (
-          <div className="flex items-center justify-center py-12">
-            <div className="text-center">
-              <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-primary" />
-              <p className="text-muted-foreground">Loading your reports...</p>
+          ) : error && !loading ? (
+            <div className="rounded-3xl border border-slate-200/90 bg-white p-8 sm:p-12 text-center shadow-xs">
+              <AlertCircle className="w-12 h-12 text-rose-500 mx-auto mb-4" />
+              <h3 className="font-display text-xl font-bold text-slate-950 mb-2">Unable to Load Reports</h3>
+              <p className="text-sm text-slate-500 mb-6 max-w-md mx-auto">{error}</p>
+              <Button
+                onClick={() => loadReports(true)}
+                disabled={refreshing}
+                className="bg-[#0a2e2a] hover:bg-[#072421] text-white rounded-full font-semibold px-6 h-10 shadow-xs"
+              >
+                {refreshing ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Retrying...
+                  </>
+                ) : (
+                  'Try Again'
+                )}
+              </Button>
             </div>
-          </div>
-        ) : error && !loading ? (
-          <Card className="p-8 text-center">
-            <AlertCircle className="w-12 h-12 text-destructive mx-auto mb-4" />
-            <h3 className="text-lg font-semibold mb-2">Unable to Load Reports</h3>
-            <p className="text-muted-foreground mb-6">{error}</p>
-            <Button onClick={() => loadReports(true)} disabled={refreshing}>
-              {refreshing ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Retrying...
-                </>
-              ) : (
-                'Try Again'
-              )}
-            </Button>
-          </Card>
-        ) : reports.length === 0 ? (
-          <Card className="p-12 text-center">
-            <FileText className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
-            <h3 className="text-lg font-semibold mb-2">No Reports Yet</h3>
-            <p className="text-muted-foreground mb-4">
-              You haven't submitted any reports yet. Start making a difference!
-            </p>
-            <Button onClick={() => navigate('/citizen/submit-report')} aria-label="Submit your first report">
-              <Plus className="w-4 h-4 mr-2" />
-              Submit Your First Report
-            </Button>
-          </Card>
-        ) : (
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-4 mb-6">
-              <TabsTrigger value="all">All ({counts.all})</TabsTrigger>
-              <TabsTrigger value="active">Active ({counts.active})</TabsTrigger>
-              <TabsTrigger value="resolved">Resolved ({counts.resolved})</TabsTrigger>
-              <TabsTrigger value="closed">Closed ({counts.closed})</TabsTrigger>
-            </TabsList>
+          ) : reports.length === 0 ? (
+            <div className="rounded-3xl border border-slate-200/90 bg-white p-8 sm:p-14 text-center shadow-xs">
+              <FileText className="w-14 h-14 mx-auto mb-4 text-slate-300" />
+              <h3 className="font-display text-xl font-bold text-slate-950 mb-2">No Reports Yet</h3>
+              <p className="text-sm text-slate-500 mb-6 max-w-sm mx-auto">
+                You haven't submitted any civic reports yet. Help improve your neighbourhood by reporting an issue today.
+              </p>
+              <Button
+                onClick={() => navigate('/citizen/submit-report')}
+                aria-label="Submit your first report"
+                className="bg-[#0a2e2a] hover:bg-[#072421] text-white rounded-full font-semibold px-6 h-10 shadow-xs active:scale-[0.98] gap-1.5"
+              >
+                <Plus className="w-4 h-4" />
+                Submit Your First Report
+              </Button>
+            </div>
+          ) : (
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+              <TabsList className="mb-6 flex h-auto w-full justify-start gap-1.5 overflow-x-auto bg-slate-100/80 p-1.5 rounded-full border border-slate-200/70">
+                <TabsTrigger value="all" className="rounded-full text-xs font-semibold px-4 py-1.5 data-[state=active]:bg-white data-[state=active]:text-slate-950 data-[state=active]:shadow-xs">All ({counts.all})</TabsTrigger>
+                <TabsTrigger value="active" className="rounded-full text-xs font-semibold px-4 py-1.5 data-[state=active]:bg-white data-[state=active]:text-slate-950 data-[state=active]:shadow-xs">Active ({counts.active})</TabsTrigger>
+                <TabsTrigger value="resolved" className="rounded-full text-xs font-semibold px-4 py-1.5 data-[state=active]:bg-white data-[state=active]:text-slate-950 data-[state=active]:shadow-xs">Resolved ({counts.resolved})</TabsTrigger>
+                <TabsTrigger value="closed" className="rounded-full text-xs font-semibold px-4 py-1.5 data-[state=active]:bg-white data-[state=active]:text-slate-950 data-[state=active]:shadow-xs">Closed ({counts.closed})</TabsTrigger>
+              </TabsList>
 
             <TabsContent value="all" className="space-y-4">
               {filteredReports.length === 0 ? (
@@ -402,9 +426,9 @@ const Reports = () => {
                   </p>
                 </Card>
               ) : (
-                <div role="list" aria-label="All reports">
-                  {filteredReports.map((report) => (
-                    <ReportCard key={report.id} report={report} />
+                <div role="list" aria-label="All reports" className="t-stagger">
+                  {filteredReports.map((report, i) => (
+                    <div key={report.id} style={{ "--i": Math.min(i, 8) } as React.CSSProperties}><ReportCard report={report} /></div>
                   ))}
                 </div>
               )}
@@ -418,9 +442,9 @@ const Reports = () => {
                   </p>
                 </Card>
               ) : (
-                <div role="list" aria-label="Active reports">
-                  {filteredReports.map((report) => (
-                    <ReportCard key={report.id} report={report} />
+                <div role="list" aria-label="Active reports" className="t-stagger">
+                  {filteredReports.map((report, i) => (
+                    <div key={report.id} style={{ "--i": Math.min(i, 8) } as React.CSSProperties}><ReportCard report={report} /></div>
                   ))}
                 </div>
               )}
@@ -434,9 +458,9 @@ const Reports = () => {
                   </p>
                 </Card>
               ) : (
-                <div role="list" aria-label="Resolved reports">
-                  {filteredReports.map((report) => (
-                    <ReportCard key={report.id} report={report} />
+                <div role="list" aria-label="Resolved reports" className="t-stagger">
+                  {filteredReports.map((report, i) => (
+                    <div key={report.id} style={{ "--i": Math.min(i, 8) } as React.CSSProperties}><ReportCard report={report} /></div>
                   ))}
                 </div>
               )}
@@ -450,9 +474,9 @@ const Reports = () => {
                   </p>
                 </Card>
               ) : (
-                <div role="list" aria-label="Closed reports">
-                  {filteredReports.map((report) => (
-                    <ReportCard key={report.id} report={report} />
+                <div role="list" aria-label="Closed reports" className="t-stagger">
+                  {filteredReports.map((report, i) => (
+                    <div key={report.id} style={{ "--i": Math.min(i, 8) } as React.CSSProperties}><ReportCard report={report} /></div>
                   ))}
                 </div>
               )}
@@ -460,6 +484,7 @@ const Reports = () => {
           </Tabs>
         )}
       </div>
+    </div>
     </div>
   );
 };

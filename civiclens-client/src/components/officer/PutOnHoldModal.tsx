@@ -108,7 +108,7 @@ export const PutOnHoldModal: React.FC<PutOnHoldModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
-      <div className="flex min-h-screen items-center justify-center p-4">
+      <div className="flex min-h-dvh items-center justify-center p-4">
         {/* Backdrop */}
         <div 
           className="fixed inset-0 bg-black bg-opacity-50 transition-opacity"
@@ -116,19 +116,19 @@ export const PutOnHoldModal: React.FC<PutOnHoldModalProps> = ({
         />
 
         {/* Modal */}
-        <div className="relative bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+        <div className="relative bg-card rounded-lg shadow-xl max-w-md w-full p-6">
           {/* Header */}
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
-              <Pause className="w-6 h-6 text-yellow-600" />
-              <h2 className="text-xl font-semibold text-gray-900">
+              <Pause className="w-6 h-6 text-warning" />
+              <h2 className="text-xl font-semibold text-foreground">
                 Put Task On Hold
               </h2>
             </div>
             <button
               onClick={handleClose}
               disabled={isSubmitting}
-              className="text-gray-400 hover:text-gray-600 disabled:opacity-50"
+              className="text-muted-foreground hover:text-muted-foreground disabled:opacity-50"
             >
               <X className="w-5 h-5" />
             </button>
@@ -136,9 +136,9 @@ export const PutOnHoldModal: React.FC<PutOnHoldModalProps> = ({
 
           {/* Report Info */}
           {reportNumber && (
-            <div className="mb-4 p-3 bg-gray-50 rounded-lg">
-              <p className="text-sm text-gray-600">
-                Report: <span className="font-medium text-gray-900">{reportNumber}</span>
+            <div className="mb-4 p-3 bg-muted rounded-lg">
+              <p className="text-sm text-muted-foreground">
+                Report: <span className="font-medium text-foreground">{reportNumber}</span>
               </p>
             </div>
           )}
@@ -147,14 +147,14 @@ export const PutOnHoldModal: React.FC<PutOnHoldModalProps> = ({
           <form onSubmit={handleSubmit}>
             {/* Reason Selection */}
             <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-foreground mb-2">
                 Reason for Hold *
               </label>
               <div className="space-y-2 max-h-64 overflow-y-auto">
                 {HOLD_REASONS.map((reason) => (
                   <label
                     key={reason.value}
-                    className="flex items-center p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors"
+                    className="flex items-center p-3 border border-border rounded-lg hover:bg-muted cursor-pointer transition-colors"
                   >
                     <input
                       type="radio"
@@ -163,9 +163,9 @@ export const PutOnHoldModal: React.FC<PutOnHoldModalProps> = ({
                       checked={selectedReason === reason.value}
                       onChange={(e) => setSelectedReason(e.target.value)}
                       disabled={isSubmitting}
-                      className="w-4 h-4 text-blue-600 focus:ring-blue-500"
+                      className="w-4 h-4 text-info focus:ring-info"
                     />
-                    <span className="ml-3 text-sm text-gray-700">
+                    <span className="ml-3 text-sm text-foreground">
                       {reason.label}
                     </span>
                   </label>
@@ -176,7 +176,7 @@ export const PutOnHoldModal: React.FC<PutOnHoldModalProps> = ({
             {/* Custom Reason Input */}
             {selectedReason === 'other' && (
               <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-foreground mb-2">
                   Please specify the reason *
                 </label>
                 <textarea
@@ -184,7 +184,7 @@ export const PutOnHoldModal: React.FC<PutOnHoldModalProps> = ({
                   onChange={(e) => setCustomReason(e.target.value)}
                   disabled={isSubmitting}
                   rows={3}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100"
+                  className="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-info focus:border-transparent disabled:bg-muted"
                   placeholder="Enter your reason for putting this task on hold..."
                 />
               </div>
@@ -192,28 +192,28 @@ export const PutOnHoldModal: React.FC<PutOnHoldModalProps> = ({
 
             {/* Estimated Resume Date */}
             <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-foreground mb-2">
                 Estimated Resume Date (Optional)
               </label>
               <div className="relative">
-                <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-muted-foreground" />
                 <input
                   type="date"
                   value={estimatedDate}
                   onChange={(e) => setEstimatedDate(e.target.value)}
                   disabled={isSubmitting}
                   min={today}
-                  className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100"
+                  className="w-full pl-10 pr-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-info focus:border-transparent disabled:bg-muted"
                 />
               </div>
-              <p className="mt-1 text-xs text-gray-500">
+              <p className="mt-1 text-xs text-muted-foreground">
                 When do you expect to resume work on this task?
               </p>
             </div>
 
             {/* Info Message */}
-            <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-              <p className="text-sm text-blue-800">
+            <div className="mb-4 p-3 bg-info/10 border border-info/30 rounded-lg">
+              <p className="text-sm text-info">
                 <strong>Note:</strong> The task will be marked as ON_HOLD. You can resume work when ready.
               </p>
             </div>
@@ -224,14 +224,14 @@ export const PutOnHoldModal: React.FC<PutOnHoldModalProps> = ({
                 type="button"
                 onClick={handleClose}
                 disabled={isSubmitting}
-                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="flex-1 px-4 py-2 border border-border text-foreground rounded-lg hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={isSubmitting || !selectedReason || (selectedReason === 'other' && !customReason.trim())}
-                className="flex-1 px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="flex-1 px-4 py-2 bg-warning text-warning-foreground rounded-lg hover:bg-warning/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 {isSubmitting ? 'Processing...' : 'Put On Hold'}
               </button>

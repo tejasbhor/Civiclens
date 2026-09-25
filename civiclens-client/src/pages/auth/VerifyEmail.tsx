@@ -41,7 +41,7 @@ const VerifyEmail = () => {
   }, [token]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted flex items-center justify-center p-4">
+    <div className="min-h-dvh bg-background flex items-center justify-center p-4">
       <Card className="max-w-md w-full p-8 shadow-2xl border-primary/10 relative overflow-hidden">
         {/* Background Decorative Element */}
         <div className="absolute -top-12 -right-12 w-32 h-32 bg-primary/5 rounded-full blur-3xl" />
@@ -51,12 +51,12 @@ const VerifyEmail = () => {
           <div className="flex justify-center mb-6">
             <div className={`w-20 h-20 rounded-2xl flex items-center justify-center shadow-inner ${
               status === 'verifying' ? 'bg-primary/10 animate-pulse' :
-              status === 'success' ? 'bg-green-100 dark:bg-green-900/30' :
-              'bg-red-100 dark:bg-red-900/30'
+              status === 'success' ? 'bg-success/10' :
+              'bg-danger/10'
             }`}>
               {status === 'verifying' && <Loader2 className="w-10 h-10 text-primary animate-spin" />}
-              {status === 'success' && <CheckCircle2 className="w-10 h-10 text-green-600" />}
-              {status === 'error' && <XCircle className="w-10 h-10 text-red-600" />}
+              {status === 'success' && <CheckCircle2 className="w-10 h-10 text-success" />}
+              {status === 'error' && <XCircle className="w-10 h-10 text-danger" />}
             </div>
           </div>
 

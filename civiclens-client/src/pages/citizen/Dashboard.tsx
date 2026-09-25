@@ -1,9 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { useNavigate } from "react-router-dom";
-import { Plus, FileText, Clock, CheckCircle2, XCircle, Star, ArrowRight, Loader2, AlertCircle, RefreshCw, TrendingUp, Award, Activity, BarChart3, Users, Target } from "lucide-react";
+import { useNavigate, Link } from "react-router-dom";
+import { Plus, FileText, ArrowRight, AlertCircle, RefreshCw } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { reportsService, Report } from "@/services/reportsService";
 import { userService } from "@/services/userService";
@@ -11,6 +9,12 @@ import { showToast } from "@/lib/utils/toast";
 import { CitizenHeader } from "@/components/layout/CitizenHeader";
 import { useConnectionStatus } from "@/hooks/useConnectionStatus";
 import { logger } from "@/lib/logger";
+import { PageShell, PageHeader, Section } from "@/components/layout/PageShell";
+import { StatusBadge, SeverityBadge } from "@/components/ui/status-badge";
+import { EmptyState } from "@/components/feedback/EmptyState";
+import { ErrorState } from "@/components/feedback/ErrorState";
+import { CountUp } from "@/components/landing/CountUp";
+import { PageSkeleton } from "@/components/feedback/Skeletons";
 
 interface DashboardStats {
   total: number;
@@ -54,23 +58,6 @@ const CitizenDashboard = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Memoized status helpers
-  const getStatusColor = useCallback((status: string): string => {
-    const s = status.toLowerCase();
-    if (s === 'resolved') return 'bg-green-500';
-    if (s === 'closed') return 'bg-gray-500';
-    if (s === 'rejected') return 'bg-red-500';
-    if (['in_progress', 'acknowledged'].includes(s)) return 'bg-blue-500';
-    return 'bg-amber-500';
-  }, []);
-
-  const getStatusIcon = useCallback((status: string) => {
-    const s = status.toLowerCase();
-    if (s === 'resolved') return CheckCircle2;
-    if (s === 'closed' || s === 'rejected') return XCircle;
-    return Clock;
-  }, []);
-
   const formatDate = useCallback((dateString: string): string => {
     try {
       const date = new Date(dateString);
@@ -90,10 +77,6 @@ const CitizenDashboard = () => {
     } catch {
       return 'Invalid date';
     }
-  }, []);
-
-  const toLabel = useCallback((str: string): string => {
-    return str.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
   }, []);
 
   // Calculate stats from all reports
@@ -229,16 +212,9 @@ const CitizenDashboard = () => {
   // Loading state
   if (authLoading || (loading && !error)) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted">
+      <div className="min-h-dvh bg-background">
         <CitizenHeader />
-        <div className="container mx-auto px-4 py-8 max-w-6xl">
-          <div className="flex items-center justify-center min-h-[60vh]">
-            <div className="text-center">
-              <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-primary" />
-              <p className="text-muted-foreground">Loading dashboard...</p>
-            </div>
-          </div>
-        </div>
+        <PageShell><PageSkeleton /></PageShell>
       </div>
     );
   }
@@ -246,465 +222,205 @@ const CitizenDashboard = () => {
   // Error state with retry
   if (error && !loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted">
+      <div className="min-h-dvh bg-background">
         <CitizenHeader />
-        <div className="container mx-auto px-4 py-8 max-w-6xl">
-          <div className="flex items-center justify-center min-h-[60vh]">
-            <Card className="p-8 max-w-md w-full">
-              <div className="text-center">
-                <AlertCircle className="w-12 h-12 text-destructive mx-auto mb-4" />
-                <h3 className="text-lg font-semibold mb-2">Unable to Load Dashboard</h3>
-                <p className="text-muted-foreground mb-6">
-                  {typeof error === 'string' ? error : 'An unexpected error occurred. Please try again.'}
-                </p>
-                <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                  <Button onClick={() => loadDashboardData(true)} disabled={refreshing}>
-                    {refreshing ? (
-                      <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Retrying...
-                      </>
-                    ) : (
-                      'Try Again'
-                    )}
-                  </Button>
-                  <Button variant="outline" onClick={() => navigate('/citizen/reports')}>
-                    View Reports
-                  </Button>
-                </div>
-              </div>
-            </Card>
-          </div>
-        </div>
+        <PageShell>
+          <ErrorState
+            title="Unable to load your dashboard"
+            message={typeof error === 'string' ? error : 'An unexpected error occurred. Please try again.'}
+            onRetry={() => loadDashboardData(true)}
+            retrying={refreshing}
+          />
+        </PageShell>
       </div>
     );
   }
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted">
-      <CitizenHeader />
+  const total = userStats?.total_reports || stats.total || 0;
+  const active = userStats?.active_reports || userStats?.in_progress_reports || stats.active || 0;
+  const resolved = userStats?.resolved_reports || stats.resolved || 0;
+  const avgTime = userStats?.avg_resolution_time_days
+    ? `${userStats.avg_resolution_time_days.toFixed(1)} days`
+    : stats.resolved > 0 ? 'N/A' : '—';
+  const reputation = userStats?.reputation_score ?? user?.reputation_score ?? 0;
 
-      <div className="container mx-auto px-4 py-8 max-w-6xl">
-        {/* Welcome Section - Professional Portal Header */}
-        <div className="mb-8">
-          <Card className="p-6 bg-gradient-to-r from-primary/5 via-background to-accent/5 border-primary/10">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-              <div className="flex-1">
-                <div className="flex items-center gap-3 mb-2">
-                  <div className="p-2 bg-primary/10 rounded-lg">
-                    <FileText className="w-5 h-5 text-primary" />
-                  </div>
-                  <div>
-                    <h1 className="text-2xl sm:text-3xl font-bold text-foreground">
-                      Welcome back, {user?.full_name || 'Citizen'}
-                    </h1>
-                    <p className="text-sm sm:text-base text-muted-foreground mt-1">
-                      Manage your civic issue reports and track their resolution progress
-                    </p>
-                  </div>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
+  const summary = [
+    { label: 'Submitted', value: total },
+    { label: 'In progress', value: active },
+    { label: 'Resolved', value: resolved },
+    { label: 'Avg. time to resolve', value: avgTime },
+  ];
+
+  return (
+    <div className="min-h-dvh bg-[#fbfcfd] relative text-slate-900">
+      {/* Background radial dot grid texture */}
+      <div
+        className="fixed inset-0 pointer-events-none opacity-[0.35] z-0"
+        style={{
+          backgroundImage: `radial-gradient(circle at 1px 1px, #cbd5e1 1px, transparent 0)`,
+          backgroundSize: "32px 32px",
+        }}
+      />
+
+      <div className="relative z-10">
+        <CitizenHeader />
+
+        <PageShell>
+          <PageHeader
+            title={`Welcome back, ${user?.full_name || 'Citizen'}`}
+            description="Real-time municipal telemetry and status of your reported civic issues."
+            actions={
+              <div className="flex items-center gap-2.5">
                 <Button
                   variant="outline"
                   size="icon"
                   onClick={handleRefresh}
-                  disabled={refreshing}
+                  loading={refreshing}
                   aria-label="Refresh dashboard"
-                  className="shrink-0"
+                  className="rounded-full border-slate-200 bg-white/90 shadow-xs hover:bg-slate-100 text-slate-700"
                 >
-                  <RefreshCw className={`w-5 h-5 ${refreshing ? 'animate-spin' : ''}`} />
+                  {!refreshing && <RefreshCw className="w-4 h-4" aria-hidden />}
                 </Button>
-              </div>
-            </div>
-
-            {/* Offline indicator */}
-            {isOffline && (
-              <div className="mt-4 p-3 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-lg flex items-center gap-2 text-sm text-amber-800 dark:text-amber-200">
-                <AlertCircle className="w-4 h-4 shrink-0" />
-                <span>You are currently offline. Some features may be limited.</span>
-              </div>
-            )}
-          </Card>
-        </div>
-
-        {/* Statistics Cards Grid - Professional Portal Style */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-          {/* Total Reports Card */}
-          <Card className="p-6 bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950 dark:to-blue-900 border-blue-200 dark:border-blue-800 hover:shadow-lg transition-all">
-            <div className="flex items-center justify-between mb-2">
-              <div className="p-3 bg-blue-500/10 rounded-lg">
-                <FileText className="w-6 h-6 text-blue-600 dark:text-blue-400" />
-              </div>
-              <Badge variant="outline" className="bg-white/50 dark:bg-gray-800/50">
-                Total
-              </Badge>
-            </div>
-            <div className="space-y-1">
-              <p className="text-3xl font-bold text-foreground">
-                {userStats?.total_reports || stats.total || 0}
-              </p>
-              <p className="text-sm text-muted-foreground">Reports Submitted</p>
-            </div>
-          </Card>
-
-          {/* Active Reports Card */}
-          <Card className="p-6 bg-gradient-to-br from-amber-50 to-amber-100 dark:from-amber-950 dark:to-amber-900 border-amber-200 dark:border-amber-800 hover:shadow-lg transition-all">
-            <div className="flex items-center justify-between mb-2">
-              <div className="p-3 bg-amber-500/10 rounded-lg">
-                <Activity className="w-6 h-6 text-amber-600 dark:text-amber-400" />
-              </div>
-              <Badge variant="outline" className="bg-white/50 dark:bg-gray-800/50">
-                Active
-              </Badge>
-            </div>
-            <div className="space-y-1">
-              <p className="text-3xl font-bold text-foreground">
-                {userStats?.active_reports || userStats?.in_progress_reports || stats.active || 0}
-              </p>
-              <p className="text-sm text-muted-foreground">In Progress</p>
-            </div>
-          </Card>
-
-          {/* Resolved Reports Card */}
-          <Card className="p-6 bg-gradient-to-br from-green-50 to-green-100 dark:from-green-950 dark:to-green-900 border-green-200 dark:border-green-800 hover:shadow-lg transition-all">
-            <div className="flex items-center justify-between mb-2">
-              <div className="p-3 bg-green-500/10 rounded-lg">
-                <CheckCircle2 className="w-6 h-6 text-green-600 dark:text-green-400" />
-              </div>
-              <Badge variant="outline" className="bg-white/50 dark:bg-gray-800/50">
-                Resolved
-              </Badge>
-            </div>
-            <div className="space-y-1">
-              <p className="text-3xl font-bold text-foreground">
-                {userStats?.resolved_reports || stats.resolved || 0}
-              </p>
-              <p className="text-sm text-muted-foreground">Successfully Resolved</p>
-            </div>
-          </Card>
-
-          {/* Average Resolution Time Card */}
-          <Card className="p-6 bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-950 dark:to-purple-900 border-purple-200 dark:border-purple-800 hover:shadow-lg transition-all">
-            <div className="flex items-center justify-between mb-2">
-              <div className="p-3 bg-purple-500/10 rounded-lg">
-                <Clock className="w-6 h-6 text-purple-600 dark:text-purple-400" />
-              </div>
-              <Badge variant="outline" className="bg-white/50 dark:bg-gray-800/50">
-                Avg Time
-              </Badge>
-            </div>
-            <div className="space-y-1">
-              <p className="text-3xl font-bold text-foreground">
-                {userStats?.avg_resolution_time_days
-                  ? `${userStats.avg_resolution_time_days.toFixed(1)}d`
-                  : stats.resolved > 0
-                    ? 'N/A'
-                    : '—'}
-              </p>
-              <p className="text-sm text-muted-foreground">Resolution Time</p>
-            </div>
-          </Card>
-        </div>
-
-        {/* Quick Actions & Main Content */}
-        <div className="grid lg:grid-cols-3 gap-6">
-          {/* Reports Section */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Quick Action Card */}
-            <Card className="p-6 bg-gradient-to-r from-primary/5 via-primary/10 to-accent/5 border-primary/20">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-lg font-semibold text-foreground mb-1">Submit New Report</h3>
-                  <p className="text-sm text-muted-foreground">Report a civic issue in your area</p>
-                </div>
                 <Button
                   onClick={() => navigate('/citizen/submit-report')}
-                  size="lg"
-                  className="shrink-0"
                   aria-label="Submit a new civic issue report"
+                  className="bg-[#0a2e2a] hover:bg-[#072421] text-white font-semibold rounded-full px-5 h-10 shadow-xs transition-all active:scale-[0.98] gap-1.5"
                 >
-                  <Plus className="w-5 h-5 mr-2" />
-                  Submit Report
+                  <Plus className="w-4 h-4" aria-hidden /> New report
                 </Button>
               </div>
-            </Card>
+            }
+          />
 
-            {/* Recent Reports Section */}
-            <div>
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <h2 className="text-xl font-semibold text-foreground">Recent Reports</h2>
-                  <p className="text-sm text-muted-foreground">Track the status of your submitted reports</p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={handleRefresh}
-                    disabled={refreshing}
-                    aria-label="Refresh reports"
-                    className="sm:hidden"
-                  >
-                    <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => navigate('/citizen/reports')}
-                    className="text-sm"
-                    aria-label="View all reports"
-                  >
-                    View All <ArrowRight className="w-4 h-4 ml-1" />
-                  </Button>
-                </div>
-              </div>
+          {isOffline && (
+            <div role="status" className="mb-6 flex items-center gap-2.5 rounded-2xl border border-amber-200 bg-amber-50/90 px-4 py-3 text-sm text-amber-900 font-medium">
+              <AlertCircle aria-hidden className="size-4 shrink-0 text-amber-700" />
+              You are offline. Cached local reports are displayed; submissions will sync upon reconnection.
+            </div>
+          )}
 
-              {/* Reports List */}
+          {/* Stats Bar */}
+          <div className="mb-10 overflow-hidden rounded-3xl border border-slate-200/90 bg-white p-2 sm:p-3 shadow-xs">
+            <dl className="grid grid-cols-2 divide-x divide-y divide-slate-100 sm:grid-cols-4 sm:divide-y-0">
+              {summary.map((s) => (
+                <div key={s.label} className="p-4 sm:p-5">
+                  <dd className="font-display text-3xl sm:text-4xl font-black text-slate-950 tracking-tight tabular-nums">
+                    {typeof s.value === "number" ? <CountUp to={s.value} /> : s.value}
+                  </dd>
+                  <dt className="mt-1 font-mono text-xs font-semibold uppercase tracking-wider text-slate-500">
+                    {s.label}
+                  </dt>
+                </div>
+              ))}
+            </dl>
+          </div>
+
+          <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_18rem]">
+            <Section
+              title="Recent Issue Reports"
+              description="Chronological log of submissions dispatched to municipal departments."
+              className="mb-0"
+              actions={
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => navigate('/citizen/reports')}
+                  aria-label="View all reports"
+                  className="rounded-full text-xs font-semibold text-emerald-800 hover:bg-emerald-50 hover:text-emerald-900 gap-1"
+                >
+                  View all <ArrowRight className="w-3.5 h-3.5" aria-hidden />
+                </Button>
+              }
+            >
               {recentReports.length === 0 ? (
-                <Card className="p-12">
-                  <div className="flex flex-col items-center justify-center text-center max-w-md mx-auto">
-                    <FileText className="w-16 h-16 mb-4 text-muted-foreground" />
-                    <h3 className="text-lg font-semibold mb-2 text-foreground">No Reports Yet</h3>
-                    <p className="text-muted-foreground mb-6 text-base">
-                      You have not submitted any reports yet. Start by submitting your first civic issue report.
-                    </p>
-                    <Button
-                      onClick={() => navigate('/citizen/submit-report')}
-                      aria-label="Submit your first report"
-                    >
-                      <Plus className="w-4 h-4 mr-2" />
-                      Submit Your First Report
-                    </Button>
-                  </div>
-                </Card>
-              ) : (
-                <div className="space-y-4" role="list" aria-label="Recent reports">
-                  {recentReports.map((report) => {
-                    const StatusIcon = getStatusIcon(report.status);
-                    const statusColor = getStatusColor(report.status);
-
-                    return (
-                      <Card
-                        key={report.id}
-                        className="p-6 hover:shadow-lg hover:border-primary/30 transition-all cursor-pointer group"
-                        role="listitem"
-                        onClick={() => navigate(`/citizen/track/${report.id}`)}
+                <div className="rounded-3xl border border-slate-200/90 bg-white p-8 shadow-xs">
+                  <EmptyState
+                    icon={FileText}
+                    title="No reports filed yet"
+                    description="When you report a pothole, broken streetlight, or garbage dump, you can monitor its verified audit trail here."
+                    action={
+                      <Button
+                        onClick={() => navigate('/citizen/submit-report')}
+                        className="bg-[#0a2e2a] hover:bg-[#072421] text-white rounded-full font-semibold px-5 h-10 shadow-xs active:scale-[0.98] gap-1.5"
                       >
-                        <div className="flex items-start justify-between mb-4">
-                          <div className="flex items-start gap-4 flex-1 min-w-0">
-                            <div
-                              className={`w-12 h-12 rounded-xl ${statusColor} flex items-center justify-center flex-shrink-0 shadow-sm group-hover:scale-110 transition-transform`}
-                              aria-hidden="true"
-                            >
-                              <StatusIcon className="w-6 h-6 text-white" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 mb-2">
-                                <Badge variant="outline" className="text-xs font-mono">{report.report_number}</Badge>
-                                {report.severity && (
-                                  <Badge variant="secondary" className="text-xs capitalize">
-                                    {report.severity}
-                                  </Badge>
-                                )}
-                              </div>
-                              <h4 className="font-semibold text-foreground mb-2 line-clamp-2 group-hover:text-primary transition-colors">
-                                {report.title}
-                              </h4>
-                              <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-                                {report.task?.officer && (
-                                  <div className="flex items-center gap-1">
-                                    <Users className="w-3 h-3" />
-                                    <span>{report.task.officer.full_name || 'Officer Assigned'}</span>
-                                  </div>
-                                )}
-                                {report.department && (
-                                  <div className="flex items-center gap-1">
-                                    <Target className="w-3 h-3" />
-                                    <span>{report.department.name}</span>
-                                  </div>
-                                )}
-                                <div className="flex items-center gap-1">
-                                  <Clock className="w-3 h-3" />
-                                  <span>Updated {formatDate(report.updated_at)}</span>
-                                </div>
-                              </div>
-                            </div>
+                        <Plus className="w-4 h-4" aria-hidden /> Submit first report
+                      </Button>
+                    }
+                  />
+                </div>
+              ) : (
+                <div className="overflow-hidden rounded-3xl border border-slate-200/90 bg-white shadow-xs">
+                  <ul className="divide-y divide-slate-100" aria-label="Recent reports">
+                    {recentReports.map((report) => (
+                      <li key={report.id}>
+                        <Link
+                          to={`/citizen/track/${report.id}`}
+                          aria-label={`${report.title}, ${report.report_number}. Open report`}
+                          className="group flex flex-col gap-2 p-5 sm:p-6 transition-all hover:bg-slate-50/80 focus-visible:bg-slate-50/80 sm:flex-row sm:items-center sm:justify-between sm:gap-6"
+                        >
+                          <div className="min-w-0">
+                            <p className="font-display text-base font-bold text-slate-900 line-clamp-1 group-hover:text-emerald-950 transition-colors">
+                              {report.title}
+                            </p>
+                            <p className="mt-1.5 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-slate-500 font-mono">
+                              <span className="font-bold text-emerald-700 bg-emerald-50/90 border border-emerald-200/60 px-2 py-0.5 rounded-md">
+                                #{report.report_number}
+                              </span>
+                              {report.department && (
+                                <span className="text-slate-600 font-sans font-medium">
+                                  {report.department.name}
+                                </span>
+                              )}
+                              <span className="text-slate-300">•</span>
+                              <span className="text-slate-400">Updated {formatDate(report.updated_at)}</span>
+                            </p>
                           </div>
-                          <Badge
-                            className={`${statusColor} ml-2 shrink-0`}
-                            aria-label={`Status: ${toLabel(report.status)}`}
-                          >
-                            {toLabel(report.status)}
-                          </Badge>
-                        </div>
-                        <div className="flex gap-2 pt-4 border-t">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="flex-1 group-hover:bg-primary group-hover:text-primary-foreground transition-colors"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              navigate(`/citizen/track/${report.id}`);
-                            }}
-                            aria-label={`${report.status.toLowerCase() === "resolved" ? 'View details' : 'Track'} report ${report.report_number}`}
-                          >
-                            {report.status.toLowerCase() === "resolved" ? (
-                              <>
-                                <CheckCircle2 className="w-4 h-4 mr-2" />
-                                View Details
-                              </>
-                            ) : (
-                              <>
-                                Track Report <ArrowRight className="w-4 h-4 ml-2" />
-                              </>
-                            )}
-                          </Button>
-                        </div>
-                      </Card>
-                    );
-                  })}
+                          <div className="flex shrink-0 items-center gap-2 pt-1 sm:pt-0">
+                            <SeverityBadge severity={report.severity} />
+                            <StatusBadge status={report.status} />
+                          </div>
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               )}
-            </div>
-          </div>
+            </Section>
 
-          {/* Sidebar - Reputation & Stats */}
-          <div className="space-y-6">
-            {/* Reputation Score Card */}
-            {user?.profile_completion === 'complete' ? (
-              <Card className="p-6 bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-50 dark:from-amber-950 dark:via-orange-950 dark:to-yellow-950 border-amber-200 dark:border-amber-800">
-                <div className="flex items-center gap-2 mb-4">
-                  <div className="p-2 bg-amber-500/10 rounded-lg">
-                    <Award className="w-5 h-5 text-amber-600 dark:text-amber-400" />
-                  </div>
-                  <h3 className="text-lg font-semibold text-foreground">Reputation Score</h3>
+            {/* Sidebar info */}
+            <aside className="space-y-6" aria-label="Profile">
+              <div className="rounded-3xl border border-slate-200/90 bg-white p-6 shadow-xs">
+                <div className="flex items-center justify-between mb-4">
+                  <span className="font-mono text-xs font-bold uppercase tracking-wider text-emerald-700">Civic Score</span>
+                  <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
                 </div>
-                <div className="flex flex-col items-center justify-center mb-6">
-                  <div className="text-5xl font-bold text-amber-600 dark:text-amber-400 mb-3" aria-label={`Reputation score: ${userStats?.reputation_score ?? user?.reputation_score ?? 0}`}>
-                    {userStats?.reputation_score ?? user?.reputation_score ?? 0}
-                  </div>
-                  <div className="flex justify-center gap-1 mb-2" role="img" aria-label={`${Math.floor(((userStats?.reputation_score ?? user?.reputation_score ?? 0) / 100))} out of 5 stars`}>
-                    {[1, 2, 3, 4, 5].map((i) => {
-                      const reputationScore = userStats?.reputation_score ?? user?.reputation_score ?? 0;
-                      return (
-                        <Star
-                          key={i}
-                          className={`w-5 h-5 transition-all ${i <= Math.floor(reputationScore / 100) ? 'fill-amber-400 text-amber-400 scale-110' : 'text-gray-300'}`}
-                          aria-hidden="true"
-                        />
-                      );
-                    })}
-                  </div>
-                  <p className="text-sm text-muted-foreground">Reputation Points</p>
-                </div>
-                <div className="space-y-3 pt-4 border-t border-amber-200 dark:border-amber-800">
-                  <div className="flex justify-between items-center text-sm">
-                    <span className="text-muted-foreground flex items-center gap-1">
-                      <FileText className="w-3 h-3" />
-                      Total Reports
-                    </span>
-                    <span className="font-semibold text-foreground">{userStats?.total_reports ?? user?.total_reports ?? stats.total}</span>
-                  </div>
-                  <div className="flex justify-between items-center text-sm">
-                    <span className="text-muted-foreground flex items-center gap-1">
-                      <CheckCircle2 className="w-3 h-3" />
-                      Resolved
-                    </span>
-                    <span className="font-semibold text-green-600 dark:text-green-400">{userStats?.resolved_reports ?? stats.resolved}</span>
-                  </div>
-                  <div className="flex justify-between items-center text-sm">
-                    <span className="text-muted-foreground flex items-center gap-1">
-                      <Activity className="w-3 h-3" />
-                      In Progress
-                    </span>
-                    <span className="font-semibold text-amber-600 dark:text-amber-400">{userStats?.in_progress_reports ?? userStats?.active_reports ?? stats.active}</span>
-                  </div>
-                  {userStats?.avg_resolution_time_days !== undefined && (
-                    <div className="flex justify-between items-center text-sm">
-                      <span className="text-muted-foreground flex items-center gap-1">
-                        <TrendingUp className="w-3 h-3" />
-                        Avg Resolution
-                      </span>
-                      <span className="font-semibold text-purple-600 dark:text-purple-400">{userStats.avg_resolution_time_days.toFixed(1)} days</span>
-                    </div>
-                  )}
-                </div>
-              </Card>
-            ) : (
-              <Card className="p-6 bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-200 dark:from-blue-950 dark:to-indigo-950 dark:border-blue-800">
-                <div className="flex items-center gap-2 mb-3">
-                  <div className="p-2 bg-blue-500/10 rounded-lg">
-                    <Award className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                  </div>
-                  <h3 className="text-lg font-semibold text-foreground">Complete Your Profile</h3>
-                </div>
-                <p className="text-sm text-muted-foreground mb-4">
-                  Complete your profile to unlock reputation points and track your community impact.
+                <p className="font-display text-4xl sm:text-5xl font-black text-slate-950 tracking-tight tabular-nums" aria-label={`Reputation score: ${reputation}`}>
+                  {reputation}
                 </p>
-                <Button
-                  onClick={() => navigate('/citizen/profile')}
-                  className="w-full"
-                  aria-label="Go to profile to complete your account"
-                >
-                  Complete Profile
-                </Button>
-              </Card>
-            )}
+                <p className="mt-2 text-xs text-slate-500 leading-relaxed">
+                  Earned points from verified reports and civic contributions that helped your ward.
+                </p>
 
-            {/* Community Impact Card */}
-            <Card className="p-6 bg-gradient-to-br from-primary/10 via-accent/10 to-primary/5 border-primary/20">
-              <div className="flex items-center gap-2 mb-3">
-                <div className="p-2 bg-primary/10 rounded-lg">
-                  <BarChart3 className="w-5 h-5 text-primary" />
-                </div>
-                <h4 className="font-semibold text-foreground">Community Impact</h4>
-              </div>
-              <p className="text-sm text-muted-foreground mb-4">
-                {stats.resolved > 0
-                  ? `Your reports have helped resolve ${stats.resolved} issue${stats.resolved !== 1 ? 's' : ''} in your community.`
-                  : 'Start reporting issues to make a positive impact in your community.'}
-              </p>
-              <div className="flex items-center gap-2 text-sm text-primary font-medium pt-3 border-t border-primary/20">
-                <CheckCircle2 className="w-4 h-4" aria-hidden="true" />
-                <span>
-                  {stats.total > 0 ? 'Thank you for your contributions' : 'Submit your first report today'}
-                </span>
-              </div>
-            </Card>
-
-            {/* Quick Stats Summary */}
-            {stats.total > 0 && (
-              <Card className="p-6">
-                <div className="flex items-center gap-2 mb-4">
-                  <div className="p-2 bg-primary/10 rounded-lg">
-                    <Target className="w-5 h-5 text-primary" />
+                {user?.profile_completion !== 'complete' && (
+                  <div className="mt-5 pt-4 border-t border-slate-100">
+                    <p className="text-xs font-medium text-slate-700">Profile incomplete</p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="mt-2.5 w-full rounded-full border-slate-200 text-xs font-semibold hover:bg-slate-50 text-slate-800"
+                      onClick={() => navigate('/citizen/profile')}
+                    >
+                      Complete Profile
+                    </Button>
                   </div>
-                  <h4 className="font-semibold text-foreground">Quick Stats</h4>
-                </div>
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                    <span className="text-sm text-muted-foreground">Success Rate</span>
-                    <span className="text-lg font-bold text-green-600 dark:text-green-400">
-                      {stats.total > 0 ? Math.round((stats.resolved / stats.total) * 100) : 0}%
-                    </span>
-                  </div>
-                  {stats.closed > 0 && (
-                    <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
-                      <span className="text-sm text-muted-foreground">Closed</span>
-                      <span className="text-lg font-bold text-gray-600 dark:text-gray-400">
-                        {stats.closed}
-                      </span>
-                    </div>
-                  )}
-                </div>
-              </Card>
-            )}
+                )}
+              </div>
+            </aside>
           </div>
-        </div>
+        </PageShell>
       </div>
     </div>
   );
 };
 
 export default CitizenDashboard;
-

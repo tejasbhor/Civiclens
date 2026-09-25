@@ -59,13 +59,13 @@ export const MediaViewer = ({ media, initialIndex = 0, isOpen, onClose }: MediaV
   const getUploadSourceColor = (source?: string) => {
     switch (source) {
       case 'citizen_submission':
-        return 'bg-blue-500';
+        return 'bg-info';
       case 'officer_before_photo':
-        return 'bg-amber-500';
+        return 'bg-warning';
       case 'officer_after_photo':
-        return 'bg-green-500';
+        return 'bg-success';
       default:
-        return 'bg-slate-500';
+        return 'bg-muted-foreground';
     }
   };
 
@@ -127,13 +127,13 @@ export const MediaViewer = ({ media, initialIndex = 0, isOpen, onClose }: MediaV
       <DialogContent className="max-w-7xl w-full h-[95vh] p-0 bg-black/70 backdrop-blur-md border-none rounded-2xl overflow-hidden">
         <div className="relative w-full h-full flex flex-col">
           {/* Header */}
-          <div className="absolute top-0 left-0 right-0 z-50 flex items-center justify-between p-4 bg-gradient-to-b from-black/80 to-transparent">
+          <div className="absolute top-0 left-0 right-0 z-50 flex items-center justify-between p-4 bg-black/80">
             <div className="flex items-center gap-3">
               <Badge className={getUploadSourceColor(currentMedia.upload_source)}>
                 {getUploadSourceLabel(currentMedia.upload_source)}
               </Badge>
               {currentMedia.is_proof_of_work && (
-                <Badge variant="outline" className="bg-green-500/20 text-green-300 border-green-500/50">
+                <Badge variant="outline" className="bg-success/20 text-success border-success/50">
                   Proof of Work
                 </Badge>
               )}
@@ -163,7 +163,7 @@ export const MediaViewer = ({ media, initialIndex = 0, isOpen, onClose }: MediaV
                 <img
                   src={getMediaUrl(currentMedia.file_url)}
                   alt={currentMedia.caption || `Photo ${currentIndex + 1}`}
-                  className="max-w-full max-h-full object-contain transition-transform duration-200"
+                  className="max-w-full max-h-full object-contain transition-transform duration-[var(--duration-fast)]"
                   style={{
                     transform: `scale(${zoom}) rotate(${rotation}deg)`,
                   }}
@@ -208,7 +208,7 @@ export const MediaViewer = ({ media, initialIndex = 0, isOpen, onClose }: MediaV
           </div>
 
           {/* Controls */}
-          <div className="absolute bottom-0 left-0 right-0 z-50 flex items-center justify-center gap-2 p-4 bg-gradient-to-t from-black/80 to-transparent">
+          <div className="absolute bottom-0 left-0 right-0 z-50 flex items-center justify-center gap-2 p-4 bg-black/80">
             <Button
               variant="ghost"
               size="icon"

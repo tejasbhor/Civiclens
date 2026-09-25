@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
+import { SuccessCheck } from "@/components/feedback/SuccessCheck";
 import { Shield, Smartphone, Loader2, CheckCircle2, AlertCircle, RefreshCw, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -62,19 +63,19 @@ const VerifyPhone = () => {
   };
 
   return (
-    <div className="min-h-screen bg-muted/30 flex items-center justify-center p-4">
+    <div className="min-h-dvh bg-muted/30 flex items-center justify-center p-4">
       <Card className="max-w-md w-full p-8 shadow-2xl border-none bg-background/80 backdrop-blur-sm">
         <div className="text-center space-y-6">
           <div className="flex justify-center">
-            <div className={`w-20 h-20 rounded-3xl flex items-center justify-center shadow-lg transition-transform duration-500 scale-110 ${
-              isSuccess ? 'bg-green-500 shadow-green-200 rotate-0' : 
+            <div className={`w-20 h-20 rounded-3xl flex items-center justify-center shadow-lg transition-transform duration-[var(--duration-very-slow)] scale-110 ${
+              isSuccess ? 'bg-success  rotate-0' : 
               error ? 'bg-destructive shadow-destructive/20 rotate-12' : 
               'bg-primary shadow-primary/20 hover:rotate-3'
             }`}>
               {isVerifying ? (
                 <Loader2 className="w-10 h-10 text-white animate-spin" />
               ) : isSuccess ? (
-                <CheckCircle2 className="w-10 h-10 text-white" />
+                <SuccessCheck className="w-10 h-10 text-white" />
               ) : error ? (
                 <AlertCircle className="w-10 h-10 text-white" />
               ) : (

@@ -1,14 +1,16 @@
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useLocation, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { ConnectionStatus } from "@/components/ConnectionStatus";
 import { HelmetProvider } from "react-helmet-async";
+import { ThemeProvider } from "next-themes";
 import { lazy, Suspense } from "react";
 import { PageLoader } from "@/components/PageLoader";
+import { CookieConsent } from "@/components/layout/CookieConsent";
 
 // Lazy load pages for code splitting and better performance
 const Landing = lazy(() => import("./pages/Landing"));
@@ -31,6 +33,21 @@ const VerifyEmail = lazy(() => import("./pages/auth/VerifyEmail"));
 const VerifyPhone = lazy(() => import("./pages/auth/VerifyPhone"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
+// Public SaaS, Company, Documentation & Compliance Pages
+const PrivacyPolicy = lazy(() => import("./pages/legal/PrivacyPolicy"));
+const TermsOfService = lazy(() => import("./pages/legal/TermsOfService"));
+const CookiePolicy = lazy(() => import("./pages/legal/CookiePolicy"));
+const SecurityPolicy = lazy(() => import("./pages/legal/SecurityPolicy"));
+const AccessibilityStatement = lazy(() => import("./pages/legal/AccessibilityStatement"));
+const Documentation = lazy(() => import("./pages/docs/Documentation"));
+const Guides = lazy(() => import("./pages/docs/Guides"));
+const ApiDocs = lazy(() => import("./pages/docs/ApiDocs"));
+const SystemStatus = lazy(() => import("./pages/status/SystemStatus"));
+const About = lazy(() => import("./pages/company/About"));
+const Careers = lazy(() => import("./pages/company/Careers"));
+const Blog = lazy(() => import("./pages/company/Blog"));
+const Contact = lazy(() => import("./pages/company/Contact"));
+
 // Configure React Query with better error handling
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -49,16 +66,29 @@ const queryClient = new QueryClient({
   },
 });
 
+/** Re-keys on route change so every page enters with the shared rise + cross-blur. */
+const PageTransition = ({ children }: { children: React.ReactNode }) => {
+  const { pathname } = useLocation();
+  return (
+    <div key={pathname} className="t-page">
+      {children}
+    </div>
+  );
+};
+
 const App = () => (
   <ErrorBoundary>
     <HelmetProvider>
+      <ThemeProvider attribute="class" defaultTheme="system" enableSystem storageKey="theme" disableTransitionOnChange>
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
           <TooltipProvider>
             <ConnectionStatus />
             <Toaster />
             <BrowserRouter>
+              <CookieConsent />
               <Suspense fallback={<PageLoader />}>
+                <PageTransition>
                 <Routes>
                   <Route path="/" element={<Landing />} />
 
@@ -175,13 +205,32 @@ const App = () => (
 
                   <Route path="/auth/verify-email" element={<VerifyEmail />} />
                   <Route path="/auth/verify-phone" element={<VerifyPhone />} />
+                  <Route path="/admin/login" element={<Navigate to="/officer/login" replace />} />
+
+                  {/* Public Company, Resource, Documentation & Trust Routes */}
+                  <Route path="/about" element={<About />} />
+                  <Route path="/careers" element={<Careers />} />
+                  <Route path="/blog" element={<Blog />} />
+                  <Route path="/contact" element={<Contact />} />
+                  <Route path="/docs" element={<Documentation />} />
+                  <Route path="/guides" element={<Guides />} />
+                  <Route path="/api" element={<ApiDocs />} />
+                  <Route path="/status" element={<SystemStatus />} />
+                  <Route path="/privacy" element={<PrivacyPolicy />} />
+                  <Route path="/terms" element={<TermsOfService />} />
+                  <Route path="/cookies" element={<CookiePolicy />} />
+                  <Route path="/security" element={<SecurityPolicy />} />
+                  <Route path="/accessibility" element={<AccessibilityStatement />} />
+
                   <Route path="*" element={<NotFound />} />
                 </Routes>
+                </PageTransition>
               </Suspense>
             </BrowserRouter>
           </TooltipProvider>
         </AuthProvider>
       </QueryClientProvider>
+      </ThemeProvider>
     </HelmetProvider>
   </ErrorBoundary>
 );

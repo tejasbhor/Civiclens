@@ -8,16 +8,63 @@ const Tabs = TabsPrimitive.Root;
 const TabsList = React.forwardRef<
   React.ElementRef<typeof TabsPrimitive.List>,
   React.ComponentPropsWithoutRef<typeof TabsPrimitive.List>
->(({ className, ...props }, ref) => (
-  <TabsPrimitive.List
-    ref={ref}
-    className={cn(
-      "inline-flex h-10 items-center justify-center rounded-md bg-muted p-1 text-muted-foreground",
-      className,
-    )}
-    {...props}
-  />
-));
+>(({ className, children, ...props }, forwardedRef) => {
+  const listRef = React.useRef<HTMLDivElement | null>(null);
+  const pillRef = React.useRef<HTMLSpanElement>(null);
+  const settled = React.useRef(false);
+
+  // Slide one pill under whichever trigger is active (transitions.dev "tabs sliding").
+  const place = React.useCallback(() => {
+    const list = listRef.current;
+    const pill = pillRef.current;
+    const active = list?.querySelector<HTMLElement>('[data-state="active"]');
+    if (!list || !pill || !active) return;
+    pill.style.width = `${active.offsetWidth}px`;
+    pill.style.height = `${active.offsetHeight}px`;
+    pill.style.transform = `translate(${active.offsetLeft}px, ${active.offsetTop}px)`;
+    pill.style.opacity = "1";
+    if (!settled.current) {
+      // First placement must not animate from 0,0.
+      pill.style.transition = "none";
+      requestAnimationFrame(() => {
+        pill.style.transition = "";
+        settled.current = true;
+      });
+    }
+  }, []);
+
+  React.useLayoutEffect(() => {
+    const list = listRef.current;
+    if (!list) return;
+    place();
+    const mo = new MutationObserver(place);
+    mo.observe(list, { attributes: true, attributeFilter: ["data-state"], subtree: true });
+    const ro = new ResizeObserver(place);
+    ro.observe(list);
+    return () => {
+      mo.disconnect();
+      ro.disconnect();
+    };
+  }, [place]);
+
+  return (
+    <TabsPrimitive.List
+      ref={(node) => {
+        listRef.current = node;
+        if (typeof forwardedRef === "function") forwardedRef(node);
+        else if (forwardedRef) forwardedRef.current = node;
+      }}
+      className={cn(
+        "relative inline-flex h-10 items-center justify-center rounded-md bg-muted p-1 text-muted-foreground",
+        className,
+      )}
+      {...props}
+    >
+      <span ref={pillRef} aria-hidden="true" className="t-tab-indicator bg-background shadow-sm opacity-0" />
+      {children}
+    </TabsPrimitive.List>
+  );
+});
 TabsList.displayName = TabsPrimitive.List.displayName;
 
 const TabsTrigger = React.forwardRef<
@@ -27,7 +74,7 @@ const TabsTrigger = React.forwardRef<
   <TabsPrimitive.Trigger
     ref={ref}
     className={cn(
-      "inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium ring-offset-background transition-all data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
+      "inline-flex shrink-0 items-center justify-center whitespace-nowrap relative z-10 rounded-control px-3 py-1.5 text-body-sm font-medium [@media(pointer:coarse)]:min-h-10 ring-offset-background transition-colors duration-[150ms] data-[state=active]:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
       className,
     )}
     {...props}

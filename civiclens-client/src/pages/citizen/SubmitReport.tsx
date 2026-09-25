@@ -482,7 +482,7 @@ const SubmitReport = () => {
   // Loading state
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted flex items-center justify-center">
+      <div className="min-h-dvh bg-background flex items-center justify-center">
         <div className="text-center">
           <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-primary" />
           <p className="text-muted-foreground">Loading...</p>
@@ -492,129 +492,169 @@ const SubmitReport = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted">
-      <CitizenHeader />
+    <div className="min-h-dvh bg-[#fbfcfd] relative text-slate-900">
+      {/* Background radial dot grid texture */}
+      <div
+        className="fixed inset-0 pointer-events-none opacity-[0.35] z-0"
+        style={{
+          backgroundImage: `radial-gradient(circle at 1px 1px, #cbd5e1 1px, transparent 0)`,
+          backgroundSize: "32px 32px",
+        }}
+      />
 
-      <div className="container mx-auto px-4 py-8 max-w-3xl">
-        {/* Back Button */}
-        <Button
-          variant="ghost"
-          onClick={() => navigate('/citizen/dashboard')}
-          className="mb-4"
-          aria-label="Back to dashboard"
-        >
-          <ArrowLeft className="w-4 h-4 mr-2" />
-          Back to Dashboard
-        </Button>
+      <div className="relative z-10">
+        <CitizenHeader />
 
-        <Card className="p-6 md:p-8">
-          <div className="space-y-6">
+        <div className="container mx-auto px-4 sm:px-6 py-8 max-w-3xl">
+          {/* Back Button */}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => navigate('/citizen/dashboard')}
+            className="mb-6 rounded-full text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100/80 -ml-2 gap-1.5 active:scale-[0.98] transition-transform"
+            aria-label="Back to dashboard"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            Back to Dashboard
+          </Button>
+
+          {/* Form Header */}
+          <div className="mb-8">
+            <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/20 bg-white/80 px-3.5 py-1 text-xs font-semibold text-[#0d5c4d] shadow-xs backdrop-blur-md mb-3">
+              <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span>DISPATCH TELEMETRY</span>
+              <span className="text-slate-300">•</span>
+              <span className="font-mono text-emerald-700 font-bold">GEOTAGGED REPORT</span>
+            </div>
+            <h1 className="font-display text-3xl sm:text-4xl font-black text-slate-950 tracking-tight">
+              File a Civic Issue
+            </h1>
+            <p className="text-sm text-slate-500 mt-1">
+              Captured data is cryptographically timestamped and assigned to responsible municipal officers.
+            </p>
+          </div>
+
+          {/* Main Card Enclosure */}
+          <div className="rounded-3xl border border-slate-200/90 bg-white p-6 sm:p-9 shadow-xs space-y-8">
             {/* Offline Indicator */}
             {isOffline && (
-              <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-center gap-2 text-sm text-amber-800">
-                <AlertCircle className="w-4 h-4" />
-                <span>You are currently offline. Report submission may not be available.</span>
+              <div className="p-4 bg-amber-50/90 border border-amber-200 rounded-2xl flex items-center gap-2.5 text-xs font-medium text-amber-900">
+                <AlertCircle className="w-4 h-4 text-amber-700 shrink-0" />
+                <span>You are currently offline. Report submission may not be available until reconnected.</span>
               </div>
             )}
 
             {/* Report Details */}
-            <div>
-              <h2 className="text-lg font-semibold text-foreground mb-4">Report Details</h2>
+            <div className="space-y-5">
+              <h2 className="font-display text-lg font-bold text-slate-950 pb-2 border-b border-slate-100">
+                1. Incident Details
+              </h2>
 
               <div className="space-y-4">
                 <div>
-                  <Label htmlFor="title">Title *</Label>
+                  <Label htmlFor="title" className="text-xs font-bold uppercase tracking-wider text-slate-600">
+                    Title *
+                  </Label>
                   <Input
                     id="title"
-                    placeholder="Brief description of the issue"
+                    placeholder="E.g., Deep pothole near sector 4 crossing…"
                     value={formData.title}
                     onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                    className="mt-2"
+                    className="mt-2 rounded-xl border-slate-200/90 bg-white text-sm focus-visible:ring-emerald-500 h-11"
                     maxLength={255}
                     disabled={loading}
                     aria-required="true"
+                    aria-describedby="title-hint"
                     aria-invalid={formData.title.length > 0 && formData.title.length < MIN_TITLE_LENGTH}
                   />
-                  <p className="text-xs text-muted-foreground mt-1">
+                  <p id="title-hint" className="text-xs text-slate-400 mt-1.5 font-mono">
                     {formData.title.length}/255 characters
                     {formData.title.length < MIN_TITLE_LENGTH && formData.title.length > 0 && (
-                      <span className="text-orange-500 ml-1">(minimum {MIN_TITLE_LENGTH})</span>
+                      <span className="text-amber-600 font-semibold ml-1.5">
+                        (min {MIN_TITLE_LENGTH} chars)
+                      </span>
                     )}
                   </p>
                 </div>
 
                 <div>
-                  <Label htmlFor="description">Description *</Label>
+                  <Label htmlFor="description" className="text-xs font-bold uppercase tracking-wider text-slate-600">
+                    Description *
+                  </Label>
                   <Textarea
                     id="description"
-                    placeholder="Provide a detailed explanation of the problem..."
+                    placeholder="Provide exact details of the road hazard, outage, or sanitation spill…"
                     value={formData.description}
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                    className="mt-2 min-h-[120px]"
+                    className="mt-2 min-h-[120px] rounded-xl border-slate-200/90 bg-white text-sm focus-visible:ring-emerald-500 leading-relaxed"
                     maxLength={2000}
                     disabled={loading}
                     aria-required="true"
+                    aria-describedby="desc-hint"
                     aria-invalid={formData.description.length > 0 && formData.description.length < MIN_DESCRIPTION_LENGTH}
                   />
-                  <p className="text-xs text-muted-foreground mt-1">
+                  <p id="desc-hint" className="text-xs text-slate-400 mt-1.5 font-mono">
                     {formData.description.length}/2000 characters
                     {formData.description.length < MIN_DESCRIPTION_LENGTH && formData.description.length > 0 && (
-                      <span className="text-orange-500 ml-1">(minimum {MIN_DESCRIPTION_LENGTH})</span>
+                      <span className="text-amber-600 font-semibold ml-1.5">
+                        (min {MIN_DESCRIPTION_LENGTH} chars)
+                      </span>
                     )}
                   </p>
                 </div>
 
                 <div>
-                  <Label htmlFor="category">Category (Optional)</Label>
+                  <Label htmlFor="category" className="text-xs font-bold uppercase tracking-wider text-slate-600">
+                    Category (Optional)
+                  </Label>
                   <Select
                     value={formData.category}
                     onValueChange={(value) => setFormData({ ...formData, category: value })}
                     disabled={loading}
                   >
-                    <SelectTrigger className="mt-2" id="category" aria-label="Select category">
-                      <SelectValue placeholder="Select Category" />
+                    <SelectTrigger className="mt-2 rounded-xl border-slate-200/90 bg-white text-sm focus-visible:ring-emerald-500 h-11" id="category" aria-label="Select category">
+                      <SelectValue placeholder="Select Category (or let AI triage automatically)" />
                     </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="roads">Roads</SelectItem>
-                      <SelectItem value="water">Water</SelectItem>
-                      <SelectItem value="sanitation">Sanitation / Garbage</SelectItem>
-                      <SelectItem value="electricity">Electricity</SelectItem>
-                      <SelectItem value="streetlight">Street Lights</SelectItem>
-                      <SelectItem value="drainage">Drainage</SelectItem>
-                      <SelectItem value="public_property">Public Property</SelectItem>
-                      <SelectItem value="other">Other</SelectItem>
+                    <SelectContent className="rounded-xl border-slate-200">
+                      <SelectItem value="roads">Roads & Potholes</SelectItem>
+                      <SelectItem value="water">Water Supply & Leakage</SelectItem>
+                      <SelectItem value="sanitation">Sanitation / Garbage Dump</SelectItem>
+                      <SelectItem value="electricity">Electricity & Power</SelectItem>
+                      <SelectItem value="streetlight">Street Lights & Illumination</SelectItem>
+                      <SelectItem value="drainage">Drainage & Sewage</SelectItem>
+                      <SelectItem value="public_property">Public Property Damage</SelectItem>
+                      <SelectItem value="other">Other Civic Matter</SelectItem>
                     </SelectContent>
                   </Select>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Category will be automatically suggested if not selected
+                  <p className="text-xs text-slate-400 mt-1.5">
+                    Leave blank to allow the CivicLens automated triage pipeline to classify your report.
                   </p>
                 </div>
 
                 <div>
-                  <Label>Severity *</Label>
+                  <Label className="text-xs font-bold uppercase tracking-wider text-slate-600">Severity *</Label>
                   <RadioGroup
                     value={formData.severity}
                     onValueChange={(value: 'low' | 'medium' | 'high' | 'critical') => setFormData({ ...formData, severity: value })}
-                    className="mt-3"
+                    className="mt-2"
                     disabled={loading}
                     aria-required="true"
                   >
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                       {[
-                        { value: "low", label: "Low", color: "border-green-500" },
-                        { value: "medium", label: "Medium", color: "border-amber-500" },
-                        { value: "high", label: "High", color: "border-orange-500" },
-                        { value: "critical", label: "Critical", color: "border-red-500" }
+                        { value: "low", label: "Low", desc: "Non-urgent", color: "peer-checked:border-emerald-500 peer-checked:bg-emerald-50/70" },
+                        { value: "medium", label: "Medium", desc: "Routine", color: "peer-checked:border-amber-500 peer-checked:bg-amber-50/70" },
+                        { value: "high", label: "High", desc: "Urgent", color: "peer-checked:border-orange-500 peer-checked:bg-orange-50/70" },
+                        { value: "critical", label: "Critical", desc: "Hazardous", color: "peer-checked:border-rose-500 peer-checked:bg-rose-50/70" }
                       ].map((item) => (
                         <div key={item.value} className="flex items-center">
                           <RadioGroupItem value={item.value} id={item.value} className="peer sr-only" />
                           <Label
                             htmlFor={item.value}
-                            className={`flex-1 p-3 border-2 rounded-lg text-center cursor-pointer transition-all
-                              peer-checked:${item.color} peer-checked:bg-accent/10
-                              hover:bg-accent/5 peer-disabled:opacity-50 peer-disabled:cursor-not-allowed`}
+                            className={`flex-1 p-3 border border-slate-200 rounded-2xl text-center cursor-pointer transition-all ${item.color} hover:bg-slate-50 peer-disabled:opacity-50 peer-disabled:cursor-not-allowed`}
                           >
-                            {item.label}
+                            <span className="block font-display text-sm font-bold text-slate-900">{item.label}</span>
+                            <span className="block font-mono text-[10px] text-slate-400 uppercase tracking-wider mt-0.5">{item.desc}</span>
                           </Label>
                         </div>
                       ))}
@@ -625,66 +665,69 @@ const SubmitReport = () => {
             </div>
 
             {/* Location */}
-            <div className="pt-6 border-t">
-              <h2 className="text-lg font-semibold text-foreground mb-4">Location *</h2>
+            <div className="space-y-5 pt-6 border-t border-slate-100">
+              <h2 className="font-display text-lg font-bold text-slate-950 pb-2 border-b border-slate-100">
+                2. Geolocation Proof *
+              </h2>
 
               <div className="space-y-4">
                 {location ? (
                   <div>
-                    <Label>Captured Location</Label>
-                    <div className="mt-2 p-4 bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-lg">
+                    <Label className="text-xs font-bold uppercase tracking-wider text-slate-600">Captured Coordinates</Label>
+                    <div className="mt-2 p-4 bg-emerald-50/80 border border-emerald-200/80 rounded-2xl">
                       <div className="flex items-start gap-3">
-                        <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400 mt-1 flex-shrink-0" aria-hidden="true" />
+                        <CheckCircle className="w-5 h-5 text-emerald-600 mt-0.5 flex-shrink-0" aria-hidden="true" />
                         <div className="flex-1">
-                          <p className="font-medium text-foreground">{location.address}</p>
-                          <p className="text-sm text-muted-foreground mt-1">
-                            Coordinates: {location.latitude.toFixed(6)}, {location.longitude.toFixed(6)}
-                          </p>
-                          <p className="text-sm text-green-600 dark:text-green-400 mt-1">
-                            Accuracy: ±{Math.round(location.accuracy)}m
-                          </p>
+                          <p className="font-semibold text-slate-900 text-sm leading-snug">{location.address}</p>
+                          <div className="flex flex-wrap items-center gap-3 mt-2 text-xs font-mono">
+                            <span className="text-slate-600 font-semibold bg-white/80 px-2 py-0.5 rounded border border-emerald-100">
+                              GPS: {location.latitude.toFixed(6)}, {location.longitude.toFixed(6)}
+                            </span>
+                            <span className="text-emerald-700 font-bold bg-emerald-100/70 px-2 py-0.5 rounded">
+                              ±{Math.round(location.accuracy)}m accuracy
+                            </span>
+                          </div>
                         </div>
                       </div>
                     </div>
                     <Button
                       variant="outline"
                       size="sm"
-                      className="mt-2 w-full"
+                      className="mt-3 w-full rounded-full border-slate-200 text-xs font-semibold hover:bg-slate-50 text-slate-700 h-9"
                       onClick={getCurrentLocation}
                       disabled={locationLoading || loading}
                       aria-label="Update location"
                     >
                       {locationLoading ? (
                         <>
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          Getting Location...
+                          <Loader2 className="w-3.5 h-3.5 mr-2 animate-spin" />
+                          Acquiring Fresh GPS Telemetry...
                         </>
                       ) : (
                         <>
-                          <MapPin className="w-4 h-4 mr-2" />
-                          Update Location
+                          <MapPin className="w-3.5 h-3.5 mr-2 text-emerald-700" />
+                          Re-acquire Location
                         </>
                       )}
                     </Button>
                   </div>
                 ) : (
                   <div>
-                    <Label>GPS Location Required</Label>
-                    <div className="mt-2 p-4 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-lg">
+                    <Label className="text-xs font-bold uppercase tracking-wider text-slate-600">GPS Location Required</Label>
+                    <div className="mt-2 p-4 bg-amber-50/80 border border-amber-200/80 rounded-2xl">
                       <div className="flex items-start gap-3">
-                        <AlertCircle className="w-5 h-5 text-amber-600 dark:text-amber-400 mt-1 flex-shrink-0" aria-hidden="true" />
+                        <AlertCircle className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" aria-hidden="true" />
                         <div className="flex-1">
-                          <p className="font-medium text-foreground">Location not captured</p>
-                          <p className="text-sm text-muted-foreground mt-1">
-                            Please click the button below to capture your current location using GPS
+                          <p className="font-semibold text-slate-900 text-sm">Location Not Yet Attached</p>
+                          <p className="text-xs text-slate-600 mt-1">
+                            CivicLens requires tamper-resistant GPS coordinates to prevent fraudulent reports and route officers directly.
                           </p>
                         </div>
                       </div>
                     </div>
                     <Button
-                      variant="default"
                       size="lg"
-                      className="mt-3 w-full"
+                      className="mt-3 w-full bg-[#0a2e2a] hover:bg-[#072421] text-white font-semibold rounded-full h-11 shadow-xs active:scale-[0.98]"
                       onClick={getCurrentLocation}
                       disabled={locationLoading || loading}
                       aria-label="Get current location"
@@ -692,12 +735,12 @@ const SubmitReport = () => {
                       {locationLoading ? (
                         <>
                           <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          Getting Location...
+                          Acquiring Satellite Lock...
                         </>
                       ) : (
                         <>
                           <MapPin className="w-4 h-4 mr-2" />
-                          Get Current Location
+                          Capture Current Location
                         </>
                       )}
                     </Button>
@@ -705,25 +748,23 @@ const SubmitReport = () => {
                 )}
 
                 <div>
-                  <Label htmlFor="landmark">Address / Landmark (Auto-filled)</Label>
+                  <Label htmlFor="landmark" className="text-xs font-bold uppercase tracking-wider text-slate-600">
+                    Address / Landmark (Auto-filled)
+                  </Label>
                   <Input
                     id="landmark"
                     placeholder="Full address will be auto-filled when location is captured"
                     value={formData.landmark}
                     onChange={(e) => setFormData({ ...formData, landmark: e.target.value })}
-                    className="mt-2"
+                    className="mt-2 rounded-xl border-slate-200/90 bg-white text-sm focus-visible:ring-emerald-500 h-11"
                     disabled={loading}
                     maxLength={500}
                     aria-label="Address or landmark, auto-filled from GPS location"
                   />
                   {formData.landmark && (
-                    <p className="text-xs text-green-600 dark:text-green-400 mt-1">
-                      Full address auto-filled from GPS location (you can edit if needed)
-                    </p>
-                  )}
-                  {!formData.landmark && location && (
-                    <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
-                      Address will be auto-filled after location is captured
+                    <p className="text-xs text-emerald-700 font-medium mt-1.5 flex items-center gap-1">
+                      <CheckCircle className="w-3.5 h-3.5" />
+                      Auto-filled from reverse geocoding (editable)
                     </p>
                   )}
                 </div>
@@ -731,12 +772,16 @@ const SubmitReport = () => {
             </div>
 
             {/* Photos */}
-            <div className="pt-6 border-t">
-              <h2 className="text-lg font-semibold text-foreground mb-4">Photos (Optional)</h2>
+            <div className="space-y-5 pt-6 border-t border-slate-100">
+              <h2 className="font-display text-lg font-bold text-slate-950 pb-2 border-b border-slate-100">
+                3. Photographic Proof (Optional)
+              </h2>
 
               <div className="space-y-4">
                 <div>
-                  <Label htmlFor="photo-upload">Upload Photos (Maximum {MAX_PHOTOS}, {MAX_PHOTO_SIZE / (1024 * 1024)}MB each)</Label>
+                  <Label htmlFor="photo-upload" className="text-xs font-bold uppercase tracking-wider text-slate-600">
+                    Upload Photos (Max {MAX_PHOTOS}, {MAX_PHOTO_SIZE / (1024 * 1024)}MB each)
+                  </Label>
                   <input
                     type="file"
                     accept="image/*"
@@ -747,45 +792,36 @@ const SubmitReport = () => {
                     disabled={loading || photos.length >= MAX_PHOTOS}
                     aria-label="Upload photos"
                   />
-                  <label htmlFor="photo-upload">
-                    <Button
-                      variant="outline"
-                      className="w-full h-32 flex flex-col gap-2 mt-2 cursor-pointer"
-                      asChild
-                      disabled={loading || photos.length >= MAX_PHOTOS}
-                      aria-label={photos.length >= MAX_PHOTOS ? 'Maximum photos reached' : 'Upload photos'}
-                    >
-                      <div>
-                        <Upload className="w-8 h-8" />
-                        <span className="text-sm">
-                          {photos.length >= MAX_PHOTOS ? `Maximum ${MAX_PHOTOS} photos` : 'Upload Photos'}
-                        </span>
-                        <span className="text-xs text-muted-foreground">
-                          {photos.length}/{MAX_PHOTOS} photos
-                        </span>
-                      </div>
-                    </Button>
+                  <label htmlFor="photo-upload" className="block cursor-pointer">
+                    <div className="mt-2 w-full h-32 border-2 border-dashed border-slate-200 rounded-2xl flex flex-col items-center justify-center gap-2 text-slate-500 hover:border-emerald-500/50 hover:bg-slate-50/50 transition-all">
+                      <Upload className="w-7 h-7 text-slate-400" />
+                      <span className="text-xs font-semibold text-slate-700">
+                        {photos.length >= MAX_PHOTOS ? `Maximum ${MAX_PHOTOS} photos reached` : 'Click to Browse Photos'}
+                      </span>
+                      <span className="text-[11px] font-mono text-slate-400">
+                        {photos.length}/{MAX_PHOTOS} photos attached
+                      </span>
+                    </div>
                   </label>
 
                   {photos.length > 0 && (
-                    <div className="mt-3 grid grid-cols-3 gap-2" role="list" aria-label="Photo previews">
+                    <div className="mt-4 grid grid-cols-3 sm:grid-cols-5 gap-3" role="list" aria-label="Photo previews">
                       {photoPreviewUrls.map((url, idx) => (
-                        <div key={idx} className="relative aspect-square bg-muted rounded-lg overflow-hidden" role="listitem">
+                        <div key={idx} className="relative aspect-square bg-slate-100 rounded-xl overflow-hidden border border-slate-200 shadow-xs" role="listitem">
                           <img
                             src={url}
                             alt={`Preview ${idx + 1}`}
                             className="w-full h-full object-cover"
                           />
-                          <Button
-                            variant="destructive"
-                            size="icon"
-                            className="absolute -top-2 -right-2 w-7 h-7 shadow-lg"
+                          <button
+                            type="button"
+                            className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-slate-900/80 hover:bg-rose-600 text-white flex items-center justify-center shadow-md transition-colors"
                             onClick={() => removePhoto(idx)}
                             disabled={loading}
                             aria-label={`Remove photo ${idx + 1}`}
                           >
-                            <X className="w-4 h-4" />
-                          </Button>
+                            <X className="w-3.5 h-3.5" />
+                          </button>
                         </div>
                       ))}
                     </div>
@@ -795,35 +831,35 @@ const SubmitReport = () => {
             </div>
 
             {/* Submit */}
-            <div className="pt-6 border-t">
+            <div className="pt-6 border-t border-slate-100">
               <Button
                 onClick={handleSubmit}
                 size="lg"
-                className="w-full"
+                className="w-full h-12 rounded-full font-bold bg-[#0a2e2a] hover:bg-[#072421] text-white shadow-xs active:scale-[0.98] transition-all text-sm tracking-wide"
                 disabled={loading || !isFormValid || isOffline || !isBackendReachable}
                 aria-label="Submit report"
               >
                 {loading ? (
                   <>
-                    <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                    Submitting Report...
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Submitting Verified Incident...
                   </>
                 ) : (
-                  'Submit Report'
+                  'Submit Geotagged Report'
                 )}
               </Button>
-              <p className="text-sm text-muted-foreground text-center mt-4">
+              <p className="text-xs text-slate-400 font-mono text-center mt-3">
                 {!location
-                  ? "Please capture location to submit"
+                  ? "• GPS coordinates required before submission"
                   : !isFormValid
-                    ? "Please complete all required fields"
+                    ? "• Fill all required fields (title & description)"
                     : isOffline || !isBackendReachable
-                      ? "Unable to submit - check your connection"
-                      : "Your report will be submitted with GPS location"}
+                      ? "• Offline: reconnect to dispatch"
+                      : "• Report will be immediately registered into municipal queue"}
               </p>
             </div>
           </div>
-        </Card>
+        </div>
       </div>
     </div>
   );
