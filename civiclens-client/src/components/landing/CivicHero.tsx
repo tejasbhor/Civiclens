@@ -273,15 +273,15 @@ export function CivicHero() {
             >
               <div>
                 <span className="block text-sm font-black font-display text-slate-950">Instant Triage</span>
-                <span className="text-[11px] text-slate-600 mt-0.5 block leading-snug">Routes to the right crew automatically</span>
+                <span className="text-xs text-slate-600 mt-0.5 block leading-snug">Routes to the right crew automatically</span>
               </div>
               <div>
                 <span className="block text-sm font-black font-display text-slate-950">Zero Duplicates</span>
-                <span className="text-[11px] text-slate-600 mt-0.5 block leading-snug">Clusters nearby reports to prevent repeat trips</span>
+                <span className="text-xs text-slate-600 mt-0.5 block leading-snug">Clusters nearby reports to prevent repeat trips</span>
               </div>
               <div>
                 <span className="block text-sm font-black font-display text-slate-950">Photo Verified</span>
-                <span className="text-[11px] text-slate-600 mt-0.5 block leading-snug">Every repair proven with before & after photos</span>
+                <span className="text-xs text-slate-600 mt-0.5 block leading-snug">Every repair proven with before & after photos</span>
               </div>
             </motion.div>
 
@@ -476,10 +476,10 @@ export function CivicHero() {
       <div className="relative z-20 pb-4 flex flex-col items-center justify-center">
         <button
           onClick={scrollToMetrics}
-          className="group flex flex-col items-center gap-1 text-[11px] font-mono tracking-widest text-slate-600 hover:text-slate-950 transition-colors cursor-pointer"
+          className="group flex flex-col items-center gap-1 text-xs font-mono tracking-widest text-slate-600 hover:text-slate-950 transition-colors cursor-pointer"
           aria-label="Scroll down to architecture metrics"
         >
-          <span>EXPLORE ARCHITECTURE</span>
+          <span>Explore architecture</span>
           <div className="w-5 h-5 rounded-full border border-slate-300 flex items-center justify-center group-hover:translate-y-0.5 transition-transform bg-white/80 shadow-2xs">
             <ChevronDown className="w-3 h-3" />
           </div>

@@ -244,11 +244,11 @@ export function BeforeAfterSlider({ className }: BeforeAfterSliderProps) {
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-transparent" />
             <div className="relative z-10 p-6 text-white">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-500/90 backdrop-blur-md text-slate-950 mb-2.5 shadow-md">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-emerald-500/90 backdrop-blur-md text-slate-950 mb-2.5 shadow-md">
                 <span className="w-1.5 h-1.5 rounded-full bg-slate-950 animate-pulse" />
                 Verified Municipal Site
               </span>
-              <h4 className="text-base font-bold text-white font-display">{story.site}</h4>
+              <h3 className="text-base font-bold text-white font-display">{story.site}</h3>
               <p className="text-xs text-white/80 mt-1">{story.ward}</p>
             </div>
           </motion.div>
