@@ -36,20 +36,36 @@ export function CookieConsent() {
           initial={reduce ? false : { opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: 8 }}
-          transition={{ duration: 0.2, ease: [0.23, 1, 0.32, 1] }}
+          transition={{ duration: 0.25, ease: [0.23, 1, 0.32, 1] }}
           style={{ marginBottom: "env(safe-area-inset-bottom)" }}
-          className="fixed inset-x-3 bottom-3 z-50 rounded-panel border bg-card p-4 shadow-floating sm:inset-x-auto sm:right-6 sm:bottom-6 sm:max-w-sm"
+          className="fixed inset-x-3 bottom-3 z-50 rounded-3xl border border-slate-200/90 bg-white/95 backdrop-blur-2xl p-5 shadow-[0_20px_50px_rgba(0,0,0,0.15)] ring-1 ring-slate-900/5 sm:inset-x-auto sm:right-6 sm:bottom-6 sm:max-w-sm text-slate-900"
         >
-          <p className="text-h4">Cookies and privacy</p>
-          <p className="mt-1 text-caption text-muted-foreground">
+          <div className="flex items-center gap-2 mb-1.5">
+            <span className="h-2 w-2 rounded-full bg-emerald-500" />
+            <p className="font-display text-sm font-bold text-slate-950">Cookies & Privacy</p>
+          </div>
+          <p className="text-xs text-slate-600 leading-relaxed">
             We use essential session tokens for sign-in and privacy-respecting telemetry to improve service.{" "}
-            <Link to="/privacy" className="font-medium text-primary underline-offset-4 hover:underline">Privacy</Link>
+            <Link to="/privacy" className="font-semibold text-emerald-700 hover:text-emerald-800 underline-offset-4 hover:underline">Privacy</Link>
             {" · "}
-            <Link to="/cookies" className="font-medium text-primary underline-offset-4 hover:underline">Cookies</Link>
+            <Link to="/cookies" className="font-semibold text-emerald-700 hover:text-emerald-800 underline-offset-4 hover:underline">Cookies</Link>
           </p>
-          <div className="mt-3 flex gap-2">
-            <Button variant="outline" size="sm" className="flex-1" onClick={handleEssentialOnly}>Essential only</Button>
-            <Button size="sm" className="flex-1" onClick={handleAccept}>Accept all</Button>
+          <div className="mt-4 flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex-1 rounded-full border-slate-300 bg-white text-slate-700 hover:bg-slate-100 hover:text-slate-950 text-xs font-semibold h-9"
+              onClick={handleEssentialOnly}
+            >
+              Essential only
+            </Button>
+            <Button
+              size="sm"
+              className="flex-1 rounded-full bg-[#0a2e2a] hover:bg-[#072421] text-white text-xs font-semibold shadow-xs h-9"
+              onClick={handleAccept}
+            >
+              Accept all
+            </Button>
           </div>
         </motion.aside>
       )}

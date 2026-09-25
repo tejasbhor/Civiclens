@@ -7,7 +7,6 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { ConnectionStatus } from "@/components/ConnectionStatus";
 import { HelmetProvider } from "react-helmet-async";
-import { ThemeProvider } from "next-themes";
 import { lazy, Suspense } from "react";
 import { PageLoader } from "@/components/PageLoader";
 import { CookieConsent } from "@/components/layout/CookieConsent";
@@ -79,7 +78,6 @@ const PageTransition = ({ children }: { children: React.ReactNode }) => {
 const App = () => (
   <ErrorBoundary>
     <HelmetProvider>
-      <ThemeProvider attribute="class" defaultTheme="system" enableSystem storageKey="theme" disableTransitionOnChange>
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
           <TooltipProvider>
@@ -213,6 +211,7 @@ const App = () => (
                   <Route path="/blog" element={<Blog />} />
                   <Route path="/contact" element={<Contact />} />
                   <Route path="/docs" element={<Documentation />} />
+                  <Route path="/documentation" element={<Navigate to="/docs" replace />} />
                   <Route path="/guides" element={<Guides />} />
                   <Route path="/api" element={<ApiDocs />} />
                   <Route path="/status" element={<SystemStatus />} />
@@ -230,7 +229,6 @@ const App = () => (
           </TooltipProvider>
         </AuthProvider>
       </QueryClientProvider>
-      </ThemeProvider>
     </HelmetProvider>
   </ErrorBoundary>
 );

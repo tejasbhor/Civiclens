@@ -40,15 +40,15 @@ const FEATURES: FeatureCard[] = [
     title: "Understands the issue",
     subtitle: "Plain text · Natural triage",
     badge: "Layer 01 • Smart Triage",
-    description: "Residents describe the problem in their own words. CivicLens interprets the text to instantly assign the right category and municipal department without cumbersome menus.",
+    description: "Residents describe the problem in their own words. CivicLens reads the report text to suggest category and department without cumbersome manual menus.",
   },
   {
     id: 1,
     icon: Layers,
     title: "Maps context & coordinates",
-    subtitle: "GPS location · Duplicate guard",
+    subtitle: "GPS location · Duplicate clustering",
     badge: "Layer 02 • Context Awareness",
-    description: "Pinpoints exact coordinates and automatically groups matching reports nearby, saving municipal crews from redundant trips to the same issue.",
+    description: "Pinpoints coordinates and flags potential nearby duplicates, helping municipal crews avoid redundant trips to the same issue.",
   },
   {
     id: 2,
@@ -56,22 +56,22 @@ const FEATURES: FeatureCard[] = [
     title: "Dispatches to the ground",
     subtitle: "Assigned crew · Mobile queue",
     badge: "Layer 03 • Direct Routing",
-    description: "Sends the work order directly to the assigned beat officer's mobile queue with offline support, ensuring zero downtime in cellular dead zones.",
+    description: "Routes work orders to the assigned beat officer's mobile queue with offline task support for areas with weak connectivity.",
   },
   {
     id: 3,
     icon: BarChart3,
-    title: "Guarantees verified proof",
-    subtitle: "Photo evidence · Citizen trust",
-    badge: "Layer 04 • Verified Outcome",
-    description: "Tickets cannot be closed with a mere checkbox. Officers must upload timestamped before-and-after photos, notifying the resident the moment it is fixed.",
+    title: "Requires photo proof",
+    subtitle: "Before & after photos · Full history",
+    badge: "Layer 04 • Documented Fix",
+    description: "Tickets cannot be closed with a mere checkbox. Officers attach before and after photos to closures, writing every state change to an immutable history.",
   },
 ];
 
 const STATS = [
-  { icon: Zap, color: "text-emerald-700", bg: "bg-emerald-50", border: "border-emerald-200/80", value: "Instant", label: "Automated triage & routing" },
-  { icon: Sparkles, color: "text-amber-700", bg: "bg-amber-50", border: "border-amber-200/80", value: "Zero", label: "Lost or unassigned reports" },
-  { icon: CheckCircle2, color: "text-sky-700", bg: "bg-sky-50", border: "border-sky-200/80", value: "100%", label: "Photo-verified closures" },
+  { icon: Zap, color: "text-emerald-700", bg: "bg-emerald-50", border: "border-emerald-200/80", value: "Direct", label: "Automated triage & routing" },
+  { icon: Sparkles, color: "text-amber-700", bg: "bg-amber-50", border: "border-amber-200/80", value: "Tracked", label: "Full audit trail per issue" },
+  { icon: CheckCircle2, color: "text-sky-700", bg: "bg-sky-50", border: "border-sky-200/80", value: "Verified", label: "Before/after photo closures" },
   { icon: Smartphone, color: "text-indigo-700", bg: "bg-indigo-50", border: "border-indigo-200/80", value: "Offline", label: "Reliable field sync" },
 ];
 
@@ -79,7 +79,7 @@ const LAYER_LABELS = [
   { id: 0, title: "Intelligent Triage", tag: "Layer 01" },
   { id: 1, title: "Context & Duplicates", tag: "Layer 02" },
   { id: 2, title: "Field Dispatch", tag: "Layer 03" },
-  { id: 3, title: "Verified Proof", tag: "Layer 04" },
+  { id: 3, title: "Photo Closure", tag: "Layer 04" },
 ];
 
 export function AiExplodedLayers() {
@@ -309,11 +309,11 @@ export function AiExplodedLayers() {
                   <div className="inline-flex items-center gap-2">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                     <span className="text-[11px] font-mono font-bold uppercase tracking-wider text-slate-500">
-                      Core Triage Guarantees
+                      Triage Capabilities
                     </span>
                   </div>
                   <span className="text-[10px] font-mono text-emerald-800 bg-emerald-50 border border-emerald-200/70 px-2 py-0.5 rounded-full font-bold">
-                    SYSTEM SLA
+                    OPERATIONAL DESIGN
                   </span>
                 </div>
 
@@ -454,7 +454,7 @@ export function AiExplodedLayers() {
                         <path d="M50 150 H250 M150 50 V250" stroke="#f59e0b" strokeWidth="1" opacity="0.2" />
                       </svg>
                       <div className="absolute bottom-4 left-5 text-[10px] font-mono tracking-widest text-amber-800 font-bold">
-                        LAYER 04 // VERIFIED OUTCOME
+                        LAYER 04 // DOCUMENTED CLOSURE
                       </div>
                     </motion.div>
 

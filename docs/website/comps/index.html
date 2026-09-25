@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CivicLens: civic complaints tracked to closure</title>
+<meta name="description" content="One shared record of every civic issue, from report to documented fix, with AI-assisted triage staff can override.">
+<link rel="preload" href="fonts/archivo-wdth.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="comp.css">
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <symbol id="arrow" viewBox="0 0 24 24"><path d="M4 12h15M13 5.5l6.5 6.5-6.5 6.5" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="check" viewBox="0 0 24 24"><path d="M4.5 12.5l5 5 10-11" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="cross" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"/></symbol>
+  <symbol id="theme" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="2.4"/><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor"/></symbol>
+  <symbol id="mark" viewBox="0 0 32 32"><rect x="1" y="1" width="30" height="30" rx="8" fill="#0B0B0B" style="stroke:var(--ink);stroke-width:2"/><circle cx="16" cy="16" r="8.5" fill="none" stroke="#FFC800" stroke-width="3.5"/><circle cx="16" cy="16" r="2.6" fill="#FFC800"/></symbol>
+</svg>
+
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="site-header">
+  <div class="wrap bar">
+    <a class="brand" href="#top" aria-label="CivicLens, home"><svg width="34" height="34" aria-hidden="true"><use href="#mark"/></svg>CivicLens</a>
+    <nav class="nav" aria-label="Primary">
+      <a href="#lifecycle">How it works</a>
+      <a href="#ai-triage">AI triage</a>
+      <a href="#docs">Docs</a>
+      <a href="#security">Security</a>
+    </nav>
+    <div class="tools">
+      <button class="icon-btn" id="theme" type="button" aria-pressed="false" aria-label="Dark theme"><svg width="22" height="22" aria-hidden="true"><use href="#theme"/></svg></button>
+      <a class="btn sm" href="#demo">Open the live demo</a>
+      <details class="menu">
+        <summary>Menu</summary>
+        <ul>
+          <li class="cta"><a href="#demo">Open the live demo</a></li>
+          <li><a href="#lifecycle">How it works</a></li>
+          <li><a href="#ai-triage">AI triage</a></li>
+          <li><a href="#docs">Docs</a></li>
+          <li><a href="#security">Security</a></li>
+        </ul>
+      </details>
+    </div>
+  </div>
+</header>
+
+<main id="main">
+  <section class="hero" id="top">
+    <div class="wrap">
+      <div class="hero-grid">
+        <div>
+          <h1>Every civic complaint, tracked to closure.</h1>
+          <p class="lead">CivicLens gives residents, field officers and city administrators one shared record of every issue, from first report to documented fix.</p>
+          <div class="actions">
+            <a class="btn" href="#demo">Open the live demo <svg width="22" height="22" aria-hidden="true"><use href="#arrow"/></svg></a>
+            <a class="link" href="#lifecycle">See how it works</a>
+          </div>
+          <p class="note">Demo with sample data. CivicLens is an independent project, not a government service.</p>
+        </div>
+        <nav aria-label="Choose your role">
+          <ul class="post">
+            <li><a class="sign" href="#lifecycle"><span><b>Residents</b><span class="sub">Report it, track it, rate the fix</span></span><span class="chip"><svg width="24" height="24" aria-hidden="true"><use href="#arrow"/></svg></span></a></li>
+            <li><a class="sign" href="#lifecycle"><span><b>Field officers</b><span class="sub">Tasks, offline work, proof of work</span></span><span class="chip"><svg width="24" height="24" aria-hidden="true"><use href="#arrow"/></svg></span></a></li>
+            <li><a class="sign" href="#lifecycle"><span><b>Administrators</b><span class="sub">Triage, deadlines, audit log</span></span><span class="chip"><svg width="24" height="24" aria-hidden="true"><use href="#arrow"/></svg></span></a></li>
+          </ul>
+        </nav>
+      </div>
+
+      <figure class="record">
+        <figcaption>One report, on the record. Sample data.</figcaption>
+        <ol>
+          <li><b>REPORTED</b>Mon 09:14<br>Pothole, 12th Main Rd</li>
+          <li><b>TRIAGED</b>Mon 09:14<br>Roads / High (suggested)</li>
+          <li><b>ASSIGNED</b>Mon 09:31<br>Due Fri 18:00</li>
+          <li><b>FIXED</b>Wed 11:05<br>4 photos attached</li>
+          <li class="done"><b><svg width="15" height="15" aria-hidden="true"><use href="#check"/></svg>CLOSED</b>Wed 16:20<br>Rated by resident</li>
+        </ol>
+      </figure>
+    </div>
+  </section>
+
+  <section class="section" id="lifecycle" aria-labelledby="life-h">
+    <div class="wrap">
+      <header>
+        <h2 id="life-h">One record, from first report to fix.</h2>
+        <p class="lead">Every step is written to the same history, so a resident, an officer and an administrator are always looking at the same facts.</p>
+      </header>
+      <div class="life">
+        <figure class="screen">
+          <div class="screen-frame" role="img" aria-label="Placeholder for a product screenshot"><span>Product screen</span></div>
+          <figcaption>A real screenshot from the demo goes here and changes with each step.</figcaption>
+        </figure>
+        <div>
+          <ol class="route">
+            <li><span class="marker" aria-hidden="true">1</span><div><h3>Report</h3><p>Photos, location and a short description, from the web or the Android app, even offline.</p><p class="rec mono"><b>REPORTED</b><span>Mon 09:14</span><span>CL-2481</span></p></div></li>
+            <li><span class="marker" aria-hidden="true">2</span><div><h3>Triage</h3><p>AI suggests a category, severity and department, and flags likely duplicates.</p><p class="rec mono"><b>TRIAGED</b><span>Mon 09:14</span><span>Roads / High (suggested)</span></p></div></li>
+            <li><span class="marker" aria-hidden="true">3</span><div><h3>Assign</h3><p>Staff confirm or override the suggestion, then assign the task with a deadline.</p><p class="rec mono"><b>ASSIGNED</b><span>Mon 09:31</span><span>Due Fri 18:00</span></p></div></li>
+            <li><span class="marker" aria-hidden="true">4</span><div><h3>Fix</h3><p>The officer acknowledges, starts work and adds updates from the field.</p><p class="rec mono"><b>IN PROGRESS</b><span>Wed 08:40</span></p></div></li>
+            <li><span class="marker" aria-hidden="true">5</span><div><h3>Evidence</h3><p>Before and after photos, notes, materials and duration are attached to the closure.</p><p class="rec mono"><b>FIXED</b><span>Wed 11:05</span><span>4 photos · 2 h 10 m</span></p></div></li>
+            <li><span class="marker" aria-hidden="true">6</span><div><h3>Feedback</h3><p>The resident rates the fix, or appeals if it was not resolved.</p><p class="rec mono"><b>CLOSED</b><span>Wed 16:20</span><span>Rated by resident</span></p></div></li>
+          </ol>
+          <p class="tiny">Record CL-2481 is sample data.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="ai-triage" aria-labelledby="ai-h">
+    <div class="wrap">
+      <header>
+        <h2 id="ai-h">AI that reads, sorts and suggests. People decide.</h2>
+        <p class="lead">The AI reads the words of a report. It never looks at the photos, and every suggestion can be changed by staff.</p>
+      </header>
+
+      <div class="flow">
+        <div class="doc">
+          <h3>Report text</h3>
+          <blockquote>Large pothole on 12th Main Road near the bus stop, deep enough to damage tyres. Two-wheelers are swerving into traffic to avoid it.</blockquote>
+          <p class="meta">Submitted by a resident · 2 photos (not read by the AI)</p>
+        </div>
+        <div class="via" aria-hidden="true"><svg width="44" height="44"><use href="#arrow"/></svg></div>
+        <div class="out">
+          <h3>Suggestions</h3>
+          <dl>
+            <dt>Category</dt><dd>Roads</dd>
+            <dt>Severity</dt><dd>High</dd>
+            <dt>Department</dt><dd>Roads department</dd>
+            <dt>Similar report</dt><dd class="mono">CL-2455, nearby</dd>
+          </dl>
+          <div class="decide"><span>Staff decide</span><a class="btn sm" href="#ai-triage">Confirm</a><a class="btn sm line" href="#ai-triage">Override</a></div>
+        </div>
+      </div>
+      <p class="tiny">Illustrative example, not output from the live model.</p>
+
+      <div class="limits">
+        <div class="yes">
+          <h3><svg width="24" height="24" aria-hidden="true"><use href="#check"/></svg>What it does</h3>
+          <ul>
+            <li><svg width="22" height="22" aria-hidden="true"><use href="#check"/></svg>Reads a report's title and description</li>
+            <li><svg width="22" height="22" aria-hidden="true"><use href="#check"/></svg>Suggests a category and a severity</li>
+            <li><svg width="22" height="22" aria-hidden="true"><use href="#check"/></svg>Groups similar reports to flag duplicates</li>
+            <li><svg width="22" height="22" aria-hidden="true"><use href="#check"/></svg>Suggests the responsible department</li>
+            <li><svg width="22" height="22" aria-hidden="true"><use href="#check"/></svg>Flags low-confidence results for review</li>
+          </ul>
+        </div>
+        <div class="no">
+          <h3><svg width="24" height="24" aria-hidden="true"><use href="#cross"/></svg>What it does not do</h3>
+          <ul>
+            <li><svg width="22" height="22" aria-hidden="true"><use href="#cross"/></svg>Look at photos</li>
+            <li><svg width="22" height="22" aria-hidden="true"><use href="#cross"/></svg>Make the final decision</li>
+            <li><svg width="22" height="22" aria-hidden="true"><use href="#cross"/></svg>Learn from your reports; models are used as published</li>
+            <li><svg width="22" height="22" aria-hidden="true"><use href="#cross"/></svg>Guarantee accuracy</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="site-footer" id="docs">
+  <div class="wrap">
+    <p>CivicLens is an independent demonstration product built by Tejas Bhor. It is not a government service.</p>
+    <ul class="foot-links" id="security">
+      <li><a href="#">Privacy</a></li>
+      <li><a href="#">Terms</a></li>
+      <li><a href="#">Cookies</a></li>
+      <li><a href="#">Accessibility</a></li>
+      <li><a href="#">Security</a></li>
+      <li><a href="#">Status</a></li>
+      <li><button type="button">Cookie preferences</button></li>
+    </ul>
+  </div>
+</footer>
+
+<script>
+(function(){
+  var r=document.documentElement,b=document.getElementById('theme'),q=new URLSearchParams(location.search).get('theme');
+  function dark(){return r.dataset.theme?r.dataset.theme==='dark':matchMedia('(prefers-color-scheme: dark)').matches}
+  if(q==='dark'||q==='light')r.dataset.theme=q;
+  b.setAttribute('aria-pressed',dark());
+  b.addEventListener('click',function(){r.dataset.theme=dark()?'light':'dark';b.setAttribute('aria-pressed',dark())});
+})();
+</script>
+</body>
+</html>

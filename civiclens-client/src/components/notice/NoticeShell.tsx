@@ -1,8 +1,7 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { type ReactNode } from "react";
 import { Link } from "react-router-dom";
-import { useTheme } from "next-themes";
 import "@/styles/notice.css";
-import { Arrow, Mark, ThemeIcon } from "./Icons";
+import { Arrow, Mark } from "./Icons";
 
 const NAV: [string, string][] = [
   ["/#lifecycle", "How it works"],
@@ -18,18 +17,6 @@ const FOOT: { title: string; links: [string, string][] }[] = [
   { title: "Trust", links: [["/privacy", "Privacy"], ["/terms", "Terms"], ["/cookies", "Cookies"], ["/security", "Security"]] },
 ];
 
-function ThemeButton() {
-  const { resolvedTheme, setTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
-  const dark = mounted && resolvedTheme === "dark";
-  return (
-    <button className="icon-btn" type="button" aria-pressed={dark} aria-label="Dark theme" onClick={() => setTheme(dark ? "light" : "dark")}>
-      <ThemeIcon />
-    </button>
-  );
-}
-
 export function NoticeShell({ children }: { children: ReactNode }) {
   return (
     <div className="nz">
@@ -41,7 +28,6 @@ export function NoticeShell({ children }: { children: ReactNode }) {
             {NAV.map(([to, label]) => <Link key={label} to={to}>{label}</Link>)}
           </nav>
           <div className="tools">
-            <ThemeButton />
             <Link className="btn sm" to={DEMO}>Open the live demo</Link>
             <details className="menu">
               <summary>Menu</summary>

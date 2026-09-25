@@ -152,82 +152,6 @@ input, textarea {
     --sidebar-border: 90 10% 87%;
     --sidebar-ring: 162 82% 28%;
   }
-
-  .dark {
-    --background: 165 28% 7%;
-    --foreground: 80 20% 94%;
-
-    --card: 165 24% 10%;
-    --card-foreground: 80 20% 94%;
-
-    --popover: 165 24% 10%;
-    --popover-foreground: 80 20% 94%;
-
-    --primary: 158 62% 42%;
-    --primary-foreground: 165 32% 7%;
-
-    --secondary: 205 22% 24%;
-    --secondary-foreground: 80 20% 94%;
-
-    --muted: 165 18% 15%;
-    --muted-foreground: 165 8% 66%;
-
-    --accent: 170 55% 38%;
-    --accent-foreground: 80 20% 96%;
-
-    --signal: 43 96% 58%;
-    --signal-foreground: 165 32% 9%;
-
-    --destructive: 4 72% 58%;
-    --destructive-foreground: 0 0% 100%;
-
-    --border: 165 16% 18%;
-    --input: 165 16% 20%;
-    --ring: 158 62% 42%;
-
-    --civic-blue: 212 72% 58%;
-    --civic-green: 158 62% 46%;
-    --civic-teal: 170 55% 44%;
-    --civic-amber: 38 92% 58%;
-
-    --surface: 165 28% 7%;
-    --surface-elevated: 165 24% 10%;
-    --surface-muted: 165 18% 15%;
-    --surface-inverse: 80 20% 94%;
-    --surface-inverse-foreground: 165 32% 9%;
-
-    --success: 158 62% 46%;
-    --success-foreground: 165 32% 7%;
-    --warning: 38 92% 58%;
-    --warning-foreground: 165 32% 9%;
-    --info: 212 78% 66%;
-    --info-foreground: 165 32% 7%;
-
-    --status-submitted: 165 10% 68%;
-    --status-received: 212 78% 66%;
-    --status-review: 190 65% 55%;
-    --status-assigned: 232 70% 74%;
-    --status-progress: 38 92% 58%;
-    --status-completed: 158 62% 46%;
-    --status-rejected: 4 78% 66%;
-    --status-escalated: 328 70% 68%;
-    --status-pending: 165 8% 62%;
-
-    --shadow-sm: 0 1px 2px hsl(0 0% 0% / 0.4);
-    --shadow-md: 0 8px 24px -8px hsl(0 0% 0% / 0.55), 0 2px 6px hsl(0 0% 0% / 0.3);
-    --shadow-lg: 0 24px 48px -16px hsl(0 0% 0% / 0.7), 0 4px 12px hsl(0 0% 0% / 0.35);
-
-    --gradient-primary: linear-gradient(135deg, hsl(158 62% 36%) 0%, hsl(170 55% 32%) 100%);
-    --gradient-hero: linear-gradient(135deg, hsl(158 62% 36%) 0%, hsl(170 55% 32%) 100%);
-    --sidebar-background: 165 24% 9%;
-    --sidebar-foreground: 80 20% 90%;
-    --sidebar-primary: 158 62% 42%;
-    --sidebar-primary-foreground: 165 32% 7%;
-    --sidebar-accent: 165 18% 15%;
-    --sidebar-accent-foreground: 80 20% 94%;
-    --sidebar-border: 165 16% 18%;
-    --sidebar-ring: 158 62% 42%;
-  }
 }
 
 @layer base {
@@ -350,4 +274,3 @@ input, textarea {
   mix-blend-mode: multiply;
   opacity: 0.06;
 }
-.dark .bg-grain { mix-blend-mode: screen; opacity: 0.05; }

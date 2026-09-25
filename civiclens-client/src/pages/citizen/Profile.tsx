@@ -652,22 +652,7 @@ const CitizenProfile = () => {
 
                 <div className="space-y-4">
                   <div>
-                    <Label htmlFor="theme" className="text-xs font-semibold uppercase tracking-wider text-slate-500">Theme</Label>
-                    <select
-                      id="theme"
-                      value={preferences.theme}
-                      onChange={(e) => setPreferences({ ...preferences, theme: e.target.value as 'light' | 'dark' | 'auto' })}
-                      disabled={!isEditing}
-                      className="w-full mt-2 px-3 py-2 rounded-xl border border-slate-200 bg-white text-sm disabled:opacity-50"
-                    >
-                      <option value="auto">Auto (System)</option>
-                      <option value="light">Light</option>
-                      <option value="dark">Dark</option>
-                    </select>
-                  </div>
-
-                  <div>
-                    <Label htmlFor="density" className="text-xs font-semibold uppercase tracking-wider text-slate-500">Density</Label>
+                    <Label htmlFor="density" className="text-xs font-semibold uppercase tracking-wider text-slate-500">Display Density</Label>
                     <select
                       id="density"
                       value={preferences.density}

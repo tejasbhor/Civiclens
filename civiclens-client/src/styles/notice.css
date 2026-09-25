@@ -1,7 +1,7 @@
 @font-face{font-family:"Archivo";src:url("/fonts/archivo-wdth.woff2") format("woff2");font-weight:100 900;font-stretch:62% 125%;font-display:swap}
 @font-face{font-family:"JetBrains Mono";src:url("/fonts/jetbrains-mono.woff2") format("woff2");font-weight:100 800;font-display:swap}
 .nz{
-  color-scheme:light dark;
+  color-scheme:light;
   --font:"Archivo",system-ui,sans-serif;
   --mono:"JetBrains Mono",ui-monospace,monospace;
   --surface:#F7F6F1;--ink:#0B0B0B;--muted:#4D4D48;--line:#D6D3C8;
@@ -10,12 +10,6 @@
   --panel:#0B0B0B;--panel-ink:#F7F6F1;--panel-dim:#C9C7BD;
   --road:#0B0B0B;--focus:#0B0B0B;
   --gutter:1rem;
-}
-.dark .nz,.nz[data-theme="dark"]{
-  --surface:#0B0B0B;--ink:#F7F6F1;--muted:#A3A39B;--line:#2C2C28;
-  --ok-bg:#3DBE84;--ok-ink:#0B0B0B;--ok-text:#3DBE84;
-  --panel:#F7F6F1;--panel-ink:#0B0B0B;--panel-dim:#3A3A36;
-  --road:#3A3A36;--focus:#FFC800;
 }
 @media (min-width:720px){.nz{--gutter:2.5rem}}
 .nz *,.nz *::before,.nz *::after{box-sizing:border-box}

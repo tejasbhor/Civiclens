@@ -1,0 +1,6 @@
+# Draft for /.well-known/security.txt (RFC 9116). Replace placeholders, set Expires within 12 months.
+Contact: mailto:[DECIDE Q-01: security email]
+Expires: [DECIDE: ISO 8601 date, e.g. 2027-09-21T00:00:00.000Z]
+Preferred-Languages: en
+Canonical: https://civiclens.space/.well-known/security.txt
+Policy: https://civiclens.space/security

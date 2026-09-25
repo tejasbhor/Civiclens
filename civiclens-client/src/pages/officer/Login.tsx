@@ -25,7 +25,6 @@ import { authService } from "@/services/authService";
 import { isOfficer, isCitizen } from "@/utils/authHelpers";
 import { APP_CONFIG, getCopyrightText } from "@/config/appConfig";
 import { SEO } from "@/components/SEO";
-import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { Logo } from "@/components/brand/Logo";
 
 // ─── Auth flow types ──────────────────────────────────────────────────────────

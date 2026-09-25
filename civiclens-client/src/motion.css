@@ -5,14 +5,16 @@
   --duration-stagger: 40ms;
   --duration-micro: 80ms;
   --duration-quick: 150ms;
-  --duration-fast: 250ms;
-  --duration-medium: 350ms;
-  --duration-slow: 400ms;
-  --duration-very-slow: 500ms;
+  --duration-fast: 220ms;
+  --duration-medium: 300ms;
+  --duration-slow: 380ms;
+  --duration-very-slow: 460ms;
 
-  --ease-smooth-out: cubic-bezier(0.22, 1, 0.36, 1);
-  --ease-in-out: ease-in-out;
-  --ease-out: ease-out;
+  /* Emil Kowalski custom curves: punchy ease-out for immediate UI feedback */
+  --ease-smooth-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
   --ease-linear: linear;
 
   --distance-micro: 4px;
@@ -20,10 +22,12 @@
   --distance-base: 8px;
   --distance-medium: 12px;
 
+  /* Real-world entry scale (never animate from scale(0)) */
   --scale-large: 0.96;
   --scale-medium: 0.97;
   --scale-small: 0.98;
   --scale-tiny: 0.99;
+  --scale-badge: 0.88;
 
   --blur-small: 2px;
   --blur-medium: 3px;
@@ -100,10 +104,10 @@
 
 /* ── Notification badge pop ───────────────────────────────── */
 @keyframes t-badge-pop {
-  from { opacity: 0; transform: scale(0.4); }
+  from { opacity: 0; transform: scale(var(--scale-badge)); }
   to { opacity: 1; transform: scale(1); }
 }
-.t-badge-pop { animation: t-badge-pop var(--duration-very-slow) var(--ease-smooth-out) both; }
+.t-badge-pop { animation: t-badge-pop var(--duration-fast) var(--ease-smooth-out) both; }
 
 /* ── Sliding tab indicator ────────────────────────────────── */
 .t-tab-indicator {
@@ -118,15 +122,15 @@
     height var(--duration-fast) var(--ease-smooth-out);
 }
 
-/* ── Hover lift for cards ─────────────────────────────────── */
+/* ── Hover lift for cards (gated to fine pointers to prevent sticky touch hover) ── */
 .t-lift {
   transition: transform var(--duration-fast) var(--ease-smooth-out), box-shadow var(--duration-fast) var(--ease-smooth-out);
 }
-@media (hover: hover) {
+@media (hover: hover) and (pointer: fine) {
   .t-lift:hover { transform: translateY(calc(var(--distance-micro) * -1)); }
 }
 
-/* ── Press feedback for buttons ───────────────────────────── */
+/* ── Press feedback for buttons (Emil Kowalski active feedback) ── */
 .t-press { transition: transform var(--duration-quick) var(--ease-smooth-out); }
 .t-press:active { transform: scale(var(--scale-medium)); }
 

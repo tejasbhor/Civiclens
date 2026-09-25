@@ -114,6 +114,9 @@ export function PanoramicHero() {
           data-hero-bg
           src="/images/panoramic-hero-city.jpg"
           alt="Panoramic CivicLens city diorama landscape"
+          loading="eager"
+          fetchpriority="high"
+          decoding="async"
           className="w-full h-full object-cover object-[center_right] lg:object-center"
         />
 

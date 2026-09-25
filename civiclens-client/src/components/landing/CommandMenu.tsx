@@ -56,17 +56,6 @@ export function CommandMenu({ compact = false }: CommandMenuProps) {
     command();
   };
 
-  const toggleTheme = () => {
-    const isDark = document.documentElement.classList.contains("dark");
-    if (isDark) {
-      document.documentElement.classList.remove("dark");
-      localStorage.setItem("theme", "light");
-    } else {
-      document.documentElement.classList.add("dark");
-      localStorage.setItem("theme", "dark");
-    }
-  };
-
   const handleLogout = async () => {
     await logout();
     navigate("/");
@@ -220,12 +209,7 @@ export function CommandMenu({ compact = false }: CommandMenuProps) {
 
           <CommandSeparator />
 
-          <CommandGroup heading="Settings & Actions">
-            <CommandItem onSelect={() => runCommand(toggleTheme)}>
-              <Sun className="mr-2 h-4 w-4" />
-              <Moon className="mr-2 h-4 w-4 hidden" />
-              <span>Toggle Dark / Light Theme</span>
-            </CommandItem>
+          <CommandGroup heading="Actions">
             {user ? (
               <CommandItem onSelect={() => runCommand(handleLogout)}>
                 <LogOut className="mr-2 h-4 w-4 text-destructive" />

@@ -11,26 +11,9 @@ type ToasterProps = React.ComponentProps<typeof Sonner>;
  * - Proper styling for light/dark themes
  */
 const Toaster = ({ ...props }: ToasterProps) => {
-  // Detect theme from document class or system preference
-  const getTheme = (): "light" | "dark" | "system" => {
-    if (typeof window === "undefined") return "system";
-    
-    // Check if dark mode class is present
-    if (document.documentElement.classList.contains("dark")) {
-      return "dark";
-    }
-    
-    // Check system preference
-    if (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) {
-      return "dark";
-    }
-    
-    return "light";
-  };
-
   return (
     <Sonner
-      theme={getTheme()}
+      theme="light"
       className="toaster group"
       position="top-center"
       richColors

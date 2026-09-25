@@ -10,7 +10,7 @@ import { FAQ } from "@/components/landing/FAQ";
 import { HeroCityCta } from "@/components/landing/HeroCityCta";
 import { MarketingFooter } from "@/components/layout/MarketingFooter";
 import { MarketingNav } from "@/components/layout/MarketingNav";
-import { CookieConsent } from "@/components/layout/CookieConsent";
+import { LandingPreloader } from "@/components/landing/LandingPreloader";
 import { SEO } from "@/components/SEO";
 import { useSmoothScroll } from "@/hooks/useSmoothScroll";
 import { useAuth } from "@/contexts/AuthContext";
@@ -40,6 +40,8 @@ export default function Landing() {
         keywords="civic issues, citizen reporting, issue tracking, municipal software, complaint management, demonstration project"
       />
 
+      <LandingPreloader />
+
       <div className="min-h-dvh bg-white text-slate-900 selection:bg-amber-500/20">
         <a
           href="#main"
@@ -63,7 +65,6 @@ export default function Landing() {
           <HeroCityCta />
         </main>
 
-        <CookieConsent />
         <MarketingFooter />
       </div>
     </>
