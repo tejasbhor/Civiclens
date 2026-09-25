@@ -16,5 +16,11 @@
     "ui": "@/components/ui",
     "lib": "@/lib",
     "hooks": "@/hooks"
+  },
+  "registries": {
+    "@animate-ui": "https://animate-ui.com/r/{name}.json",
+    "@kokonutui": "https://kokonutui.com/r/{name}.json",
+    "@componentry": "https://componentry.dev/r/{name}.json",
+    "@motion-primitives": "https://motion-primitives.com/c/{name}.json"
   }
 }

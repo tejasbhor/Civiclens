@@ -68,7 +68,7 @@ export const ResumeWorkModal: React.FC<ResumeWorkModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
-      <div className="flex min-h-screen items-center justify-center p-4">
+      <div className="flex min-h-dvh items-center justify-center p-4">
         {/* Backdrop */}
         <div 
           className="fixed inset-0 bg-black bg-opacity-50 transition-opacity"
@@ -76,19 +76,19 @@ export const ResumeWorkModal: React.FC<ResumeWorkModalProps> = ({
         />
 
         {/* Modal */}
-        <div className="relative bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+        <div className="relative bg-card rounded-lg shadow-xl max-w-md w-full p-6">
           {/* Header */}
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
-              <Play className="w-6 h-6 text-green-600" />
-              <h2 className="text-xl font-semibold text-gray-900">
+              <Play className="w-6 h-6 text-success" />
+              <h2 className="text-xl font-semibold text-foreground">
                 Resume Work
               </h2>
             </div>
             <button
               onClick={handleClose}
               disabled={isSubmitting}
-              className="text-gray-400 hover:text-gray-600 disabled:opacity-50"
+              className="text-muted-foreground hover:text-muted-foreground disabled:opacity-50"
             >
               <X className="w-5 h-5" />
             </button>
@@ -96,20 +96,20 @@ export const ResumeWorkModal: React.FC<ResumeWorkModalProps> = ({
 
           {/* Report Info */}
           {reportNumber && (
-            <div className="mb-4 p-3 bg-gray-50 rounded-lg">
-              <p className="text-sm text-gray-600">
-                Report: <span className="font-medium text-gray-900">{reportNumber}</span>
+            <div className="mb-4 p-3 bg-muted rounded-lg">
+              <p className="text-sm text-muted-foreground">
+                Report: <span className="font-medium text-foreground">{reportNumber}</span>
               </p>
             </div>
           )}
 
           {/* Hold Reason Display */}
           {holdReason && (
-            <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-              <p className="text-sm font-medium text-yellow-900 mb-1">
+            <div className="mb-4 p-3 bg-warning/10 border border-warning/30 rounded-lg">
+              <p className="text-sm font-medium text-warning mb-1">
                 Previous Hold Reason:
               </p>
-              <p className="text-sm text-yellow-800">
+              <p className="text-sm text-warning">
                 {holdReason}
               </p>
             </div>
@@ -119,7 +119,7 @@ export const ResumeWorkModal: React.FC<ResumeWorkModalProps> = ({
           <form onSubmit={handleSubmit}>
             {/* Notes Input */}
             <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-foreground mb-2">
                 Notes (Optional)
               </label>
               <textarea
@@ -127,20 +127,20 @@ export const ResumeWorkModal: React.FC<ResumeWorkModalProps> = ({
                 onChange={(e) => setNotes(e.target.value)}
                 disabled={isSubmitting}
                 rows={4}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100"
+                className="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-info focus:border-transparent disabled:bg-muted"
                 placeholder="Add any notes about resuming work (e.g., issue resolved, materials received, etc.)"
               />
             </div>
 
             {/* Success Message */}
-            <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+            <div className="mb-4 p-3 bg-success/10 border border-success/30 rounded-lg">
               <div className="flex items-start gap-2">
-                <CheckCircle className="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0" />
+                <CheckCircle className="w-5 h-5 text-success mt-0.5 flex-shrink-0" />
                 <div>
-                  <p className="text-sm font-medium text-green-900">
+                  <p className="text-sm font-medium text-success">
                     Ready to Resume
                   </p>
-                  <p className="text-sm text-green-800 mt-1">
+                  <p className="text-sm text-success mt-1">
                     The task will be marked as IN_PROGRESS and you can continue working on it.
                   </p>
                 </div>
@@ -153,14 +153,14 @@ export const ResumeWorkModal: React.FC<ResumeWorkModalProps> = ({
                 type="button"
                 onClick={handleClose}
                 disabled={isSubmitting}
-                className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="flex-1 px-4 py-2 border border-border text-foreground rounded-lg hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+                className="flex-1 px-4 py-2 bg-success text-success-foreground rounded-lg hover:bg-success/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
               >
                 {isSubmitting ? (
                   'Resuming...'

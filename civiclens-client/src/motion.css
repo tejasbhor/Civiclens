@@ -1,0 +1,162 @@
+/* Motion system — transitions.dev token scale.
+   Every duration, easing, distance, scale and blur used by the app's motion reads from here.
+   Reduced motion is handled globally in index.css. */
+:root {
+  --duration-stagger: 40ms;
+  --duration-micro: 80ms;
+  --duration-quick: 150ms;
+  --duration-fast: 250ms;
+  --duration-medium: 350ms;
+  --duration-slow: 400ms;
+  --duration-very-slow: 500ms;
+
+  --ease-smooth-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-out: ease-in-out;
+  --ease-out: ease-out;
+  --ease-linear: linear;
+
+  --distance-micro: 4px;
+  --distance-small: 6px;
+  --distance-base: 8px;
+  --distance-medium: 12px;
+
+  --scale-large: 0.96;
+  --scale-medium: 0.97;
+  --scale-small: 0.98;
+  --scale-tiny: 0.99;
+
+  --blur-small: 2px;
+  --blur-medium: 3px;
+}
+
+/* ── Overlay: fade ─────────────────────────────────────────── */
+@keyframes t-fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes t-fade-out { from { opacity: 1; } to { opacity: 0; } }
+
+.t-overlay[data-state="open"] { animation: t-fade-in var(--duration-fast) var(--ease-smooth-out) both; }
+.t-overlay[data-state="closed"] { animation: t-fade-out var(--duration-quick) var(--ease-smooth-out) both; }
+
+/* ── Modal: centered scale-up, softer scale-down (Dialog content keeps its translate(-50%, -50%)) ── */
+@keyframes t-modal-in {
+  from { opacity: 0; transform: translate(-50%, -50%) scale(var(--scale-large)); }
+  to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+@keyframes t-modal-out {
+  from { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  to { opacity: 0; transform: translate(-50%, -50%) scale(var(--scale-large)); }
+}
+.t-modal[data-state="open"] { animation: t-modal-in var(--duration-fast) var(--ease-smooth-out) both; }
+.t-modal[data-state="closed"] { animation: t-modal-out var(--duration-quick) var(--ease-smooth-out) both; }
+
+/* ── Dropdown / popover / select: grows from its trigger ──── */
+@keyframes t-pop-in { from { opacity: 0; transform: scale(var(--scale-medium)); } to { opacity: 1; transform: scale(1); } }
+@keyframes t-pop-out { from { opacity: 1; transform: scale(1); } to { opacity: 0; transform: scale(var(--scale-tiny)); } }
+.t-dropdown { transform-origin: var(--radix-popper-transform-origin); }
+.t-dropdown[data-state="open"] { animation: t-pop-in var(--duration-fast) var(--ease-smooth-out) both; }
+.t-dropdown[data-state="closed"] { animation: t-pop-out var(--duration-quick) var(--ease-smooth-out) both; }
+
+/* ── Tooltip: delayed fade + scale in, instant out ────────── */
+@keyframes t-tip-in { from { opacity: 0; transform: scale(var(--scale-small)); } to { opacity: 1; transform: scale(1); } }
+.t-tooltip { transform-origin: var(--radix-popper-transform-origin); }
+.t-tooltip[data-state="delayed-open"], .t-tooltip[data-state="instant-open"] {
+  animation: t-tip-in var(--duration-quick) var(--ease-out) var(--duration-micro) both;
+}
+
+/* ── Page enter: short rise with cross-blur ───────────────── */
+@keyframes t-rise-in {
+  from { opacity: 0; transform: translateY(var(--distance-base)); filter: blur(var(--blur-medium)); }
+  to { opacity: 1; transform: none; filter: blur(0); }
+}
+/* backwards fill: once done, no lingering filter/transform, so fixed descendants keep the viewport as their containing block */
+.t-page { animation: t-rise-in var(--duration-fast) var(--ease-smooth-out) backwards; }
+
+/* ── Content reveal after loading (skeleton → content) ────── */
+@keyframes t-reveal {
+  from { opacity: 0; filter: blur(var(--blur-small)); }
+  to { opacity: 1; filter: blur(0); }
+}
+.t-reveal { animation: t-reveal var(--duration-slow) var(--ease-in-out) backwards; }
+
+/* ── Stagger: set style="--i: n" on children ─────────────── */
+.t-stagger > * {
+  animation: t-rise-in var(--duration-very-slow) var(--ease-smooth-out) backwards;
+  animation-delay: calc(var(--i, 0) * var(--duration-stagger) * 2);
+}
+
+/* ── Skeleton pulse: linear, low-contrast ─────────────────── */
+@keyframes t-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+.t-skeleton { animation: t-pulse 1400ms var(--ease-linear) infinite; }
+
+/* ── Error shake: per-segment, reverts on its own ─────────── */
+@keyframes t-shake {
+  0% { transform: translateX(0); }
+  20% { transform: translateX(calc(var(--distance-base) * -1)); }
+  40% { transform: translateX(var(--distance-base)); }
+  60% { transform: translateX(calc(var(--distance-small) * -1)); }
+  80% { transform: translateX(var(--distance-small)); }
+  100% { transform: translateX(0); }
+}
+.t-shake { animation: t-shake calc(var(--duration-micro) * 5) var(--ease-smooth-out); }
+
+/* ── Notification badge pop ───────────────────────────────── */
+@keyframes t-badge-pop {
+  from { opacity: 0; transform: scale(0.4); }
+  to { opacity: 1; transform: scale(1); }
+}
+.t-badge-pop { animation: t-badge-pop var(--duration-very-slow) var(--ease-smooth-out) both; }
+
+/* ── Sliding tab indicator ────────────────────────────────── */
+.t-tab-indicator {
+  position: absolute;
+  top: 0;
+  left: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  transition:
+    transform var(--duration-fast) var(--ease-smooth-out),
+    width var(--duration-fast) var(--ease-smooth-out),
+    height var(--duration-fast) var(--ease-smooth-out);
+}
+
+/* ── Hover lift for cards ─────────────────────────────────── */
+.t-lift {
+  transition: transform var(--duration-fast) var(--ease-smooth-out), box-shadow var(--duration-fast) var(--ease-smooth-out);
+}
+@media (hover: hover) {
+  .t-lift:hover { transform: translateY(calc(var(--distance-micro) * -1)); }
+}
+
+/* ── Press feedback for buttons ───────────────────────────── */
+.t-press { transition: transform var(--duration-quick) var(--ease-smooth-out); }
+.t-press:active { transform: scale(var(--scale-medium)); }
+
+/* ── Validation feedback: fields shake once when they turn invalid, messages rise in ── */
+input.border-destructive, textarea.border-destructive, [role="combobox"].border-destructive {
+  animation: t-shake calc(var(--duration-micro) * 5) var(--ease-smooth-out);
+}
+p.text-destructive, [role="alert"] {
+  animation: t-rise-in var(--duration-fast) var(--ease-smooth-out) backwards;
+}
+
+/* ── Success check: fade + rotate + bob, then stroke-draw ──── */
+@keyframes t-check-in {
+  from { opacity: 0; transform: rotate(-12deg) translateY(var(--distance-base)) scale(var(--scale-large)); filter: blur(var(--blur-medium)); }
+  to { opacity: 1; transform: none; filter: blur(0); }
+}
+@keyframes t-draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+.t-success-check { animation: t-check-in var(--duration-very-slow) var(--ease-smooth-out) backwards; }
+.t-success-check circle,
+.t-success-check path {
+  stroke-dasharray: 1;
+  animation: t-draw var(--duration-slow) var(--ease-smooth-out) backwards;
+}
+.t-success-check circle { animation-delay: var(--duration-micro); }
+.t-success-check path { animation-delay: calc(var(--duration-micro) * 3); }
+
+/* ── Toast: rises in slower than it leaves ────────────────── */
+@keyframes t-toast-out {
+  from { opacity: 1; transform: none; filter: blur(0); }
+  to { opacity: 0; transform: translateY(var(--distance-base)); filter: blur(var(--blur-small)); }
+}
+.t-toast[data-state="open"] { animation: t-rise-in var(--duration-slow) var(--ease-smooth-out) backwards; }
+.t-toast[data-state="closed"] { animation: t-toast-out var(--duration-quick) var(--ease-smooth-out) both; }

@@ -164,7 +164,7 @@ export const NotificationBell = ({ notificationsRoute, className }: Notification
           {unreadCount > 0 && (
             <>
               <span 
-                className="absolute top-1 right-1 w-2 h-2 bg-destructive rounded-full" 
+                className="t-badge-pop absolute top-1 right-1 w-2 h-2 bg-destructive rounded-full" 
                 aria-hidden="true"
                 id="unread-count"
               />

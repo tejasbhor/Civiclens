@@ -1,12 +1,13 @@
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Bell, CheckCircle2, Clock, AlertCircle, MessageSquare, Trash2, Loader2 } from "lucide-react";
+import { Bell, CheckCircle2, Clock, AlertCircle, MessageSquare } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { notificationService, Notification } from "@/services/notificationService";
-import { formatDistanceToNow } from "date-fns";
+import { PageShell, PageHeader } from "@/components/layout/PageShell";
+import { NotificationList } from "@/components/notifications/NotificationList";
+import { EmptyState } from "@/components/feedback/EmptyState";
+import { ListSkeleton } from "@/components/feedback/Skeletons";
 import { OfficerHeader } from "@/components/layout/OfficerHeader";
 
 const OfficerNotifications = () => {
@@ -46,22 +47,22 @@ const OfficerNotifications = () => {
     switch (type) {
       case "resolution_approved":
       case "task_completed":
-        return <CheckCircle2 className="w-5 h-5 text-green-500" />;
+        return <CheckCircle2 className="w-5 h-5 text-emerald-600" />;
       case "status_change":
       case "task_started":
       case "work_resumed":
-        return <Clock className="w-5 h-5 text-amber-500" />;
+        return <Clock className="w-5 h-5 text-amber-600" />;
       case "task_assigned":
-        return <AlertCircle className="w-5 h-5 text-blue-500" />;
+        return <AlertCircle className="w-5 h-5 text-blue-600" />;
       case "task_acknowledged":
       case "verification_required":
       case "resolution_rejected":
-        return <MessageSquare className="w-5 h-5 text-purple-500" />;
+        return <MessageSquare className="w-5 h-5 text-purple-600" />;
       case "sla_warning":
       case "sla_violated":
-        return <AlertCircle className="w-5 h-5 text-red-500" />;
+        return <AlertCircle className="w-5 h-5 text-red-600" />;
       default:
-        return <Bell className="w-5 h-5 text-muted-foreground" />;
+        return <Bell className="w-5 h-5 text-slate-400" />;
     }
   };
 
@@ -136,106 +137,61 @@ const OfficerNotifications = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted">
-      <OfficerHeader />
-      
-      {/* Header */}
-      <header className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-50">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" size="icon" onClick={() => navigate('/officer/dashboard')}>
-              <ArrowLeft className="w-5 h-5" />
-            </Button>
-            <div>
-              <h1 className="font-bold text-foreground">Notifications</h1>
-              <p className="text-xs text-muted-foreground">
-                {unreadCount > 0 ? `${unreadCount} unread` : "All caught up!"}
-              </p>
-            </div>
-          </div>
-          {unreadCount > 0 && (
-            <Button variant="outline" size="sm" onClick={handleMarkAllRead}>
-              Mark All Read
-            </Button>
-          )}
-        </div>
-      </header>
+    <div className="min-h-screen bg-[#fbfcfd] relative text-slate-900">
+      {/* Background radial dot grid texture */}
+      <div
+        className="fixed inset-0 pointer-events-none opacity-[0.35] z-0"
+        style={{
+          backgroundImage: `radial-gradient(circle at 1px 1px, #cbd5e1 1px, transparent 0)`,
+          backgroundSize: "32px 32px",
+        }}
+      />
 
-      <div className="container mx-auto px-4 py-8 max-w-3xl">
-        {loading ? (
-          <Card className="p-12 text-center">
-            <Loader2 className="w-16 h-16 mx-auto mb-4 text-muted-foreground animate-spin" />
-            <h3 className="text-lg font-semibold text-foreground mb-2">Loading Notifications</h3>
-            <p className="text-muted-foreground">Please wait...</p>
-          </Card>
-        ) : notifications.length === 0 ? (
-          <Card className="p-12 text-center">
-            <Bell className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
-            <h3 className="text-lg font-semibold text-foreground mb-2">No Notifications</h3>
-            <p className="text-muted-foreground">You're all caught up! Check back later for updates.</p>
-          </Card>
-        ) : (
-          <div className="space-y-3">
-            {notifications.map((notification) => (
-              <Card 
-                key={notification.id} 
-                className={`p-4 transition-all hover:shadow-md cursor-pointer ${!notification.is_read ? 'bg-accent/5 border-l-4 border-l-primary' : ''}`}
-                onClick={() => handleNotificationClick(notification)}
-              >
-                <div className="flex gap-4">
-                  <div className="flex-shrink-0 mt-1">
-                    {getNotificationIcon(notification.type)}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-start justify-between mb-1">
-                      <h4 className="font-semibold text-foreground">{notification.title}</h4>
-                      {!notification.is_read && (
-                        <Badge variant="default" className="ml-2">New</Badge>
-                      )}
-                    </div>
-                    <p className="text-sm text-muted-foreground mb-2">{notification.message}</p>
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs text-muted-foreground">
-                        {formatDistanceToNow(new Date(notification.created_at), { addSuffix: true })}
-                      </span>
-                      <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
-                        {notification.related_task_id && (
-                          <Button 
-                            size="sm" 
-                            variant="outline"
-                            onClick={() => navigate(`/officer/tasks/${notification.related_task_id}`)}
-                          >
-                            View Task
-                          </Button>
-                        )}
-                        {!notification.is_read && (
-                          <Button 
-                            size="sm" 
-                            variant="ghost"
-                            onClick={() => handleMarkAsRead(notification.id)}
-                          >
-                            Mark Read
-                          </Button>
-                        )}
-                        <Button 
-                          size="sm" 
-                          variant="ghost"
-                          onClick={() => handleDelete(notification.id)}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </Card>
-            ))}
-          </div>
-        )}
+      <div className="relative z-10">
+        <OfficerHeader />
+        <PageShell width="narrow">
+          <PageHeader
+            title="Operational Alerts &amp; Dispatches"
+            description={unreadCount > 0 ? `${unreadCount} unread operational signals pending action` : "All dispatch signals and field tasks are up to date."}
+            actions={
+              unreadCount > 0 ? (
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={handleMarkAllRead}
+                  className="rounded-full border-slate-200 bg-white/90 text-xs font-semibold text-slate-700 hover:bg-slate-50 shadow-xs px-4"
+                >
+                  Mark all read
+                </Button>
+              ) : undefined
+            }
+          />
+          {loading ? (
+            <ListSkeleton rows={4} />
+          ) : notifications.length === 0 ? (
+            <div className="rounded-3xl border border-slate-200/90 bg-white p-8 sm:p-12 shadow-xs text-center">
+              <EmptyState
+                icon={Bell}
+                title="No operational alerts"
+                description="Real-time task assignments, status audits, and verification notices will stream directly into this queue."
+              />
+            </div>
+          ) : (
+            <div className="overflow-hidden rounded-3xl border border-slate-200/90 bg-white shadow-xs">
+              <NotificationList
+                notifications={notifications}
+                getIcon={getNotificationIcon}
+                onOpen={handleNotificationClick}
+                onMarkRead={handleMarkAsRead}
+                onDelete={handleDelete}
+                shortcut={(n) => n.related_task_id ? { label: 'View task', onClick: () => navigate(`/officer/task/${n.related_task_id}`) } : null}
+              />
+            </div>
+          )}
+        </PageShell>
       </div>
     </div>
   );
 };
 
 export default OfficerNotifications;
-

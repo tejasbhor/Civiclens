@@ -1,7 +1,8 @@
 import { ReactNode } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { Loader2 } from 'lucide-react';
+import { motion, useReducedMotion } from 'framer-motion';
+import { PageLoader } from '@/components/PageLoader';
 import { isOfficer, isCitizen } from '@/utils/authHelpers';
 
 interface ProtectedRouteProps {
@@ -24,18 +25,12 @@ export const ProtectedRoute = ({
 }: ProtectedRouteProps) => {
   const { user, loading, isAuthenticated } = useAuth();
   const location = useLocation();
+  const reduce = useReducedMotion();
 
 
   // Show loading spinner while checking auth
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-muted">
-        <div className="text-center">
-          <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto mb-4" />
-          <p className="text-sm text-muted-foreground">Loading...</p>
-        </div>
-      </div>
-    );
+    return <PageLoader />;
   }
 
   // Not authenticated - redirect to login
@@ -65,6 +60,16 @@ export const ProtectedRoute = ({
   }
 
   // Authenticated and authorized - render children
-  return <>{children}</>;
+  // Short opacity fade on route change (no transform, so sticky headers stay put).
+  return (
+    <motion.div
+      key={location.pathname}
+      initial={reduce ? false : { opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.18, ease: [0.23, 1, 0.32, 1] }}
+    >
+      {children}
+    </motion.div>
+  );
 };
 

@@ -14,19 +14,22 @@ import {
   RefreshCw,
   MapPin,
   Smartphone,
+  Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { showToast } from "@/lib/utils/toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { authService } from "@/services/authService";
 import { isCitizen } from "@/utils/authHelpers";
 import { APP_CONFIG, getCopyrightText } from "@/config/appConfig";
 import { SEO } from "@/components/SEO";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { Logo } from "@/components/brand/Logo";
 
 // ─── Auth flow types ──────────────────────────────────────────────────────────
 type Screen =
@@ -137,19 +140,19 @@ function OtpField({
 // ─── Demo OTP banner ──────────────────────────────────────────────────────────
 function DemoOtpBanner({ otp }: { otp: string }) {
   return (
-    <div className="flex items-center gap-3 p-3 bg-amber-50 border border-amber-200 rounded-xl text-sm">
-      <div className="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center flex-shrink-0">
-        <Shield className="w-4 h-4 text-amber-600" />
+    <div className="flex items-center gap-3 p-3 bg-warning/10 border border-warning/30 rounded-xl text-sm">
+      <div className="w-8 h-8 rounded-lg bg-warning/10 flex items-center justify-center flex-shrink-0">
+        <Shield className="w-4 h-4 text-warning" />
       </div>
       <div>
-        <p className="text-xs font-semibold text-amber-700 uppercase tracking-wide">
+        <p className="text-xs font-semibold text-warning uppercase tracking-wide">
           Demo Environment
         </p>
-        <p className="font-mono font-bold text-amber-800 text-base tracking-widest">
+        <p className="font-mono font-bold text-warning text-base tracking-widest">
           {otp}
         </p>
       </div>
-      <Badge variant="outline" className="ml-auto text-xs border-amber-300 text-amber-600">
+      <Badge variant="outline" className="ml-auto text-xs border-warning/30 text-warning">
         OTP
       </Badge>
     </div>
@@ -227,6 +230,24 @@ const CitizenLogin = () => {
     setPassword("");
     setConfirmPassword("");
     setOtpActive(false);
+  };
+
+  // ── 1-Click Instant Demo Login ──────────────────────────────────────────────
+  const handleDemoLogin = async () => {
+    setLoading(true);
+    try {
+      const demoPhone = "+919876543210";
+      const res = await authService.requestOTP(demoPhone);
+      const otpCode = res.otp || "123456";
+      const verifyRes = await authService.verifyOTP(demoPhone, otpCode);
+      await login(verifyRes.access_token, verifyRes.refresh_token);
+      showToast.success("Demo Mode Activated", { description: "Logged in as test resident." });
+      navigate("/citizen/dashboard");
+    } catch (err: any) {
+      showToast.error("Demo Access Failed", { description: err.response?.data?.detail || "Please try manual OTP login." });
+    } finally {
+      setLoading(false);
+    }
   };
 
   // ── Request phone OTP ───────────────────────────────────────────────────────
@@ -450,10 +471,10 @@ const CitizenLogin = () => {
   // ── Strength bar color ──────────────────────────────────────────────────────
   const strengthColor =
     strength.score <= 1 ? "bg-destructive" :
-    strength.score <= 2 ? "bg-amber-500" :
-    strength.score <= 3 ? "bg-amber-400" :
-    strength.score <= 4 ? "bg-emerald-500" :
-    "bg-emerald-600";
+    strength.score <= 2 ? "bg-warning" :
+    strength.score <= 3 ? "bg-warning/30" :
+    strength.score <= 4 ? "bg-success" :
+    "bg-success";
 
   // ── OTP verification screen (shared for phone & email) ─────────────────────
   const renderOtpScreen = (
@@ -468,7 +489,7 @@ const CitizenLogin = () => {
       </div>
 
       <div className="text-center">
-        <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-primary to-accent flex items-center justify-center mx-auto mb-4 shadow-lg shadow-primary/20">
+        <div className="w-14 h-14 rounded-2xl bg-primary flex items-center justify-center mx-auto mb-4 shadow-lg shadow-primary/20">
           <Shield className="w-7 h-7 text-white" />
         </div>
         <h2 className="text-xl font-bold text-foreground">Verify Your {label}</h2>
@@ -542,12 +563,33 @@ const CitizenLogin = () => {
             </div>
 
             <div className="space-y-3">
+              {/* 1-Click Instant Demo Resident Access */}
+              <button
+                onClick={handleDemoLogin}
+                disabled={loading}
+                className="w-full flex items-center gap-4 p-4 rounded-xl border-2 border-primary/30 bg-primary/5 hover:bg-primary/10 hover:border-primary/50 transition-all group text-left shadow-sm active:scale-[0.99]"
+              >
+                <div className="w-11 h-11 rounded-xl bg-primary flex items-center justify-center flex-shrink-0 shadow-md shadow-primary/25 group-hover:scale-105 transition-transform text-white">
+                  <Sparkles className="w-5 h-5 text-primary-foreground animate-pulse" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <p className="font-bold text-foreground text-sm">1-Click Demo Resident</p>
+                    <Badge variant="outline" className="text-meta bg-primary/10 text-primary border-primary/30 font-semibold">
+                      Instant Test
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-0.5">Explore the portal with preloaded grievances</p>
+                </div>
+                <ChevronRight className="w-4 h-4 text-primary group-hover:translate-x-1 transition-transform flex-shrink-0" />
+              </button>
+
               {/* Quick OTP */}
               <button
                 onClick={() => { setScreen({ id: "otp-phone" }); setPhone(""); }}
                 className="w-full flex items-center gap-4 p-4 rounded-xl border-2 border-transparent bg-muted/50 hover:border-primary/30 hover:bg-primary/5 transition-all group text-left"
               >
-                <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center flex-shrink-0 shadow-md shadow-primary/20 group-hover:scale-105 transition-transform">
+                <div className="w-11 h-11 rounded-xl bg-primary flex items-center justify-center flex-shrink-0 shadow-md shadow-primary/20 group-hover:scale-105 transition-transform">
                   <Smartphone className="w-5 h-5 text-white" />
                 </div>
                 <div className="flex-1 min-w-0">
@@ -562,7 +604,7 @@ const CitizenLogin = () => {
                 onClick={() => { setScreen({ id: "register" }); setPhone(""); }}
                 className="w-full flex items-center gap-4 p-4 rounded-xl border-2 border-transparent bg-muted/50 hover:border-secondary/30 hover:bg-secondary/5 transition-all group text-left"
               >
-                <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-secondary to-accent flex items-center justify-center flex-shrink-0 shadow-md shadow-secondary/20 group-hover:scale-105 transition-transform">
+                <div className="w-11 h-11 rounded-xl bg-secondary flex items-center justify-center flex-shrink-0 shadow-md shadow-secondary/20 group-hover:scale-105 transition-transform">
                   <User className="w-5 h-5 text-white" />
                 </div>
                 <div className="flex-1 min-w-0">
@@ -613,7 +655,7 @@ const CitizenLogin = () => {
             </div>
 
             <div className="text-center">
-              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-primary to-accent flex items-center justify-center mx-auto mb-4 shadow-lg shadow-primary/20">
+              <div className="w-14 h-14 rounded-2xl bg-primary flex items-center justify-center mx-auto mb-4 shadow-lg shadow-primary/20">
                 <Smartphone className="w-7 h-7 text-white" />
               </div>
               <h2 className="text-xl font-bold text-foreground">Quick Access</h2>
@@ -655,7 +697,7 @@ const CitizenLogin = () => {
             </div>
 
             <div className="text-center">
-              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-secondary to-accent flex items-center justify-center mx-auto mb-4 shadow-lg shadow-secondary/20">
+              <div className="w-14 h-14 rounded-2xl bg-secondary flex items-center justify-center mx-auto mb-4 shadow-lg shadow-secondary/20">
                 <User className="w-7 h-7 text-white" />
               </div>
               <h2 className="text-xl font-bold text-foreground">Create Account</h2>
@@ -829,7 +871,7 @@ const CitizenLogin = () => {
             </div>
 
             <div className="text-center">
-              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-primary to-accent flex items-center justify-center mx-auto mb-4 shadow-lg shadow-primary/20">
+              <div className="w-14 h-14 rounded-2xl bg-primary flex items-center justify-center mx-auto mb-4 shadow-lg shadow-primary/20">
                 <Lock className="w-7 h-7 text-white" />
               </div>
               <h2 className="text-xl font-bold text-foreground">Welcome Back</h2>
@@ -891,7 +933,7 @@ const CitizenLogin = () => {
             </div>
 
             <div className="text-center">
-              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-primary to-accent flex items-center justify-center mx-auto mb-4 shadow-lg shadow-primary/20">
+              <div className="w-14 h-14 rounded-2xl bg-primary flex items-center justify-center mx-auto mb-4 shadow-lg shadow-primary/20">
                 <Mail className="w-7 h-7 text-white" />
               </div>
               <h2 className="text-xl font-bold text-foreground">Email Login</h2>
@@ -948,67 +990,77 @@ const CitizenLogin = () => {
   return (
     <>
       <SEO
+        noindex
         title={`Citizen Login — ${APP_CONFIG.appName}`}
         description={`Sign in to ${APP_CONFIG.appName} to report civic issues, track resolution, and stay informed.`}
       />
 
-      <div className="min-h-screen bg-background flex flex-col">
-        {/* ── Navbar ────────────────────────────────────────────────────────── */}
-        <header className="border-b bg-card/80 backdrop-blur-md sticky top-0 z-50">
-          <div className="container mx-auto px-4 py-3">
-            <div className="flex items-center justify-between">
-              <button
-                onClick={() => navigate("/")}
-                className="flex items-center gap-3 hover:opacity-80 transition-opacity"
-              >
-                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center shadow-sm">
-                  <MapPin className="w-4 h-4 text-white" />
-                </div>
-                <div>
-                  <h1 className="text-base font-bold text-foreground">{APP_CONFIG.appName}</h1>
-                  <p className="text-[11px] text-muted-foreground hidden sm:block">Citizen Portal</p>
-                </div>
-              </button>
+      <div className="min-h-dvh bg-[#fbfcfd] text-slate-900 flex flex-col selection:bg-emerald-500/20 relative">
+        {/* ── Background Dot Texture & Ambient Radiance ───────────────────────── */}
+        <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden" aria-hidden="true">
+          <div
+            className="absolute inset-0 opacity-[0.35]"
+            style={{
+              backgroundImage: `radial-gradient(circle at 1px 1px, #cbd5e1 1px, transparent 0)`,
+              backgroundSize: "32px 32px",
+            }}
+          />
+          <div className="absolute top-10 right-[15%] h-[400px] w-[400px] rounded-full bg-emerald-500/08 blur-[120px]" />
+          <div className="absolute bottom-10 left-[10%] h-[400px] w-[400px] rounded-full bg-teal-500/08 blur-[120px]" />
+        </div>
 
-              <Button variant="ghost" size="sm" onClick={() => navigate("/")} className="gap-2 text-muted-foreground">
-                <ArrowLeft className="w-4 h-4" />
+        {/* ── Top Navbar ──────────────────────────────────────────────────────── */}
+        <header className="border-b border-slate-200/90 bg-white/95 backdrop-blur-2xl sticky top-0 z-50">
+          <div className="container !px-5 max-w-7xl mx-auto py-3.5 flex items-center justify-between">
+            <Link
+              to="/"
+              aria-label="CivicLens home"
+              className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+            >
+              <Logo name="CivicLens" />
+            </Link>
+
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => navigate("/")}
+                className="gap-1.5 rounded-full text-xs font-semibold text-slate-700 hover:bg-slate-100"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" />
                 <span className="hidden sm:inline">Back to Home</span>
               </Button>
             </div>
           </div>
         </header>
 
-        {/* ── Main content ──────────────────────────────────────────────────── */}
-        <main className="flex-1 flex items-center justify-center px-4 py-10">
-          {/* Background decoration */}
-          <div className="fixed inset-0 pointer-events-none overflow-hidden">
-            <div className="absolute top-0 left-1/4 w-96 h-96 bg-primary/5 rounded-full blur-3xl" />
-            <div className="absolute bottom-0 right-1/4 w-80 h-80 bg-accent/5 rounded-full blur-3xl" />
-          </div>
-
-          <div className="w-full max-w-md relative">
+        {/* ── Main Auth Content ────────────────────────────────────────────────── */}
+        <main className="flex-1 flex items-center justify-center px-4 py-12 relative z-10">
+          <div className="w-full max-w-md">
             {/* Hero header (only on select screen) */}
             {isOnSelect && (
               <div className="text-center mb-8">
-                <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-primary/10 text-primary rounded-full text-xs font-semibold mb-4 border border-primary/20">
-                  <Phone className="w-3.5 h-3.5" />
-                  Citizen Portal
+                <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/20 bg-white/80 px-3.5 py-1 text-xs font-semibold text-[#0d5c4d] shadow-xs backdrop-blur-md mb-4">
+                  <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                  <span>RESIDENT ACCESS</span>
+                  <span className="text-slate-300">•</span>
+                  <span className="font-mono text-emerald-700 font-bold">CITIZEN PORTAL</span>
                 </div>
-                <h2 className="text-2xl font-extrabold text-foreground">
+                <h2 className="font-display text-2xl sm:text-3xl font-extrabold text-slate-950 tracking-tight">
                   Access Your Account
                 </h2>
-                <p className="text-sm text-muted-foreground mt-2">
-                  Report issues, track progress, and stay informed
+                <p className="text-xs sm:text-sm text-slate-600 mt-2 max-w-sm mx-auto leading-relaxed">
+                  Report civic issues, track real-time resolution, and inspect verified photographic evidence.
                 </p>
               </div>
             )}
 
-            <Card className="p-7 shadow-xl border bg-card">
+            <div className="rounded-3xl border border-slate-200/90 bg-white p-7 sm:p-9 shadow-xs">
               {/* Progress bar for multi-step flows */}
               {!isOnSelect && (
-                <div className="h-0.5 bg-muted rounded-full mb-6 overflow-hidden">
+                <div className="h-1 bg-slate-100 rounded-full mb-6 overflow-hidden">
                   <div
-                    className="h-full bg-gradient-to-r from-primary to-accent transition-all duration-500 rounded-full"
+                    className="h-full bg-emerald-600 transition-all duration-300 rounded-full"
                     style={{
                       width:
                         screen.id === "otp-phone" || screen.id === "register" ||
@@ -1021,27 +1073,26 @@ const CitizenLogin = () => {
               )}
 
               {renderScreen()}
-            </Card>
+            </div>
 
             {/* Reset link */}
             {!isOnSelect && (
               <div className="text-center mt-4">
-                <Button
-                  variant="link"
-                  size="sm"
+                <button
+                  type="button"
                   onClick={resetForm}
-                  className="text-muted-foreground text-xs"
+                  className="text-xs font-bold text-slate-500 hover:text-emerald-700 transition-colors cursor-pointer"
                   disabled={loading}
                 >
-                  ← Start Over
-                </Button>
+                  ← Return to Options
+                </button>
               </div>
             )}
           </div>
         </main>
 
         {/* ── Footer ────────────────────────────────────────────────────────── */}
-        <footer className="border-t bg-card/50 py-5 text-center text-xs text-muted-foreground">
+        <footer className="border-t border-slate-200/80 bg-white/80 py-5 text-center text-xs text-slate-500 font-mono">
           {getCopyrightText()}
         </footer>
       </div>

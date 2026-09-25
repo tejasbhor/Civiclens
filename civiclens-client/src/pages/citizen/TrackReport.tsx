@@ -1,4 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
+import { DetailSkeleton } from "@/components/feedback/Skeletons";
+import { PageShell } from "@/components/layout/PageShell";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -126,11 +128,11 @@ const TrackReport = () => {
 
   const getStatusColor = (status: string) => {
     const s = status.toLowerCase();
-    if (s === 'resolved' || s === 'closed') return 'bg-green-500';
-    if (s === 'rejected') return 'bg-red-500';
-    if (['in_progress', 'acknowledged'].includes(s)) return 'bg-blue-500';
-    if (s === 'pending_verification') return 'bg-purple-500';
-    return 'bg-amber-500';
+    if (s === 'resolved' || s === 'closed') return 'bg-success';
+    if (s === 'rejected') return 'bg-danger';
+    if (['in_progress', 'acknowledged'].includes(s)) return 'bg-info';
+    if (s === 'pending_verification') return 'bg-status-assigned';
+    return 'bg-warning';
   };
 
   const getStatusIcon = (status: string) => {
@@ -218,18 +220,16 @@ const TrackReport = () => {
 
   if (authLoading || loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-muted">
-        <div className="text-center">
-          <Loader2 className="w-12 h-12 animate-spin mx-auto mb-4 text-primary" />
-          <p className="text-muted-foreground">Loading report details...</p>
-        </div>
+      <div className="min-h-dvh bg-background">
+        <CitizenHeader />
+        <PageShell><DetailSkeleton /></PageShell>
       </div>
     );
   }
 
   if (error || !report) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted">
+      <div className="min-h-dvh bg-background">
         <CitizenHeader />
         <div className="container mx-auto px-4 py-12 max-w-4xl">
           <Card className="p-8 text-center">
@@ -258,119 +258,136 @@ const TrackReport = () => {
   const totalMediaCount = mediaGroups.all.length;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted">
-      <CitizenHeader />
+    <div className="min-h-dvh bg-[#fbfcfd] relative text-slate-900">
+      {/* Background radial dot grid texture */}
+      <div
+        className="fixed inset-0 pointer-events-none opacity-[0.35] z-0"
+        style={{
+          backgroundImage: `radial-gradient(circle at 1px 1px, #cbd5e1 1px, transparent 0)`,
+          backgroundSize: "32px 32px",
+        }}
+      />
 
-      {/* Connection Status Banner */}
-      {!isBackendReachable && (
-        <div className="bg-amber-50 border-b border-amber-200 px-4 py-2">
-          <div className="container mx-auto flex items-center gap-2 text-sm text-amber-800">
-            <AlertCircle className="w-4 h-4" />
-            <span>You're currently offline. Some features may be limited.</span>
+      <div className="relative z-10">
+        <CitizenHeader />
+
+        {/* Connection Status Banner */}
+        {!isBackendReachable && (
+          <div className="bg-amber-50/90 border-b border-amber-200 px-4 py-2.5">
+            <div className="container mx-auto flex items-center gap-2 text-xs font-semibold text-amber-900">
+              <AlertCircle className="w-4 h-4 text-amber-700" />
+              <span>You're currently offline. Viewing cached report details.</span>
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      <div className="container mx-auto px-4 py-6 max-w-7xl">
-        {/* Header Section */}
-        <div className="mb-6">
-          <div className="flex items-center gap-4">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => navigate('/citizen/reports')}
-              aria-label="Back to Reports"
-              className="shrink-0"
-            >
-              <ArrowLeft className="w-5 h-5" />
-            </Button>
+        <div className="container mx-auto px-4 sm:px-6 py-8 max-w-7xl">
+          {/* Header Section */}
+          <div className="mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => navigate('/citizen/reports')}
+                aria-label="Back to Reports"
+                className="rounded-full text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100/80 -ml-2 gap-1.5 active:scale-[0.98] transition-transform"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" />
+                Reports
+              </Button>
+              <span className="text-slate-300">/</span>
+              <h1 className="font-display text-xl font-bold text-slate-900 truncate">
+                {report.title}
+              </h1>
+            </div>
+
             {report.report_number && (
               <div className="flex items-center gap-2">
-                <span className="text-muted-foreground text-sm">Report ID:</span>
-                <span className="font-mono font-semibold text-foreground text-lg">#{report.report_number}</span>
+                <span className="font-mono text-xs font-bold text-emerald-700 bg-emerald-50/90 border border-emerald-200/70 px-3 py-1 rounded-full shadow-xs">
+                  #{report.report_number}
+                </span>
               </div>
             )}
           </div>
-        </div>
 
-        {/* Quick Stats Bar */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-          <Card className="p-4">
-            <div className="flex items-center gap-3">
-              <div className={`w-10 h-10 rounded-lg ${statusColor} flex items-center justify-center`}>
-                <StatusIcon className="w-5 h-5 text-white" />
+          {/* Quick Stats Bar */}
+          <div className="rounded-3xl border border-slate-200/90 bg-white p-3 sm:p-4 shadow-xs mb-8">
+            <div className="grid grid-cols-2 lg:grid-cols-4 divide-x divide-y divide-slate-100 sm:divide-y-0">
+              <div className="p-3 sm:p-4 flex items-center gap-3.5">
+                <div className={`w-11 h-11 rounded-2xl ${statusColor} flex items-center justify-center shadow-xs shrink-0`}>
+                  <StatusIcon className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <p className="font-mono text-xs uppercase tracking-wider text-slate-400 font-medium">Status</p>
+                  <p className="font-display font-bold text-slate-950 text-sm flex items-center gap-1.5 mt-0.5">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                    {toLabel(report.status)}
+                  </p>
+                </div>
               </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Status</p>
-                <p className="font-semibold text-foreground">{toLabel(report.status)}</p>
+
+              <div className="p-3 sm:p-4 flex items-center gap-3.5">
+                <div className="w-11 h-11 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-700 shadow-xs shrink-0">
+                  <Calendar className="w-5 h-5" />
+                </div>
+                <div>
+                  <p className="font-mono text-xs uppercase tracking-wider text-slate-400 font-medium">Submitted</p>
+                  <p className="font-display font-bold text-slate-950 text-sm mt-0.5">{formatRelativeTime(report.created_at)}</p>
+                </div>
+              </div>
+
+              <div className="p-3 sm:p-4 flex items-center gap-3.5">
+                <div className="w-11 h-11 rounded-2xl bg-emerald-50 flex items-center justify-center text-emerald-800 shadow-xs shrink-0">
+                  <Clock className="w-5 h-5" />
+                </div>
+                <div>
+                  <p className="font-mono text-xs uppercase tracking-wider text-slate-400 font-medium">Last Updated</p>
+                  <p className="font-display font-bold text-slate-950 text-sm mt-0.5">{formatRelativeTime(report.updated_at)}</p>
+                </div>
+              </div>
+
+              <div className="p-3 sm:p-4 flex items-center gap-3.5">
+                <div className="w-11 h-11 rounded-2xl bg-teal-50 flex items-center justify-center text-teal-800 shadow-xs shrink-0">
+                  <ImageIcon className="w-5 h-5" />
+                </div>
+                <div>
+                  <p className="font-mono text-xs uppercase tracking-wider text-slate-400 font-medium">Photographic Proof</p>
+                  <p className="font-display font-bold text-slate-950 text-sm mt-0.5">{totalMediaCount} file{totalMediaCount !== 1 ? 's' : ''}</p>
+                </div>
               </div>
             </div>
-          </Card>
-          <Card className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-blue-100 dark:bg-blue-900 flex items-center justify-center">
-                <Calendar className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Submitted</p>
-                <p className="font-semibold text-foreground">{formatRelativeTime(report.created_at)}</p>
-              </div>
-            </div>
-          </Card>
-          <Card className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-purple-100 dark:bg-purple-900 flex items-center justify-center">
-                <Clock className="w-5 h-5 text-purple-600 dark:text-purple-400" />
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Last Updated</p>
-                <p className="font-semibold text-foreground">{formatRelativeTime(report.updated_at)}</p>
-              </div>
-            </div>
-          </Card>
-          <Card className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-green-100 dark:bg-green-900 flex items-center justify-center">
-                <ImageIcon className="w-5 h-5 text-green-600 dark:text-green-400" />
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground">Media</p>
-                <p className="font-semibold text-foreground">{totalMediaCount} file{totalMediaCount !== 1 ? 's' : ''}</p>
-              </div>
-            </div>
-          </Card>
-        </div>
+          </div>
 
         {/* Rejection/Rework Banner */}
         {report.status === 'in_progress' && report.rejection_reason && (
-          <div className="bg-gradient-to-r from-orange-50 to-amber-50 border-2 border-orange-300 rounded-xl p-6 mb-6 shadow-sm">
+          <div className="bg-warning/10 border-2 border-warning/30 rounded-xl p-6 mb-6 shadow-sm">
             <div className="flex items-start gap-4">
-              <div className="p-3 bg-orange-100 rounded-lg flex-shrink-0">
-                <AlertCircle className="w-7 h-7 text-orange-600" />
+              <div className="p-3 bg-warning/10 rounded-lg flex-shrink-0">
+                <AlertCircle className="w-7 h-7 text-warning" />
               </div>
               <div className="flex-1 space-y-3">
                 <div>
-                  <h3 className="text-lg font-bold text-orange-900 mb-1 flex items-center gap-2">
+                  <h3 className="text-lg font-bold text-warning mb-1 flex items-center gap-2">
                     <span>Work Needs Improvement</span>
-                    <Badge className="bg-orange-500 text-white">Rework Requested</Badge>
+                    <Badge className="bg-warning text-warning-foreground">Rework Requested</Badge>
                   </h3>
-                  <p className="text-sm text-orange-800 leading-relaxed">
+                  <p className="text-sm text-warning leading-relaxed">
                     The assigned officer has been asked to improve their work based on the feedback provided.
                     They will address the concerns and resubmit for review.
                   </p>
                 </div>
 
-                <div className="bg-white border-2 border-orange-200 rounded-lg p-4">
+                <div className="bg-card border-2 border-warning/30 rounded-lg p-4">
                   <div className="flex items-center gap-2 mb-2">
-                    <FileText className="w-4 h-4 text-orange-700" />
-                    <p className="text-xs font-bold text-orange-900 uppercase tracking-wide">Admin Feedback:</p>
+                    <FileText className="w-4 h-4 text-warning" />
+                    <p className="text-xs font-bold text-warning uppercase tracking-wide">Admin Feedback:</p>
                   </div>
-                  <p className="text-sm text-gray-900 leading-relaxed whitespace-pre-wrap">
+                  <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">
                     {report.rejection_reason}
                   </p>
                 </div>
 
-                <div className="flex items-center gap-2 text-xs text-orange-700">
+                <div className="flex items-center gap-2 text-xs text-warning">
                   <Clock className="w-4 h-4" />
                   <span className="font-medium">The officer will work on improvements and update you soon.</span>
                 </div>
@@ -381,7 +398,7 @@ const TrackReport = () => {
 
         {/* Main Content with Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4 lg:w-auto lg:grid-cols-4">
+          <TabsList className="flex h-auto w-full justify-start gap-1 overflow-x-auto lg:w-auto">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="timeline">Timeline</TabsTrigger>
             <TabsTrigger value="media">Media ({totalMediaCount})</TabsTrigger>
@@ -493,7 +510,7 @@ const TrackReport = () => {
               {/* Sidebar */}
               <div className="space-y-6">
                 {/* Status Card */}
-                <Card className="p-6 bg-gradient-to-br from-primary/5 via-accent/5 to-primary/5 border-primary/20">
+                <Card className="p-6 bg-primary/5 border-primary/20">
                   <div className="flex items-center gap-3 mb-4">
                     <div className={`w-12 h-12 rounded-full ${statusColor} flex items-center justify-center`}>
                       <StatusIcon className="w-6 h-6 text-white" />
@@ -549,7 +566,7 @@ const TrackReport = () => {
                     {report.task?.officer ? (
                       <div className="space-y-3">
                         <div className="flex items-center gap-3 pb-3 border-b border-border/50">
-                          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center shrink-0">
+                          <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center shrink-0">
                             <User className="w-5 h-5 text-white" />
                           </div>
                           <div className="flex-1 min-w-0">
@@ -576,7 +593,7 @@ const TrackReport = () => {
                       </div>
                     ) : report.department ? (
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center shrink-0">
+                        <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center shrink-0">
                           <Building className="w-5 h-5 text-white" />
                         </div>
                         <div className="flex-1 min-w-0">
@@ -646,7 +663,7 @@ const TrackReport = () => {
                             </p>
                           )}
                           {item.notes && (
-                            <div className="mt-3 p-3 bg-muted rounded-lg border-l-4 border-primary">
+                            <div className="mt-3 p-3 bg-muted/70 rounded-lg border border-border/80">
                               <p className="text-sm text-foreground">{item.notes}</p>
                             </div>
                           )}
@@ -674,8 +691,8 @@ const TrackReport = () => {
                 {mediaGroups.citizen.length > 0 && (
                   <Card className="p-6">
                     <div className="flex items-center gap-3 mb-6">
-                      <div className="w-10 h-10 rounded-lg bg-blue-100 dark:bg-blue-900 flex items-center justify-center">
-                        <ImageIcon className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                      <div className="w-10 h-10 rounded-lg bg-info/10 flex items-center justify-center">
+                        <ImageIcon className="w-5 h-5 text-info" />
                       </div>
                       <div>
                         <h3 className="text-lg font-semibold text-foreground">From Your Report</h3>
@@ -692,7 +709,7 @@ const TrackReport = () => {
                           <div
                             key={media.id || i}
                             className={cn(
-                              "bg-muted rounded-xl overflow-hidden cursor-pointer hover:opacity-90 transition-all hover:scale-[1.02] border-2 border-blue-200 relative group shadow-sm hover:shadow-md",
+                              "bg-muted rounded-xl overflow-hidden cursor-pointer hover:opacity-90 transition-all hover:scale-[1.02] border-2 border-info/30 relative group shadow-sm hover:shadow-md",
                               isFeatured ? "md:col-span-2 md:row-span-2" : "aspect-square"
                             )}
                             onClick={() => handleMediaClick(mediaIndex)}
@@ -716,13 +733,13 @@ const TrackReport = () => {
                                   (e.target as HTMLImageElement).src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100" height="100"%3E%3Crect fill="%23ddd" width="100" height="100"/%3E%3C/svg%3E';
                                 }}
                               />
-                              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                              <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity" />
                               <div className="absolute top-2 left-2">
-                                <Badge className="bg-blue-500/90 backdrop-blur-sm text-xs">From Your Report</Badge>
+                                <Badge className="bg-info/90 backdrop-blur-sm text-xs">From Your Report</Badge>
                               </div>
                               {isFeatured && (
                                 <div className="absolute bottom-2 left-2 right-2">
-                                  <Badge variant="outline" className="bg-white/90 backdrop-blur-sm text-blue-700 border-blue-300">
+                                  <Badge variant="outline" className="bg-white/90 backdrop-blur-sm text-info border-info/30">
                                     Featured
                                   </Badge>
                                 </div>
@@ -739,8 +756,8 @@ const TrackReport = () => {
                 {mediaGroups.officerBefore.length > 0 && (
                   <Card className="p-6">
                     <div className="flex items-center gap-3 mb-6">
-                      <div className="w-10 h-10 rounded-lg bg-amber-100 dark:bg-amber-900 flex items-center justify-center">
-                        <ImageIcon className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+                      <div className="w-10 h-10 rounded-lg bg-warning/10 flex items-center justify-center">
+                        <ImageIcon className="w-5 h-5 text-warning" />
                       </div>
                       <div>
                         <h3 className="text-lg font-semibold text-foreground">Before Work Started</h3>
@@ -757,7 +774,7 @@ const TrackReport = () => {
                           <div
                             key={media.id || i}
                             className={cn(
-                              "bg-muted rounded-xl overflow-hidden cursor-pointer hover:opacity-90 transition-all hover:scale-[1.02] border-2 border-amber-200 relative group shadow-sm hover:shadow-md",
+                              "bg-muted rounded-xl overflow-hidden cursor-pointer hover:opacity-90 transition-all hover:scale-[1.02] border-2 border-warning/30 relative group shadow-sm hover:shadow-md",
                               isFeatured ? "md:col-span-2 md:row-span-2" : "aspect-square"
                             )}
                             onClick={() => handleMediaClick(mediaIndex)}
@@ -781,13 +798,13 @@ const TrackReport = () => {
                                   (e.target as HTMLImageElement).src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100" height="100"%3E%3Crect fill="%23ddd" width="100" height="100"/%3E%3C/svg%3E';
                                 }}
                               />
-                              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                              <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity" />
                               <div className="absolute top-2 left-2">
-                                <Badge className="bg-amber-500/90 backdrop-blur-sm text-xs">Before Work</Badge>
+                                <Badge className="bg-warning/90 backdrop-blur-sm text-xs">Before Work</Badge>
                               </div>
                               {isFeatured && (
                                 <div className="absolute bottom-2 left-2 right-2">
-                                  <Badge variant="outline" className="bg-white/90 backdrop-blur-sm text-amber-700 border-amber-300">
+                                  <Badge variant="outline" className="bg-white/90 backdrop-blur-sm text-warning border-warning/30">
                                     Featured
                                   </Badge>
                                 </div>
@@ -804,8 +821,8 @@ const TrackReport = () => {
                 {mediaGroups.officerAfter.length > 0 && (
                   <Card className="p-6">
                     <div className="flex items-center gap-3 mb-6">
-                      <div className="w-10 h-10 rounded-lg bg-green-100 dark:bg-green-900 flex items-center justify-center">
-                        <ImageIcon className="w-5 h-5 text-green-600 dark:text-green-400" />
+                      <div className="w-10 h-10 rounded-lg bg-success/10 flex items-center justify-center">
+                        <ImageIcon className="w-5 h-5 text-success" />
                       </div>
                       <div>
                         <h3 className="text-lg font-semibold text-foreground">After Work Completed</h3>
@@ -822,7 +839,7 @@ const TrackReport = () => {
                           <div
                             key={media.id || i}
                             className={cn(
-                              "bg-muted rounded-xl overflow-hidden cursor-pointer hover:opacity-90 transition-all hover:scale-[1.02] border-2 border-green-200 relative group shadow-sm hover:shadow-md",
+                              "bg-muted rounded-xl overflow-hidden cursor-pointer hover:opacity-90 transition-all hover:scale-[1.02] border-2 border-success/30 relative group shadow-sm hover:shadow-md",
                               isFeatured ? "md:col-span-2 md:row-span-2" : "aspect-square"
                             )}
                             onClick={() => handleMediaClick(mediaIndex)}
@@ -846,16 +863,16 @@ const TrackReport = () => {
                                   (e.target as HTMLImageElement).src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="100" height="100"%3E%3Crect fill="%23ddd" width="100" height="100"/%3E%3C/svg%3E';
                                 }}
                               />
-                              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                              <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity" />
                               <div className="absolute top-2 left-2 flex flex-col gap-1">
-                                <Badge className="bg-green-500/90 backdrop-blur-sm text-xs">After Work</Badge>
+                                <Badge className="bg-success/90 backdrop-blur-sm text-xs">After Work</Badge>
                                 {media.is_proof_of_work && (
-                                  <Badge className="bg-green-600/90 backdrop-blur-sm text-xs">Proof</Badge>
+                                  <Badge className="bg-success/90 backdrop-blur-sm text-xs">Proof</Badge>
                                 )}
                               </div>
                               {isFeatured && (
                                 <div className="absolute bottom-2 left-2 right-2">
-                                  <Badge variant="outline" className="bg-white/90 backdrop-blur-sm text-green-700 border-green-300">
+                                  <Badge variant="outline" className="bg-white/90 backdrop-blur-sm text-success border-success/30">
                                     Featured
                                   </Badge>
                                 </div>
@@ -987,6 +1004,7 @@ const TrackReport = () => {
           />
         )}
       </div>
+    </div>
     </div>
   );
 };
